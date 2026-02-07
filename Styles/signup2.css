@@ -1,0 +1,294 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:"Segoe UI",sans-serif
+    }
+    
+    body{
+    background: linear-gradient(168deg, #ffffff 0%, #f8f8f8 20%, #f0f0f0 40%, #e8e8b5 60%, #d4e6a0 80%, #c8e0a0 100%);
+    background-repeat:no-repeat;
+    background-position:20% center;
+    background-size:cover;
+    background-attachment:fixed;
+    color:#111827
+    }
+    
+    .auth{
+     max-width:820px;
+     margin:0 auto;
+     padding:24px 18px 40px;
+     display:flex;
+     flex-direction:column;
+     min-height:100vh
+    }
+    
+    .auth__header{
+     position:relative;
+     margin-bottom:10px
+    }
+    
+    .back{
+     text-decoration:none;
+     color:#111827;
+     font-size:30px;
+     line-height:1;
+     display:inline-block;
+     margin-top:4px
+    }
+    
+    .progress{
+     display:flex;
+     gap:10px;
+     margin:28px 0 18px;
+     justify-content:center
+    }
+    
+    .progress__dot{
+     flex:0 0 35%;
+     height:6px;
+     border-radius:999px;
+     background:#e5e7eb
+    }
+    
+    .progress__dot:last-child{display:none}
+    
+    .progress__dot--active{
+     background:#1e40ff
+    }
+    
+    .logo{
+     height:34px;
+     margin:6px 0 10px 370px;
+    }
+    
+    .header{
+     font-size:28px;
+     font-weight:800;
+     line-height:1.25;
+     margin:6px 0 12px 230px;
+     color:#000
+    }
+    
+    .form{
+     display:flex;
+     flex-direction:column;
+     gap:14px;
+     max-width:520px;
+     flex:1;
+     align-items:center;
+     margin:0 auto;
+    }
+    
+    .form-content{
+     width:100%;
+     max-width:400px;
+     display:flex;
+     flex-direction:column;
+     align-items:center;
+     gap:14px;
+     margin:0 auto;
+    }
+    
+    .row{
+     display:grid;
+     grid-template-columns:1fr 1fr;
+     gap:12px
+    }
+    .label{
+     display:flex;
+     flex-direction:column;
+     gap:6px
+    }
+    
+    .citation{
+     font-size:15px;
+     color:#333;
+     text-align:center;
+    }
+    
+    .illustration{
+     display:flex;
+     align-items:center;
+     justify-content:center;
+     margin:19px 0 10px
+    }
+    
+    .illustration img{
+     width:200px;
+     max-width:70%;
+     height:auto
+    }
+     
+    .input_group input,
+    .input_group select,
+    .input_group textarea{
+     width:100%;
+     padding:14px 16px;
+     border:1px solid #e5e7eb;
+     border-radius:12px;
+     background:#fff;
+     font-size:16px
+    }
+    
+    .input_group input:focus,
+    .input_group select:focus,
+    .input_group textarea:focus{
+     outline:none;
+     border-color:#1e40ff
+    }
+    
+    .backButton{
+     width:100%;
+     max-width:300px;
+     padding:11px 18px;
+     border-radius:14px;
+     border:1px solid transparent;
+     font-weight:700;
+     font-size:16px;
+     cursor:pointer;
+     transition:background .2s,color .2s,border-color .2s;
+     text-decoration:none;
+     display:inline-flex;
+     align-items:center;
+     justify-content:center;
+     background:#13e772;
+     color:#000000;
+     margin:5px 0;
+    }
+    
+    .backButton:hover{background:#03e167}
+    
+    .form .backButton{margin-top:auto}
+    
+    
+    /* OTP Verification Styles */
+    .otp-container {
+        text-align: center;
+        margin: 30px 0;
+    }
+    
+    .otp-input {
+        width: 100%;
+        padding: 20px;
+        font-size: 1.5rem;
+        text-align: center;
+        letter-spacing: 10px;
+        border: 2px solid #ddd;
+        border-radius: 10px;
+        margin: 20px 0;
+        font-weight: bold;
+        transition: border-color 0.3s;
+    }
+    
+    /* Input group styling for OTP */
+    .input_group .otp-input {
+        background: #fff;
+    }
+    
+    .otp-input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+    
+    .email-info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        color: #555;
+        font-size: 0.95rem;
+        text-align: center;
+    }
+    
+    .otp-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 25px 0;
+    }
+    
+    .verify-button {
+        background: #13e772;
+        color: #000000;
+        padding: 15px 25px;
+        border: none;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+        max-width: 300px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.2s;
+        margin: 5px 0;
+    }
+    
+    .verify-button:hover {
+        background: #03e167;
+    }
+    
+    .btn-resend {
+        background: #6c757d;
+        color: white;
+        padding: 15px 25px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        width: 100%;
+        max-width: 300px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.3s;
+        margin: 5px 0;
+    }
+    
+    .btn-resend:hover {
+        background: #545b62;
+    }
+    
+    .timer-warning {
+        background: #fff3cd;
+        color: #856404;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        border: 1px solid #ffeaa7;
+        font-size: 0.9rem;
+        text-transform: lowercase;
+    }
+    
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        border: 1px solid #f5c6cb;
+        display: none;
+        text-transform: lowercase;
+    }
+    
+    .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 20px 0;
+        border: 1px solid #c3e6cb;
+        display: none;
+        text-transform: lowercase;
+    }
+
+    @media (max-width:560px){
+     .row{grid-template-columns:1fr}
+     .brand{height:30px}
+     .title{font-size:24px}
+     .otp-buttons{flex-direction:column;}
+     .otp-input{font-size:1.2rem;letter-spacing:5px;}
+    }
+    
+    

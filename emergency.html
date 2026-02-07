@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Reports - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/emergency.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="js/userSession.js" defer></script>
+    <script src="js/emergency.js" defer></script>
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <!-- Left Navigation Bar -->
+        <nav class="left-navbar" id="leftNavbar">
+            <div class="nav-header">
+                <h3>Concern Management</h3>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-section="all-emergencies">
+                    <a href="#Emergency-Reports" onclick="showSection('all-emergencies')">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Emergency reports</span>
+                        <span class="nav-count" id="allCount">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-section="resolved">
+                    <a href="#Resolved" onclick="showSection('resolved')">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Resolved</span>
+                        <span class="nav-count" id="resolvedCount">0</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="nav-footer">
+                <div class="nav-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalEmergencies">0</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Container -->
+        <div class="main-content-container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h2>Emergency Reports Management</h2>
+                <p>Monitor and manage emergency reports from residents</p>
+            </div>
+
+            <!-- Emergency Management Section -->
+            <div class="emergency-management">
+                <!-- All Emergencies Section -->
+                <div class="emergency-section" id="all-emergencies">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-exclamation-triangle"></i>
+                            All Emergency reports
+                        </h3>
+                    </div>
+                    <div class="emergency-list" id="allEmergencyCards">
+                        <!-- Loading indicator -->
+                        <div class="loading-indicator" id="all-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading emergency reports...</p>
+                        </div>
+                        <!-- Emergency list will be populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Resolved Section -->
+                <div class="emergency-section hidden" id="resolved">
+                    <div class="section-header">
+                        <h3>
+                            <i class="fas fa-check-circle"></i>
+                            Resolved Emergencies
+                        </h3>
+                    </div>
+                    <div class="emergency-list" id="resolvedEmergencyCards">
+                        <!-- Loading indicator -->
+                        <div class="loading-indicator" id="resolved-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading resolved emergencies...</p>
+                        </div>
+                        <!-- Resolved emergency list will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Detail Modal -->
+    <div class="emergency-modal" id="emergencyModal" aria-hidden="true">
+        <div class="emergency-dialog">
+            <div class="modal-header">
+                <h4 id="modalTitle">Emergency Report Details</h4>
+                <button class="close-modal-btn" onclick="closeEmergencyModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="emergency-details">
+                    <div class="detail-section" id="modalImageSection" style="display: none; text-align: center; margin-bottom: 1.5rem; background: transparent; border: none; padding: 1rem 0;">
+                        <div style="display: flex; justify-content: center; padding: 0.75rem;">
+                            <img id="modalEmergencyImage" src="" alt="Emergency Image" style="width: 768px; height: 350px; object-fit: cover; border-radius: 8px; display: block; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Emergency Type</h5>
+                        <p class="emergency-type-large" id="modalEmergencyType"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-map-marker-alt"></i> Location</h5>
+                        <p id="modalLocation"></p>
+                    </div>
+                    
+                    <div class="detail-section" id="modalLandmarkSection" style="display: none;">
+                        <h5><i class="fas fa-map-signs"></i> Landmark</h5>
+                        <p id="modalLandmark"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-user"></i> Reporter</h5>
+                        <p id="modalReporter"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-clock"></i> Date & Time</h5>
+                        <p id="modalDateTime"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-info-circle"></i> Description</h5>
+                        <p id="modalDescription"></p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5><i class="fas fa-tasks"></i> Status</h5>
+                        <div style="margin-top: 0.5rem;">
+                            <span class="status-badge" id="modalStatus"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section" id="resolvedDateTimeSection" style="display: none;">
+                        <h5><i class="fas fa-check-circle"></i> Resolved Date & Time</h5>
+                        <p id="modalResolvedDateTime"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn cancel-btn" onclick="closeEmergencyModal()">Close</button>
+                <button class="btn resolve-btn" id="resolveBtn" onclick="resolveEmergency()">
+                    <i class="fas fa-check"></i>
+                    Mark as Resolved
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal" aria-hidden="true">
+        <div class="status-dialog">
+            <div class="status-icon">
+                <i class="fas fa-check-circle" id="statusIcon"></i>
+            </div>
+            <div class="status-content">
+                <h4 id="statusTitle">Emergency Resolved!</h4>
+                <p id="statusMessage">The emergency report has been successfully resolved</p>
+            </div>
+            <div class="status-actions">
+                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

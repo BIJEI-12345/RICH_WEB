@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resident Information - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="Styles/resident-info.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content-container">
+            <div class="resident-management-container">
+                <div class="page-header">
+                    <h2>Resident Information Management</h2>
+                    <p>Manage resident records and community information</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="action-btn search-btn" onclick="toggleSearchBar()">
+                        <i class="fas fa-search"></i>
+                        Search Residents
+                    </button>
+                    <button class="action-btn print-btn" onclick="printData()">
+                        <i class="fas fa-print"></i>
+                        Print Data
+                    </button>
+                </div>
+                <!-- Search Bar -->
+                <div class="search-container" id="searchContainer" style="display: none;">
+                    <div class="search-bar">
+                        <div class="search-input-container">
+                            <input type="text" id="searchInput" placeholder="Search by name, address, or contact...">
+                            <button class="clear-search-btn" id="clearSearchBtn" onclick="clearSearch()" title="Clear search">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <button class="search-submit-btn" onclick="searchResidents()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Residents Table -->
+                <div class="table-container">
+                    <table class="residents-table" id="residentsTable">
+                        <thead>
+                            <tr>
+                                <th>Firstname</th>
+                                <th>Middlename</th>
+                                <th>Surname</th>
+                                <th>Suffix</th>
+                                <th>Email</th>
+                                <th>Age</th>
+                                <th>Sex</th>
+                                <th>Birthday</th>
+                                <th>Civil Status</th>
+                                <th>Address</th>
+                                <th>View</th>
+                            </tr>
+                        </thead>
+                        <tbody id="residents-body">
+                            <!-- Data will be loaded from database -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn" onclick="previousPage()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info">Page 1 of 1</span>
+                    <button class="page-btn" onclick="nextPage()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Resident Modal -->
+    <div class="add-resident-modal" id="addResidentModal">
+        <div class="add-resident-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Resident</h3>
+                <button class="close-modal-btn" onclick="closeAddResidentModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="addResidentForm">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="firstName">First Name *</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="middleName">Middle Name</label>
+                        <input type="text" id="middleName" name="middleName">
+                    </div>
+                    <div class="form-field">
+                        <label for="lastName">Last Name *</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="suffix">Suffix</label>
+                        <input type="text" id="suffix" name="suffix" placeholder="Jr., Sr., III, etc.">
+                    </div>
+                    <div class="form-field">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="age">Age *</label>
+                        <input type="number" id="age" name="age" min="0" max="120" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="sex">Sex *</label>
+                        <select id="sex" name="sex" required>
+                            <option value="">Select Sex</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="birthday">Birthday *</label>
+                        <input type="date" id="birthday" name="birthday" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="civilStatus">Civil Status *</label>
+                        <select id="civilStatus" name="civilStatus" required>
+                            <option value="">Select Civil Status</option>
+                            <option value="Single">Single</option>
+                            <option value="Married">Married</option>
+                            <option value="Widowed">Widowed</option>
+                            <option value="Divorced">Divorced</option>
+                            <option value="Separated">Separated</option>
+                        </select>
+                    </div>
+                    <div class="form-field full-width">
+                        <label for="address">Address *</label>
+                        <input type="text" id="address" name="address" placeholder="Street, Barangay Bigte" required>
+                    </div>
+                    <div class="form-field with-upload">
+                        <div>
+                            <label for="validId">Valid ID *</label>
+                            <select id="validId" name="validId" required>
+                                <option value="">Select Valid ID</option>
+                                <option value="Driver's License">Driver's License</option>
+                                <option value="Passport">Passport</option>
+                                <option value="PhilHealth ID">PhilHealth ID</option>
+                                <option value="SSS ID">SSS ID</option>
+                                <option value="TIN ID">TIN ID</option>
+                                <option value="Postal ID">Postal ID</option>
+                                <option value="Senior Citizen ID">Senior Citizen ID</option>
+                                <option value="Student ID">Student ID</option>
+                                <option value="Company ID">Company ID</option>
+                                <option value="Barangay ID">Barangay ID</option>
+                            </select>
+                        </div>
+                        <div class="upload-section">
+                            <div class="upload-container" id="uploadContainer" onclick="document.getElementById('idImageUpload').click()">
+                                <div class="image-preview-container" id="imagePreviewContainer">
+                                    <i class="fas fa-cloud-upload-alt upload-icon" id="uploadIcon"></i>
+                                    <div class="upload-text" id="uploadText">
+                                        Click to upload<br>ID Image
+                                    </div>
+                                    <img class="uploaded-image" id="uploadedImage" style="display: none;">
+                                    <button class="remove-image-btn" id="removeImageBtn" onclick="removeImage(event)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="upload-btn" onclick="document.getElementById('idImageUpload').click()">
+                                <i class="fas fa-upload"></i> Upload Image
+                            </button>
+                            <input type="file" id="idImageUpload" name="idImage" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeAddResidentModal()">
+                        Cancel
+                    </button>
+                    <button type="submit" class="save-btn">
+                        <i class="fas fa-save"></i>
+                        Save Resident
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Resident Modal -->
+    <div class="view-resident-modal" id="viewResidentModal">
+        <div class="view-resident-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Resident Information</h3>
+                <button class="close-modal-btn" onclick="closeViewResidentModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="view-content">
+                <div class="form-grid">
+                    <div class="view-field">
+                        <label>First Name</label>
+                        <div class="field-value" id="viewFirstName"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Middle Name</label>
+                        <div class="field-value" id="viewMiddleName"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Last Name</label>
+                        <div class="field-value" id="viewLastName"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Suffix</label>
+                        <div class="field-value" id="viewSuffix"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Email</label>
+                        <div class="field-value" id="viewEmail"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Age</label>
+                        <div class="field-value" id="viewAge"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Sex</label>
+                        <div class="field-value" id="viewSex"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Birthday</label>
+                        <div class="field-value" id="viewBirthday"></div>
+                    </div>
+                    <div class="view-field">
+                        <label>Civil Status</label>
+                        <div class="field-value" id="viewCivilStatus"></div>
+                    </div>
+                    <div class="view-field full-width">
+                        <label>Address</label>
+                        <div class="field-value" id="viewAddress"></div>
+                    </div>
+                    <div class="view-field with-image">
+                        <div>
+                            <label>Valid ID</label>
+                            <div class="field-value" id="viewValidId"></div>
+                        </div>
+                        <div class="view-image-container" id="viewImageContainer">
+                            <div class="no-image-placeholder" id="noImagePlaceholder">
+                                No ID Image<br>Uploaded
+                            </div>
+                            <img class="view-image" id="viewImage" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="view-modal-actions">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal">
+        <div class="status-dialog">
+            <div class="status-content">
+                <i class="fas fa-check-circle status-icon" id="statusIcon"></i>
+                <h3 id="statusTitle">Success!</h3>
+                <p id="statusMessage">Resident information has been updated successfully.</p>
+            </div>
+            <div class="status-actions">
+                <button class="ok-btn" onclick="closeStatusModal()">OK</button>
+                <button class="cancel-status-btn" onclick="closeStatusModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Print Template (Hidden) -->
+    <template id="printTemplate">
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Resident Information - Barangay Bigte</title>
+            <link rel="stylesheet" href="Styles/resident-info.css">
+            <style>
+                /* Print-specific styles */
+                .print-header {
+                    text-align: center;
+                    margin-bottom: 2rem;
+                    border-bottom: 2px solid #333;
+                    padding-bottom: 1rem;
+                }
+                
+                .print-header h1 {
+                    font-size: 2rem;
+                    color: #2c5aa0;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .print-header p {
+                    color: #666;
+                    font-size: 1.1rem;
+                }
+                
+                .print-date {
+                    text-align: right;
+                    margin-bottom: 1rem;
+                    font-size: 0.9rem;
+                    color: #666;
+                }
+                
+                .residents-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 1rem;
+                }
+                
+                .residents-table th {
+                    background: #2c5aa0;
+                    color: white;
+                    padding: 0.75rem 0.5rem;
+                    text-align: left;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    border: 1px solid #333;
+                }
+                
+                .residents-table td {
+                    padding: 0.5rem;
+                    border: 1px solid #333;
+                    font-size: 0.8rem;
+                }
+                
+                .residents-table tbody tr:nth-child(even) {
+                    background: #f5f5f5;
+                }
+                
+                .print-footer {
+                    margin-top: 2rem;
+                    text-align: center;
+                    font-size: 0.8rem;
+                    color: #666;
+                    border-top: 1px solid #333;
+                    padding-top: 1rem;
+                }
+                
+                @media print {
+                    body { margin: 0; }
+                    .print-header { page-break-after: avoid; }
+                    .residents-table { page-break-inside: avoid; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="print-header">
+                <h1>Barangay Bigte</h1>
+                <p>Resident Information Report</p>
+            </div>
+            
+            <div class="print-date">
+                Printed on: <span id="printDate"></span> at <span id="printTime"></span>
+            </div>
+            
+            <table class="residents-table">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Middle Name</th>
+                        <th>Last Name</th>
+                        <th>Suffix</th>
+                        <th>Email</th>
+                        <th>Age</th>
+                        <th>Sex</th>
+                        <th>Birthday</th>
+                        <th>Civil Status</th>
+                        <th>Address</th>
+                    </tr>
+                </thead>
+                <tbody id="printTableBody">
+                    <!-- Table data will be populated by JavaScript -->
+                </tbody>
+            </table>
+            
+            <div class="print-footer">
+                <p>This report was generated from the Barangay Bigte Resident Information System</p>
+            </div>
+        </body>
+        </html>
+    </template>
+    
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/resident-info.js"></script>
+</body>
+</html>

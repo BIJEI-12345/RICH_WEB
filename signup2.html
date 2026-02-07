@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify OTP - Sign up (Step 2) • RICH</title>
+  <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+  <link rel="stylesheet" href="Styles/signup2.css" />
+</head>
+<body>
+  <main class="auth">
+    <header class="auth__header">
+      <div class="progress">
+        <span class="progress__dot progress__dot--active"></span>
+        <span class="progress__dot progress__dot--active"></span>
+        <span class="progress__dot"></span>
+      </div>
+      <img class="logo" src="Images/logo.png" alt="App logo" />
+      <h1 class="header">Enter Verification Code</h1>
+    </header>
+
+    <form class="form" action="php/signup2.php" method="POST" id="otpForm" novalidate>
+      <div class="form-content">
+        <label class="label">
+          <span class="citation">Check your email for the 6-digit verification code</span>
+        </label>
+
+        <div class="input_group">
+          <input type="text" 
+                 id="otpCode" 
+                 name="otp_code" 
+                 class="otp-input" 
+                 placeholder="000000" 
+                 maxlength="6"
+                 pattern="\d{6}"
+                 required
+                 autocomplete="one-time-code">
+        </div>
+        
+        <div class="email-info">
+          <strong>📧 Email:</strong> <span id="userEmail">Loading...</span><br>
+          <strong>👤 Name:</strong> <span id="userName">Loading...</span>
+        </div>
+        
+        <div class="timer-warning">
+          <strong>⏰ Important:</strong> The verification code expires in 5 minutes. Please enter it as soon as possible.
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+      </div>
+      
+      <button type="submit" class="verify-button" name="verify_otp">
+        🔐 Verify Account
+      </button>
+
+      <a class="backButton" href="signup1.html">← Back to Registration</a>
+    </form>
+ 
+    <script src="js/signup2.js"></script>
+</body>
+</html>
+

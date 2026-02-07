@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/userManagement.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="js/userManagement.js" defer></script>
+    
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="navigateToDashboard()" title="Back to Dashboard">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content-container">
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="welcome-section">
+                    <h2>User Management Dashboard</h2>
+                    <p>Review and manage user registration requests</p>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-tab="pending" onclick="switchTab('pending')">
+                        <i class="fas fa-clock"></i>
+                        Pending Users
+                    </button>
+                    <button class="tab-btn" data-tab="active" onclick="switchTab('active')">
+                        <i class="fas fa-check-circle"></i>
+                        Active Users
+                    </button>
+                    <button class="tab-btn" data-tab="deactivated" onclick="switchTab('deactivated')">
+                        <i class="fas fa-ban"></i>
+                        Deactivated & Denied Users
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content">
+                    <!-- Pending Users Tab -->
+                    <div class="tab-panel active" id="pending-tab">
+                        <section class="user-management-section">
+                            <div class="section-header">
+                                <h3>Pending User Requests</h3>
+                                <div class="section-actions">
+                                    <button class="refresh-btn" onclick="fetchUsers('pending')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Loading State -->
+                            <div class="loading-state" id="pending-loadingState">
+                                <div class="loading-spinner"></div>
+                                <p>Loading pending users...</p>
+                            </div>
+
+                            <!-- Users List -->
+                            <div class="users-container" id="pending-users-list">
+                                <!-- Pending users will be dynamically loaded here -->
+                            </div>
+
+                            <!-- Empty State -->
+                            <div class="empty-state" id="pending-emptyState" style="display: none;">
+                                <div class="empty-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <h4>No Pending Users</h4>
+                                <p>There are currently no pending user requests.</p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Active Users Tab -->
+                    <div class="tab-panel" id="active-tab">
+                        <section class="user-management-section">
+                            <div class="section-header">
+                                <h3>Active Users</h3>
+                                <div class="section-actions">
+                                    <button class="refresh-btn" onclick="fetchUsers('active')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Loading State -->
+                            <div class="loading-state" id="active-loadingState">
+                                <div class="loading-spinner"></div>
+                                <p>Loading active users...</p>
+                            </div>
+
+                            <!-- Users List -->
+                            <div class="users-container" id="active-users-list">
+                                <!-- Active users will be dynamically loaded here -->
+                            </div>
+
+                            <!-- Empty State -->
+                            <div class="empty-state" id="active-emptyState" style="display: none;">
+                                <div class="empty-icon">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <h4>No Active Users</h4>
+                                <p>There are currently no active users.</p>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Deactivated & Denied Users Tab -->
+                    <div class="tab-panel" id="deactivated-tab">
+                        <section class="user-management-section">
+                            <div class="section-header">
+                                <h3>Deactivated & Denied Users</h3>
+                                <div class="section-actions">
+                                    <button class="refresh-btn" onclick="fetchUsers('deactivated')" title="Refresh">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Loading State -->
+                            <div class="loading-state" id="deactivated-loadingState">
+                                <div class="loading-spinner"></div>
+                                <p>Loading deactivated users...</p>
+                            </div>
+
+                            <!-- Users List -->
+                            <div class="users-container" id="deactivated-users-list">
+                                <!-- Deactivated users will be dynamically loaded here -->
+                            </div>
+
+                            <!-- Empty State -->
+                            <div class="empty-state" id="deactivated-emptyState" style="display: none;">
+                                <div class="empty-icon">
+                                    <i class="fas fa-ban"></i>
+                                </div>
+                                <h4>No Deactivated Users</h4>
+                                <p>There are currently no deactivated or denied users.</p>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal" aria-hidden="true">
+        <div class="status-dialog">
+            <div class="status-icon">
+                <i class="fas fa-check-circle" id="statusIcon"></i>
+            </div>
+            <div class="status-content">
+                <h4 id="statusTitle">Success!</h4>
+                <p id="statusMessage">Operation completed successfully.</p>
+            </div>
+            <div class="status-actions">
+                <button class="btn cancel-status-btn" onclick="closeStatusModal()" style="display: none;">Cancel</button>
+                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

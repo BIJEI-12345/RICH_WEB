@@ -1,0 +1,154 @@
+<!-- Analytics section loaded dynamically -->
+<section class="analytics-section">
+    <div class="analytics-header">
+        <div>
+            <h3>Analytics</h3>
+            <p>View monthly and yearly activity at a glance.</p>
+        </div>
+    </div>
+    <div class="analytics-layout">
+        <aside class="analytics-sidebar">
+            <h4>Quick Access</h4>
+            <button class="sidebar-btn" data-section="documents">
+                Document Request
+            </button>
+            <button class="sidebar-btn" data-section="concerns">
+                Feedback & Concerns
+            </button>
+            <button class="sidebar-btn" data-section="emergencies">
+                Emergencies
+            </button>
+            <button class="sidebar-btn" data-section="users">
+                User Management
+            </button>
+        </aside>
+        <div class="analytics-main-area">
+            <div class="analytics-detail-panel" id="analyticsDetailPanel">
+                <div class="detail-heading">
+                    <div>
+                        <p class="detail-tag" id="detailTitle">Document Requests</p>
+                        <p class="detail-text" id="detailSubtitle">Monthly / yearly totals for all document requests.</p>
+                    </div>
+                    <div class="detail-stats">
+                        <div>
+                            <span class="detail-label">This Month</span>
+                            <strong id="detailMonthValue">—</strong>
+                        </div>
+                        <div>
+                            <span class="detail-label">This Year</span>
+                            <strong id="detailYearValue">—</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form id="analyticsRangeForm" class="analytics-range-form">
+                <label>
+                    Start
+                    <input type="date" name="start">
+                </label>
+                <label>
+                    End
+                    <input type="date" name="end">
+                </label>
+                <button type="submit" class="btn primary">Filter</button>
+            </form>
+            <div class="analytics-graph-panel">
+                <div class="graph-header">
+                    <div>
+                        <h4>Trend overview</h4>
+                        <p>Visual snapshot of concerns vs emergencies this year.</p>
+                    </div>
+                    <span class="graph-legend">
+                        <span class="legend-dot concerns"></span>
+                        Concerns
+                        <span class="legend-dot emergencies"></span>
+                        Emergencies
+                    </span>
+                </div>
+                <div class="analytics-graph" aria-label="Analytics trend placeholder">
+                    <div class="graph-columns">
+                        <div class="graph-bar" style="--bar-height:70%;">
+                            <span>Jan</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:55%;">
+                            <span>Feb</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:65%;">
+                            <span>Mar</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:80%;">
+                            <span>Apr</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:60%;">
+                            <span>May</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:68%;">
+                            <span>Jun</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:72%;">
+                            <span>Jul</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:58%;">
+                            <span>Aug</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:63%;">
+                            <span>Sep</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:71%;">
+                            <span>Oct</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:66%;">
+                            <span>Nov</span>
+                        </div>
+                        <div class="graph-bar" style="--bar-height:74%;">
+                            <span>Dec</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="analyticsSectionPanel" class="analytics-section-panel"></div>
+            <div class="analytics-grid">
+                <article class="analytics-card user-card">
+                    <div class="card-label">Active User Accounts</div>
+                    <div class="card-value" id="analyticsActiveUsers">—</div>
+                    <div class="card-meta">
+                        <span id="analyticsHoursActive">Hours tracked: —</span>
+                        <span id="analyticsLastOnline">Last online: —</span>
+                    </div>
+                </article>
+                <article class="analytics-card">
+                    <div class="card-label">Concerns (This Month)</div>
+                    <div class="card-value" id="analyticsConcernsMonth">Reported — · Resolved —</div>
+                    <div class="card-meta" id="analyticsConcernsMonthLabel"></div>
+                </article>
+                <article class="analytics-card">
+                    <div class="card-label">Concerns (This Year)</div>
+                    <div class="card-value" id="analyticsConcernsYear">Reported — · Resolved —</div>
+                    <div class="card-meta" id="analyticsConcernsYearLabel"></div>
+                </article>
+                <article class="analytics-card">
+                    <div class="card-label">Emergencies (This Month)</div>
+                    <div class="card-value" id="analyticsEmergenciesMonth">Reported — · Resolved —</div>
+                    <div class="card-meta" id="analyticsEmergenciesMonthLabel"></div>
+                </article>
+                <article class="analytics-card">
+                    <div class="card-label">Emergencies (This Year)</div>
+                    <div class="card-value" id="analyticsEmergenciesYear">Reported — · Resolved —</div>
+                    <div class="card-meta" id="analyticsEmergenciesYearLabel"></div>
+                </article>
+                <article class="analytics-card analytics-doc-card">
+                    <div class="card-label">Document Requests</div>
+                    <div class="card-subtitle">This Month</div>
+                    <ul class="document-breakdown" id="analyticsDocMonth">
+                        <li>Loading...</li>
+                    </ul>
+                    <div class="card-subtitle">This Year</div>
+                    <ul class="document-breakdown" id="analyticsDocYear">
+                        <li>Loading...</li>
+                    </ul>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+

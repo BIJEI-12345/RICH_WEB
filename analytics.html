@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/admin-dashboard.css">
+    <link rel="stylesheet" href="Styles/analytics.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="page-container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="window.location.href='admin-dashboard.html'" aria-label="Back to dashboard">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content-container">
+            <main class="main-content">
+                <section class="analytics-section">
+                    <div class="analytics-main-area">
+                        <header class="analytics-topbar">
+                            <div>
+                                <p class="detail-tag">Insights</p>
+                                <h3 class="analytics-title">Analytics</h3>
+                                <p class="detail-text">Choose a section and review the latest counts, resolutions, and document traffic.</p>
+                            </div>
+                            <div class="analytics-actions sticky-actions">
+                                <span class="analytics-meta" id="analyticsScopeLabel">Updated —</span>
+                                <div class="analytics-control-group">
+                                    <select id="analyticsMonthSelect" class="analytics-range-select">
+                                        <option value="this-month" selected>This month</option>
+                                        <option value="last-month">Last month</option>
+                                    </select>
+                                    <select id="analyticsYearSelect" class="analytics-range-select" style="display: none;">
+                                        <option value="">Select year</option>
+                                    </select>
+                                    <button type="button" class="btn outline year-view-btn" id="showYearView">
+                                        <i class="fas fa-calendar-alt"></i> Year view
+                                    </button>
+                                </div>
+                                <span id="analyticsLoadingIndicator" class="loading-indicator" aria-live="polite">Loading data…</span>
+                            </div>
+                        </header>
+                        <div class="analytics-tables-section">
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Concerns</h5>
+                                        <p class="table-subtitle" id="activitySummarySubtitle">—</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printConcernsTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="analytics-comparison-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Period</th>
+                                                <th>Reported</th>
+                                                <th>This month vs Previous month</th>
+                                                <th>Resolved</th>
+                                                <th>This month vs Previous month</th>
+                                                <th>% Resolved</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activitySummaryTableBody">
+                                            <tr>
+                                                <td colspan="6" class="table-loading">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Emergency Alerts</h5>
+                                        <p class="table-subtitle" id="emergencyAlertsSubtitle">—</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printEmergencyTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="analytics-comparison-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Period</th>
+                                                <th>Reported</th>
+                                                <th>This month vs Previous month</th>
+                                                <th>Resolved</th>
+                                                <th>This month vs Previous month</th>
+                                                <th>% Resolved</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="emergencyAlertsTableBody">
+                                            <tr>
+                                                <td colspan="6" class="table-loading">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Document Requests</h5>
+                                        <p class="table-subtitle" id="documentRequestsSubtitle">—</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printDocumentTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="analytics-comparison-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Document Type</th>
+                                                <th>This Month</th>
+                                                <th>This month vs Previous month</th>
+                                                <th>This Year</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="documentRequestsTableBody">
+                                            <tr>
+                                                <td colspan="5" class="table-loading">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Active Users</h5>
+                                        <p class="table-subtitle" id="activeUsersSubtitle">This Month</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printUsersTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="analytics-users-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Position</th>
+                                                <th>Active Hours</th>
+                                                <th>Last Login</th>
+                                                <th>Session</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activeUsersTableBody">
+                                            <tr>
+                                                <td colspan="6" class="table-loading">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="analytics-secondary-grid">
+                            <div class="analytics-panel">
+                                <h5>Top concerns this month</h5>
+                                <ul class="insight-list">
+                                    <li>— No data yet</li>
+                                    <li>— Waiting for reports</li>
+                                </ul>
+                            </div>
+                            <div class="analytics-panel">
+                                <h5>Document Requests Breakdown</h5>
+                                <p class="panel-subtitle" id="docBreakdownMonthLabel">This Month</p>
+                                <ul class="document-breakdown" id="analyticsDocMonth">
+                                    <li>Loading...</li>
+                                </ul>
+                                <p class="panel-subtitle" id="docBreakdownYearLabel">This Year</p>
+                                <ul class="document-breakdown" id="analyticsDocYear">
+                                    <li>Loading...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <button id="scrollToTop" class="scroll-to-top-btn" aria-label="Scroll to top" title="Scroll to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+    <script src="js/analytics.js" defer></script>
+</body>
+</html>
+

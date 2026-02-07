@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback & Concerns Management - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/concerns.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="js/userSession.js" defer></script>
+    <script src="js/concerns.js" defer></script>
+</head>
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="mobile-menu-btn" onclick="toggleMobileNav()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Left Navigation Bar -->
+        <nav class="left-navbar">
+            <div class="nav-header">
+                <h3>Concern Management</h3>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-category="new">
+                    <a href="#new" onclick="showNewConcerns()">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>New Concerns</span>
+                        <span class="nav-count" id="new-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="processing">
+                    <a href="#processing" onclick="showProcessingConcerns()">
+                        <i class="fas fa-clock"></i>
+                        <span>Processing</span>
+                        <span class="nav-count" id="processing-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="finished">
+                    <a href="#finished" onclick="showFinishedConcerns()">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Finished</span>
+                        <span class="nav-count" id="finished-count">0</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="nav-footer">
+                <div class="nav-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="total-concerns">0</span>
+                        <span class="stat-label">Total Concerns</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content-container">
+            <div class="page-header">
+                <h2>Feedback & Concerns Management</h2>
+                <p>Manage and respond to community feedback and concerns</p>
+            </div>
+
+            <!-- Concern Management -->
+            <div class="concern-management">
+                <!-- New Concerns Section -->
+                <div class="concern-section" id="new-concerns-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h3><i class="fas fa-plus-circle"></i> New Concerns</h3>
+                            <p>Review and manage incoming concern reports from residents</p>
+                        </div>
+                        <div class="section-controls">
+                            <div class="risk-level-controls">
+                                <span class="risk-label">Risk Level:</span>
+                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
+                                    <i class="fas fa-circle"></i> Low
+                                </button>
+                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
+                                    <i class="fas fa-circle"></i> Medium
+                                </button>
+                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
+                                    <i class="fas fa-circle"></i> High
+                                </button>
+                            </div>
+                            <div class="section-control-group">
+                                <select class="sort-dropdown" id="new-sort" onchange="sortConcerns('new', this.value)">
+                                    <option value="latest">Latest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="low">Low Risk</option>
+                                    <option value="no-risk">No Risk Level</option>
+                                </select>
+                                <button type="button" class="relatable-header-btn" onclick="openRelatableForSelected('new')" title="Open similar concerns">
+                                    <i class="fas fa-link"></i> Relatable
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <!-- Loading indicator -->
+                        <div class="loading-indicator" id="new-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading new concerns...</p>
+                        </div>
+                        <!-- Concerns table will be dynamically loaded here -->
+                        <table class="concerns-table" id="new-concerns-table">
+                            <thead>
+                                <tr>
+                                    <th>Date<br>& Time</th>
+                                    <th>Reporter<br>Name</th>
+                                    <th>Statement</th>
+                                <th>Location</th>
+                                <th>Risk<br>Level</th>
+                                <th>Contact</th>
+                                <th>Action</th>
+                                <th>Full<br>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="new-concerns-tbody">
+                                <!-- Table rows will be dynamically loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                        </div>
+
+                <!-- Processing Concerns Section -->
+                <div class="concern-section hidden" id="processing-concerns-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h3><i class="fas fa-clock"></i> Processing Concerns</h3>
+                            <p>Concerns currently being addressed and in progress</p>
+                        </div>
+                        <div class="section-controls">
+                            <div class="risk-level-controls">
+                                <span class="risk-label">Risk Level:</span>
+                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
+                                    <i class="fas fa-circle"></i> Low
+                                </button>
+                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
+                                    <i class="fas fa-circle"></i> Medium
+                                </button>
+                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
+                                    <i class="fas fa-circle"></i> High
+                                </button>
+                            </div>
+                            <div class="section-control-group">
+                                <select class="sort-dropdown" id="processing-sort" onchange="sortConcerns('processing', this.value)">
+                                    <option value="latest">Latest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="low">Low Risk</option>
+                                    <option value="no-risk">No Risk Level</option>
+                                </select>
+                                <button type="button" class="relatable-header-btn" onclick="openRelatableForSelected('processing')" title="Open similar concerns">
+                                    <i class="fas fa-link"></i> Relatable
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <!-- Loading indicator -->
+                        <div class="loading-indicator" id="processing-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading processing concerns...</p>
+                        </div>
+                        <!-- Concerns table will be dynamically loaded here -->
+                        <table class="concerns-table" id="processing-concerns-table">
+                            <thead>
+                                <tr>
+                                    <th>Date<br>& Time</th>
+                                    <th>Reporter<br>Name</th>
+                                    <th>Statement</th>
+                                    <th>Location</th>
+                                    <th>Risk<br>Level</th>
+                                    <th>Contact</th>
+                                    <th>Action</th>
+                                    <th>Full<br>Details</th>
+                                    <th>Processed<br>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="processing-concerns-tbody">
+                                <!-- Table rows will be dynamically loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Finished Concerns Section -->
+                <div class="concern-section hidden" id="finished-concerns-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h3><i class="fas fa-check-circle"></i> Action Taken</h3>
+                            <p>Successfully resolved concern reports with documented solutions</p>
+                        </div>
+                        <div class="section-controls">
+                            <div class="risk-level-controls">
+                                <span class="risk-label">Risk Level:</span>
+                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
+                                    <i class="fas fa-circle"></i> Low
+                                </button>
+                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
+                                    <i class="fas fa-circle"></i> Medium
+                                </button>
+                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
+                                    <i class="fas fa-circle"></i> High
+                                </button>
+                            </div>
+                            <div class="section-control-group">
+                                <select class="sort-dropdown" id="finished-sort" onchange="sortConcerns('finished', this.value)">
+                                    <option value="latest">Latest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="low">Low Risk</option>
+                                    <option value="no-risk">No Risk Level</option>
+                                </select>
+                                <button type="button" class="relatable-header-btn" onclick="openRelatableForSelected('resolved')" title="Open similar concerns">
+                                    <i class="fas fa-link"></i> Relatable
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <!-- Loading indicator -->
+                        <div class="loading-indicator" id="finished-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading finished concerns...</p>
+                        </div>
+                        <!-- Concerns table will be dynamically loaded here -->
+                        <table class="concerns-table" id="finished-concerns-table">
+                            <thead>
+                                <tr>
+                                    <th>Date<br>& Time</th>
+                                    <th>Reporter<br>Name</th>
+                                    <th>Statement</th>
+                                    <th>Location</th>
+                                    <th>Risk<br>Level</th>
+                                    <th>Contact</th>
+                                    <th>Full<br>Details</th>
+                                    <th>Resolved<br>Date & Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finished-concerns-tbody">
+                                <!-- Table rows will be dynamically loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Concern Details Modal -->
+    <div class="concern-modal" id="concernModal" aria-hidden="true">
+        <div class="concern-dialog">
+            <div class="modal-header">
+                <h4 id="modalTitle">Concern Details</h4>
+                <button class="close-modal-btn" onclick="closeConcernModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content will be loaded here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn cancel-btn" onclick="closeConcernModal()">Close</button>
+                <button class="btn resolve-btn" id="modalResolveBtn">Resolve Concern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal" aria-hidden="true">
+        <div class="status-dialog">
+            <div class="status-icon">
+                <i class="fas fa-check-circle" id="statusIcon"></i>
+            </div>
+            <div class="status-content">
+                <h4 id="statusTitle">Success!</h4>
+                <p id="statusMessage">Action completed successfully.</p>
+            </div>
+            <div class="status-actions">
+                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div class="image-modal" id="imageModal" aria-hidden="true">
+        <div class="image-modal-overlay" onclick="closeImageModal()">
+            <div class="image-modal-content" onclick="event.stopPropagation()">
+                <div class="image-modal-header">
+                    <h3 id="imageModalTitle">Concern Image</h3>
+                    <button class="close-image-modal-btn" onclick="closeImageModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="image-modal-body">
+                    <img id="imageModalImg" src="" alt="Concern Image" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+                    <div id="imageModalNoImage" style="display: none; text-align: center; padding: 40px; color: #666;">
+                        <i class="fas fa-image" style="font-size: 48px; color: #ccc; margin-bottom: 10px; display: block;"></i>
+                        No Image Available
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Relatable Concerns Modal -->
+    <div class="relatable-modal" id="relatableModal" aria-hidden="true">
+        <div class="relatable-dialog">
+            <div class="relatable-header">
+                <h4 id="relatableModalTitle">Similar Concerns</h4>
+                <button class="close-modal-btn" onclick="closeRelatableModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="relatable-body">
+                <div class="relatable-summary">
+                    <span id="relatableSummaryText">Looking for similar concerns...</span>
+                    <div id="relatableSelectAllWrapper">
+                        <label class="relatable-selectall">
+                            <input type="checkbox" id="relatableSelectAll" onchange="toggleRelatableSelectAll(this)">
+                            Select all
+                        </label>
+                    </div>
+                </div>
+                <div class="relatable-table-wrapper">
+                    <table class="relatable-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Concern ID</th>
+                                <th>Date &amp; Time</th>
+                                <th>Statement</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="relatableTableBody"></tbody>
+                    </table>
+                    <p class="relatable-empty" id="relatableEmptyState" style="display: none;">No similar concerns available yet.</p>
+                </div>
+            </div>
+            <div class="relatable-actions">
+                <div class="relatable-risk-controls">
+                    <span class="risk-label">Set Risk Level:</span>
+                    <button type="button" class="risk-btn risk-low" onclick="setRelatableRiskLevel('low')" title="Set Low Risk">
+                        <i class="fas fa-circle"></i> Low
+                    </button>
+                    <button type="button" class="risk-btn risk-medium" onclick="setRelatableRiskLevel('medium')" title="Set Medium Risk">
+                        <i class="fas fa-circle"></i> Medium
+                    </button>
+                    <button type="button" class="risk-btn risk-high" onclick="setRelatableRiskLevel('high')" title="Set High Risk">
+                        <i class="fas fa-circle"></i> High
+                    </button>
+                </div>
+                <div class="relatable-action-buttons">
+                    <button class="btn cancel-btn" onclick="closeRelatableModal()">Close</button>
+                    <button class="btn processing-btn" id="relatableProcessBtn" onclick="applyBulkStatusChange('processing')" disabled>Process</button>
+                    <button class="btn resolve-btn" id="relatableResolveBtn" onclick="applyBulkStatusChange('resolved')" disabled>Resolve</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

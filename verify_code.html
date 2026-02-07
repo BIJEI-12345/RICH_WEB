@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Code - Barangay System</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="Styles/verify_code.css">
+</head>
+<body>
+
+
+    <!-- Top info bar -->
+    <div class="top-info">
+        <a href="#" class="info-link">VISITORS</a>
+        <a href="#" class="info-link">ABOUT</a>
+        <a href="#" class="info-link">CONTACT US</a>
+    </div>
+
+    <!-- Main container -->
+    <div class="container">
+        <!-- Left side with logo and welcome text -->
+        <div class="left-container">
+            <h1>Welcome, Bigteño</h1>
+        </div>
+
+        <!-- Right side with form -->
+        <div class="verify-container">
+            <a href="index.html" class="btn back-btn">← Back to Login</a>
+            <h2>Enter Verification Code</h2>
+            <p>We've sent a 6-digit verification code to your email address. It will verify automatically when you complete the code.</p>
+            
+            <div id="message-container"></div>
+            
+            <!-- Verification Code Form -->
+            <form id="verify-form" action="php/verify_code.php" method="POST">
+                <input type="hidden" name="email" id="email-input">
+                
+                <div class="input-group">
+                    <label for="verification_code">Verification Code:</label>
+                    <input type="text" id="verification_code" name="verification_code" 
+                           class="code-input" placeholder="000000" maxlength="6" 
+                           pattern="[0-9]{6}" required>
+                </div>
+                
+                <button type="submit" class="btn">Verify Code</button>
+            </form>
+
+            <!-- Password Reset Form (Hidden initially) -->
+            <form id="password-reset-form" action="php/verify_code.php" method="POST" style="display: none;">
+                <input type="hidden" name="email" id="reset-email-input">
+                <input type="hidden" name="verification_code" id="reset-code-input">
+                <input type="hidden" name="action" value="reset_password">
+                
+                <div class="input-group">
+                    <label for="new_password">New Password:</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="new_password" name="new_password" 
+                               placeholder="Enter new password" required minlength="6">
+                        <button type="button" class="password-toggle" onclick="togglePassword('new_password')">
+                            <span class="password-icon">Show</span>
+                        </button>
+                    </div>
+                    <div class="password-strength" id="newPasswordStrength"></div>
+                    <div class="password-requirements" id="newPasswordRequirements">
+                        <div class="req-item" data-requirement="length">• At least 8 characters</div>
+                        <div class="req-item" data-requirement="uppercase">• One uppercase letter</div>
+                        <div class="req-item" data-requirement="lowercase">• One lowercase letter</div>
+                        <div class="req-item" data-requirement="number">• One number</div>
+                        <div class="req-item" data-requirement="special">• One special character</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="confirm_password">Confirm Password:</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="confirm_password" name="confirm_password" 
+                               placeholder="Confirm new password" required minlength="6">
+                        <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
+                            <span class="password-icon">Show</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn">Change Password</button>
+            </form>
+            
+            <div class="resend-link">
+                <p>Didn't receive the code? <a href="#" id="resend-link">Resend Code</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/verify_code.js"></script>
+</body>
+</html>

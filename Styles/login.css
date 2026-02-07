@@ -1,0 +1,426 @@
+/* Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Segoe UI", sans-serif;
+  }
+  
+  /* Password field styling */
+  .password-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+  
+  .password-container input {
+    width: 100%;
+  }
+  
+  .toggle-password {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 16px;
+    color: #1e1f20;
+    transition: color 0.2s ease;
+    width: 24px;
+    height: 24px;
+  }
+  
+  .toggle-password:hover {
+    color: #007bff;
+  }
+  
+  .password-icon {
+    font-weight: 500;
+    user-select: none;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    position: relative;
+  }
+  
+  /* Eye icon for show password */
+  .password-icon.show::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 10px;
+    border: 2px solid #1e1f20;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: transparent;
+  }
+  
+  .password-icon.show::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border: 2px solid #1e1f20;
+    border-radius: 50%;
+    background: #1e1f20;
+  }
+  
+  /* Eye with slash icon for hide password */
+  .password-icon.hide::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 10px;
+    border: 2px solid #1e1f20;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: transparent;
+  }
+  
+  .password-icon.hide::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 2px;
+    background-color: #1e1f20;
+    transform: translate(-50%, -50%) rotate(45deg);
+    transform-origin: center;
+  }
+  
+  
+  /* Header */
+  .header {
+    background: green;
+    color: yellow;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.5rem;
+    
+  }
+  
+  
+   /* Container */
+  .container {
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 10%;
+    align-items: center;
+    height: calc(114vh - 70px);
+    background: linear-gradient(168deg, #ffffff 0%, #f8f8f8 20%, #f0f0f0 40%, #e8e8b5 60%, #d4e6a0 80%, #c8e0a0 100%);
+    background-repeat: no-repeat;   /* para hindi maulit */
+    background-position: 20% center;    /* bahagyang usog pakanan */
+    background-size: cover;      /* para kita buong image */
+    background-attachment: fixed; /* steady sa background */
+    padding: 1%;
+    padding-top: 56px; /* space for top bar */
+    position: relative;
+  }
+  
+  /* Top-right info container */
+  .top-info {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 56px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 52px;
+    background: rgba(3, 69, 144, 0.85);
+    padding: 8px 36px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    z-index: 9999; /* ensure on top */
+  }
+  
+  .top-info .info-link {
+    text-decoration: none;
+    color: #ffffff;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 999px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  
+  .top-info .info-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #000000;
+  }
+  .left-container h1{
+    position: absolute;
+    top: 65%;
+    left: 5%;
+    font-size: 25px;
+    font-style: italic;
+    color:#2b2b2b;
+  
+  }
+  /*
+  .left-container h2{
+    position: absolute;
+    top: 80%;
+    left: 5%;
+    transform: translate(0, -50%);
+    color: #2b2b2b;
+    text-align: left;
+    line-height: 1.05;
+    font-size: clamp(26px, 4vw, 30px);
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    z-index: 3;
+  }
+  
+  .left-container h2 .accent{
+    color: #ff7a00;
+  }*/
+  
+  /* Left half container 
+  .left-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /*background: linear-gradient(135deg, #ffffff 0%, #82E23E 50%, #eaea98 100%);*/
+    /*background-color: #fefefe;
+    background-size: 400% 400%;
+    animation: gradientShift 20s ease-in-out infinite;
+    z-index: 1;
+    opacity: 0.9;
+  }
+  
+  /* Gradient animation 
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+    25% {
+      background-position: 100% 50%;
+    }
+    50% {
+      background-position: 50% 100%;
+    }
+    75% {
+      background-position: 0% 100%;
+    }
+    30% {
+      background-position: 0% 50%;
+    }
+  }*/
+  
+  /* Logo overlay on left container */
+  .left-container::before {
+    content: '';
+    position: absolute;
+    top: 110px;
+    left: 248px;
+    width: 195px;
+    height: 195px;
+    background-image: url("../Images/logo.png");
+    background-repeat: no-repeat;
+    background-size: contain;
+    z-index: 2;
+  }
+  
+  
+  /* Login Card */
+  .login-card {
+   
+    border-radius: 12px;
+    padding: 2%;
+    width: 100%;
+    height: 90%;
+    max-width: 380px;
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+    animation: fadeIn 0.8s ease-in-out;
+    position: relative;
+    overflow: visible ;
+    opacity: calc(0.9);
+    margin-right: 10%;
+    z-index: 2;
+  }
+  
+  /* Add a subtle overlay for better text readability */
+  .login-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 12px;
+    z-index: 1;
+  }
+  
+  /* Ensure content is above the overlay */
+  .login-card > * {
+    position: relative;
+    z-index: 2;
+  }
+  
+  /* Title */
+  .login-card h2 {
+    text-align: center;
+    color: #000000;
+    margin-bottom: 1.5rem;
+  }
+  
+  /* Input Group */
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  
+  .input-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: bold;
+    color: #000000;
+  }
+  
+  .input-group input {
+    width: 100%;
+    padding: 0.7rem;
+    border: 1px solid #000000;
+    border-radius: 6px;
+    transition: border 0.3s ease;
+  }
+  
+  .input-group input:focus {
+    border: 1px solid green;
+    outline: none;
+  }
+  .forgot-text{
+    margin-top: 1rem;
+    text-align: center;
+    padding-left: 60%;
+    font-size: 0.9rem;
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .forgot-text a {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .forgot-text a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Button */
+  .btn {
+    width: 50%;
+    padding: 0.8rem;
+    background: rgb(255, 255, 255);
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+    color: #060804;
+    font-weight: bold;
+    font-size: 100%;
+    border: none;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin: 2rem auto 0 auto;
+    display: block;
+  }
+  
+  .btn:hover {
+    background: #e1e3dc;
+    
+  }
+  
+  /* Signup Text */
+  .signup-text {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  
+  .signup-text a {
+    color: #333;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .signup-text a:hover {
+    text-decoration: underline;
+  }
+  
+  
+  /* Success Notification */
+  .success-notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100%);
+    background: #28a745;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    opacity: 0;
+    transition: all 0.3s ease;
+  }
+  
+  .success-notification.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+  }
+  
+  .success-notification.error {
+      background: #dc3545;
+  }
+  
+  .success-notification.warning {
+      background: #ffc107;
+      color: #000;
+  }
+  
+  .notification-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+  }
+  
+  .notification-content i {
+    font-size: 18px;
+  }
+  
+  /* Animation */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Responsive */
+  @media (max-width: 480px) {
+    .login-card {
+      padding: 1.5rem;
+    }
+  
+    .header {
+      font-size: 1.2rem;
+    }
+  }

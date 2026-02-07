@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Request Management - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/reqDocu.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/userSession.js" defer></script>
+    <script src="js/reqDocu.js" defer></script>
+    
+</head>
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="mobile-menu-btn" onclick="toggleMobileNav()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Left Navigation Bar -->
+        <nav class="left-navbar">
+            <div class="nav-header">
+                <h3>Document Categories</h3>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-category="all">
+                    <a href="#all" onclick="showAllCategories()">
+                        <i class="fas fa-th-large"></i>
+                        <span>All Categories</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="barangay-id">
+                    <a href="#barangay-id" onclick="showCategory('barangay-id')">
+                        <i class="fas fa-id-card"></i>
+                        <span>Barangay ID</span>
+                        <span class="nav-count" id="barangay-id-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="certification">
+                    <a href="#certification" onclick="showCategory('certification')">
+                        <i class="fas fa-certificate"></i>
+                        <span>Certification</span>
+                        <span class="nav-count" id="certification-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="coe">
+                    <a href="#coe" onclick="showCategory('coe')">
+                        <i class="fas fa-briefcase"></i>
+                        <span>Certificate of Employment</span>
+                        <span class="nav-count" id="coe-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="clearance">
+                    <a href="#clearance" onclick="showCategory('clearance')">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Clearance</span>
+                        <span class="nav-count" id="clearance-count">0</span>
+                    </a>
+                </li>
+                <li class="nav-item" data-category="indigency">
+                    <a href="#indigency" onclick="showCategory('indigency')">
+                        <i class="fas fa-heart"></i>
+                        <span>Indigency</span>
+                        <span class="nav-count" id="indigency-count">0</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="nav-footer">
+                <div class="nav-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="total-requests">0</span>
+                        <span class="stat-label">Total Requests</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content-container">
+            <div class="page-header">
+                <h2>Document Request Management</h2>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <div class="tab-buttons-container">
+                    <button class="tab-btn active" data-tab="new" onclick="switchRequestTab('new')">
+                        <i class="fas fa-plus"></i>
+                        New Requests
+                    </button>
+                    <button class="tab-btn" data-tab="checked" onclick="switchRequestTab('checked')">
+                        <i class="fas fa-check-circle"></i>
+                        Checked
+                    </button>
+                    <button class="tab-btn" data-tab="released" onclick="switchRequestTab('released')">
+                        <i class="fas fa-print"></i>
+                        Finished
+                    </button>
+                </div>
+                <div class="tab-sort-controls">
+                    <!-- Search Box -->
+                    <div class="search-box-wrapper">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" id="documentSearch" class="search-input" placeholder="name or doc type" oninput="filterDocumentRequests(this.value)">
+                    </div>
+                    <button class="btn-action print-multiple-btn" id="printMultipleBtn" onclick="togglePrintMultipleMode()" style="margin-right: 10px;">
+                        <i class="fas fa-check-square"></i> <span id="printMultipleBtnText">Print Multiple</span>
+                    </button>
+                    <select class="global-sort-dropdown" id="globalSortDropdown" onchange="applyGlobalSort(this.value)">
+                        <option value="latest">Latest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- New Requests Tab -->
+                <div class="tab-panel active" id="new-tab">
+                    <div class="content-view new-requests-view active" id="newRequestsView">
+                <!-- Document Categories -->
+                <div class="document-categories">
+                <!-- Barangay ID Form -->
+                <div class="document-category" data-category="barangay-id">
+                    <div class="category-header">
+                        <div class="category-icon">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                        <div class="category-info">
+                            <h3>Barangay ID Form</h3>
+                            <p>Requests for Barangay Identification Cards</p>
+                        </div>
+                        <div class="category-stats">
+                            <span class="stat-item">
+                                <span class="stat-number" id="barangayId-new">0</span>
+                                <span class="stat-label">New</span>
+                            </span>
+                            <span class="stat-item processing-stat" style="display: none;">
+                                <span class="stat-number" id="barangayId-processing">0</span>
+                                <span class="stat-label">Processing</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="status-sections">
+                        <div class="status-section">
+                            <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
+                            <div class="request-cards" id="barangayId-new-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="barangayId-new-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading Barangay ID requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <h4><i class="fas fa-cog"></i> Processing</h4>
+                            <div class="request-cards" id="barangayId-processing-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="barangayId-processing-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading processing requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certification Form -->
+                <div class="document-category" data-category="certification">
+                    <div class="category-header">
+                        <div class="category-icon">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <div class="category-info">
+                            <h3>Certification Form</h3>
+                            <p>Requests for various certifications</p>
+                        </div>
+                        <div class="category-stats">
+                            <span class="stat-item">
+                                <span class="stat-number" id="certification-new">0</span>
+                                <span class="stat-label">New</span>
+                            </span>
+                            <span class="stat-item processing-stat" style="display: none;">
+                                <span class="stat-number" id="certification-processing">0</span>
+                                <span class="stat-label">Processing</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="status-sections">
+                        <div class="status-section">
+                            <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
+                            <div class="request-cards" id="certification-new-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="certification-new-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading Certification requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <h4><i class="fas fa-cog"></i> Processing</h4>
+                            <div class="request-cards" id="certification-processing-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="certification-processing-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading processing requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certificate of Employment (COE) Form -->
+                <div class="document-category" data-category="coe">
+                    <div class="category-header">
+                        <div class="category-icon">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                        <div class="category-info">
+                            <h3>Certificate of Employment (COE)</h3>
+                            <p>Requests for employment certificates</p>
+                        </div>
+                        <div class="category-stats">
+                            <span class="stat-item">
+                                <span class="stat-number" id="coe-new">0</span>
+                                <span class="stat-label">New</span>
+                            </span>
+                            <span class="stat-item processing-stat" style="display: none;">
+                                <span class="stat-number" id="coe-processing">0</span>
+                                <span class="stat-label">Processing</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="status-sections">
+                        <div class="status-section">
+                            <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
+                            <div class="request-cards" id="coe-new-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="coe-new-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading COE requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <h4><i class="fas fa-cog"></i> Processing</h4>
+                            <div class="request-cards" id="coe-processing-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="coe-processing-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading processing requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clearance Form -->
+                <div class="document-category" data-category="clearance">
+                    <div class="category-header">
+                        <div class="category-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="category-info">
+                            <h3>Clearance Form</h3>
+                            <p>Requests for barangay clearance certificates</p>
+                        </div>
+                        <div class="category-stats">
+                            <span class="stat-item">
+                                <span class="stat-number" id="clearance-new">0</span>
+                                <span class="stat-label">New</span>
+                            </span>
+                            <span class="stat-item processing-stat" style="display: none;">
+                                <span class="stat-number" id="clearance-processing">0</span>
+                                <span class="stat-label">Processing</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="status-sections">
+                        <div class="status-section">
+                            <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
+                            <div class="request-cards" id="clearance-new-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="clearance-new-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading Clearance requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <h4><i class="fas fa-cog"></i> Processing</h4>
+                            <div class="request-cards" id="clearance-processing-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="clearance-processing-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading processing requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Indigency Form -->
+                <div class="document-category" data-category="indigency">
+                    <div class="category-header">
+                        <div class="category-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <div class="category-info">
+                            <h3>Indigency Form</h3>
+                            <p>Requests for indigency certificates</p>
+                        </div>
+                        <div class="category-stats">
+                            <span class="stat-item">
+                                <span class="stat-number" id="indigency-new">0</span>
+                                <span class="stat-label">New</span>
+                            </span>
+                            <span class="stat-item processing-stat" style="display: none;">
+                                <span class="stat-number" id="indigency-processing">0</span>
+                                <span class="stat-label">Processing</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="status-sections">
+                        <div class="status-section">
+                            <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
+                            <div class="request-cards" id="indigency-new-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="indigency-new-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading Indigency requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="status-section">
+                            <h4><i class="fas fa-cog"></i> Processing</h4>
+                            <div class="request-cards" id="indigency-processing-cards">
+                                <!-- Loading indicator -->
+                                <div class="loading-indicator" id="indigency-processing-loading">
+                                    <div class="loading-spinner"></div>
+                                    <p>Loading processing requests...</p>
+                                </div>
+                                <!-- Dynamic cards will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                    </div>
+                </div>
+                <!-- End New Requests Tab -->
+
+                <!-- Checked (Processing) Tab -->
+                <div class="tab-panel" id="checked-tab">
+                    <div class="content-view new-requests-view active" id="checkedRequestsView">
+                        <!-- Document Categories -->
+                        <div class="document-categories">
+                            <!-- Barangay ID Form -->
+                            <div class="document-category" data-category="barangay-id">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-id-card"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Barangay ID Form</h3>
+                                        <p>Processing Barangay Identification Cards</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="checked-barangayId-processing">0</span>
+                                            <span class="stat-label">Processing</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <h4><i class="fas fa-cog"></i> Checked Request</h4>
+                                        <div class="request-cards" id="checked-barangayId-processing-cards">
+                                            <!-- Processing cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Certification Form -->
+                            <div class="document-category" data-category="certification">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-certificate"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certification Form</h3>
+                                        <p>Processing various certifications</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="checked-certification-processing">0</span>
+                                            <span class="stat-label">Processing</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <h4><i class="fas fa-cog"></i> Checked Request</h4>
+                                        <div class="request-cards" id="checked-certification-processing-cards">
+                                            <!-- Processing cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- COE Form -->
+                            <div class="document-category" data-category="coe">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-briefcase"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certificate of Employment</h3>
+                                        <p>Processing employment certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="checked-coe-processing">0</span>
+                                            <span class="stat-label">Processing</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <h4><i class="fas fa-cog"></i> Checked Request</h4>
+                                        <div class="request-cards" id="checked-coe-processing-cards">
+                                            <!-- Processing cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clearance Form -->
+                            <div class="document-category" data-category="clearance">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Clearance Form</h3>
+                                        <p>Processing clearance certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="checked-clearance-processing">0</span>
+                                            <span class="stat-label">Processing</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <h4><i class="fas fa-cog"></i> Checked Request</h4>
+                                        <div class="request-cards" id="checked-clearance-processing-cards">
+                                            <!-- Processing cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Indigency Form -->
+                            <div class="document-category" data-category="indigency">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-heart"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Indigency Form</h3>
+                                        <p>Processing indigency certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="checked-indigency-processing">0</span>
+                                            <span class="stat-label">Processing</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <h4><i class="fas fa-cog"></i> Checked Request</h4>
+                                        <div class="request-cards" id="checked-indigency-processing-cards">
+                                            <!-- Processing cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Checked Tab -->
+
+                <!-- Finished Tab -->
+                <div class="tab-panel" id="released-tab">
+                    <div class="content-view new-requests-view active" id="releasedRequestsView">
+                        <!-- Document Categories -->
+                        <div class="document-categories">
+                            <!-- Barangay ID Form -->
+                            <div class="document-category" data-category="barangay-id">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-id-card"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Barangay ID Form</h3>
+                                        <p>Finished Barangay Identification Cards</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="released-barangayId-finished">0</span>
+                                            <span class="stat-label">Finished</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-print"></i> Finished Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="released-barangayId-finished-cards">
+                                            <!-- Finished cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Certification Form -->
+                            <div class="document-category" data-category="certification">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-certificate"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certification Form</h3>
+                                        <p>Finished various certifications</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="released-certification-finished">0</span>
+                                            <span class="stat-label">Finished</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-print"></i> Finished Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="released-certification-finished-cards">
+                                            <!-- Finished cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- COE Form -->
+                            <div class="document-category" data-category="coe">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-briefcase"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certificate of Employment</h3>
+                                        <p>Finished employment certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="released-coe-finished">0</span>
+                                            <span class="stat-label">Finished</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-print"></i> Finished Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="released-coe-finished-cards">
+                                            <!-- Finished cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clearance Form -->
+                            <div class="document-category" data-category="clearance">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Clearance Form</h3>
+                                        <p>Finished clearance certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="released-clearance-finished">0</span>
+                                            <span class="stat-label">Finished</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-print"></i> Finished Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="released-clearance-finished-cards">
+                                            <!-- Finished cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Indigency Form -->
+                            <div class="document-category" data-category="indigency">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-heart"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Indigency Form</h3>
+                                        <p>Finished indigency certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="released-indigency-finished">0</span>
+                                            <span class="stat-label">Finished</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-print"></i> Finished Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="released-indigency-finished-cards">
+                                            <!-- Finished cards will be inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Finished Tab -->
+            </div>
+            <!-- End Tab Content -->
+        </div>
+    </div>
+
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal" aria-hidden="true">
+        <div class="status-dialog">
+            <button class="close-btn" onclick="closeStatusModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="status-icon">
+                <i class="fas fa-check-circle" id="statusIcon"></i>
+            </div>
+            <div class="status-content">
+                <h4 id="statusTitle">Success!</h4>
+                <p id="statusMessage">Action completed successfully.</p>
+            </div>
+            <div class="status-actions">
+                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request ID Modal -->
+    <div class="request-details-modal" id="requestDetailsModal" aria-hidden="true">
+        <div class="request-details-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="requestDetailsTitle">BARANGAY ID FORM</h3>
+                </div>
+                <button class="close-btn" onclick="closeRequestDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="barangay-form">
+                    <!-- Personal Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>First Name:</label>
+                            <input type="text" class="form-input" id="detailFirstName" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Middle Name:</label>
+                            <input type="text" class="form-input" id="detailMiddleName" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Last Name:</label>
+                            <input type="text" class="form-input" id="detailLastName" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Address:</label>
+                            <input type="text" class="form-input" id="detailAddress" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Date:</label>
+                            <input type="text" class="form-input" id="detailBirthDate" readonly>
+                        </div>
+                       
+                    </div>
+
+                    <!-- Civil Status Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Civil Status:</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="civilStatus" id="civilSingle" disabled>
+                                    <span>Single</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="civilStatus" id="civilMarried" disabled>
+                                    <span>Married</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="civilStatus" id="civilWidow" disabled>
+                                    <span>Widow</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gender Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Gender:</label>
+                            <div class="radio-group horizontal">
+                                <label class="radio-label">
+                                    <input type="radio" name="gender" id="genderMale" disabled>
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="gender" id="genderFemale" disabled>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nationality Section -->
+                    <div class="form-section" id="nationalitySection">
+                        <div class="form-row">
+                            <label>Nationality:</label>
+                            <select class="form-select" id="detailNationality" disabled>
+                                <option value="Filipino">Filipino</option>
+                                <option value="American">American</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Korean">Korean</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Purpose Section -->
+                    <div class="form-section" id="purposeSection" style="display: none;">
+                        <div class="form-row">
+                            <label>Purpose:</label>
+                            <select class="form-select" id="detailPurpose" disabled>
+                                <option value="Fencing Permit" selected>Fencing Permit</option>
+                                <option value="Scholarship Application">Scholarship Application</option>
+                                <option value="Business Permit">Business Permit</option>
+                                <option value="Legal Requirements">Legal Requirements</option>
+                                <option value="Government Transaction">Government Transaction</option>
+                                <option value="Employment">Employment</option>
+                                <option value="Medical Assistance">Medical Assistance</option>
+                                <option value="Financial Aid">Financial Aid</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Emergency Contact Section -->
+                    <div class="form-section" id="emergencySection">
+                        <div class="form-row">
+                            <label class="section-label">Contact person incase of emergency and contact No:</label>
+                        </div>
+                        <div class="form-row">
+                            <label>Name of Guardian/parent:</label>
+                            <input type="text" class="form-input" id="detailGuardianName" placeholder="Name of Guardian/parent:" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Contact Number:</label>
+                            <input type="text" class="form-input" id="detailEmergencyContact" placeholder="Contact Number:" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Residency Information Section -->
+                    <div class="form-section" id="residencySection">
+                        <div class="form-row">
+                            <label class="section-label">Months/Years lived in Barangay:</label>
+                        </div>
+                        <div class="form-row">
+                            <label>Please specify:</label>
+                            <input type="text" class="form-input" id="detailResidency" placeholder="please specify:" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Image of Valid ID:</label>
+                        </div>
+                        <div class="image-upload-section">
+                            <div class="image-placeholder" id="idImagePlaceholder">
+                                <img src="" alt="ID Image" class="id-image" id="idImage">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" onclick="closeRequestDetailsModal()">Close</button>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Certification Modal -->
+    <div class="request-details-modal" id="certificationDetailsModal" aria-hidden="true">
+        <div class="request-details-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="certificationDetailsTitle">CERTIFICATION FORM</h3>
+                </div>
+                <button class="close-btn" onclick="closeCertificationDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="certification-form">
+                    <!-- Personal Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>First Name:</label>
+                            <input type="text" class="form-input" id="certFirstName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Middle Name:</label>
+                            <input type="text" class="form-input" id="certMiddleName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Last Name:</label>
+                            <input type="text" class="form-input" id="certLastName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Address:</label>
+                            <input type="text" class="form-input" id="certAddress" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Date:</label>
+                            <input type="text" class="form-input" id="certBirthDate" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Place:</label>
+                            <input type="text" class="form-input" id="certBirthPlace" value="" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Civil Status Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Civil Status:</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="certCivilStatus" id="certCivilSingle" disabled>
+                                    <span>Single</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="certCivilStatus" id="certCivilMarried" disabled>
+                                    <span>Married</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="certCivilStatus" id="certCivilWidow" disabled>
+                                    <span>Widow</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gender Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Gender:</label>
+                            <div class="radio-group horizontal">
+                                <label class="radio-label">
+                                    <input type="radio" name="certGender" id="certGenderMale" disabled>
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="certGender" id="certGenderFemale" disabled>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Purpose Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Purpose:</label>
+                            <select class="form-select" id="certPurpose" disabled>
+                                <option value="FENCING_PERMIT">Fencing Permit</option>
+                                <option value="PROOF_OF_RESIDENCY">Proof of Residency</option>
+                                <option value="OTHER">Other</option>
+                                <option value="business-permit">Business Permit</option>
+                                <option value="SCHOLARSHIP_APPLICATION">Scholarship Application</option>
+                                <option value="LEGAL_REQUIREMENTS">Legal Requirements</option>
+                                <option value="GOVERNMENT_TRANSACTION">Government Transaction</option>
+                                <option value="EMPLOYMENT">Employment</option>
+                                <option value="MEDICAL_ASSISTANCE">Medical Assistance</option>
+                                <option value="FINANCIAL_AID">Financial Aid</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    
+
+                    <!-- Image Upload Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Image of Valid ID:</label>
+                        </div>
+                        <div class="image-upload-section">
+                            <div class="image-placeholder" id="certImagePlaceholder">
+                                <img src="" alt="Official Photo" class="id-image" id="certImage">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" onclick="closeCertificationDetailsModal()">Close</button>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Certificate of Employment Modal -->
+    <div class="request-details-modal" id="coeDetailsModal" aria-hidden="true">
+        <div class="request-details-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="coeDetailsTitle">CERTIFICATE OF EMPLOYMENT FORM</h3>
+                </div>
+                <button class="close-btn" onclick="closeCoeDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="coe-form">
+                    <!-- Personal Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>First Name:</label>
+                            <input type="text" class="form-input" id="coeFirstName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Middle Name:</label>
+                            <input type="text" class="form-input" id="coeMiddleName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Last Name:</label>
+                            <input type="text" class="form-input" id="coeLastName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Address:</label>
+                            <input type="text" class="form-input" id="coeAddress" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Age:</label>
+                            <input type="text" class="form-input" id="age" value="" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Civil Status Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Civil Status:</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="coeCivilStatus" id="coeCivilSingle" disabled>
+                                    <span>Single</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="coeCivilStatus" id="coeCivilMarried" checked disabled>
+                                    <span>Married</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="coeCivilStatus" id="coeCivilWidow" disabled>
+                                    <span>Widow</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gender Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Gender:</label>
+                            <div class="radio-group horizontal">
+                                <label class="radio-label">
+                                    <input type="radio" name="coeGender" id="coeGenderMale" disabled>
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="coeGender" id="coeGenderFemale" checked disabled>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employment Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Employment Information:</label>
+                        </div>
+                        <div class="form-row">
+                            <label>Employment Type:</label>
+                            <select class="form-input" id="coeEmploymentType" disabled>
+                                <option value="">Select Employment Type</option>
+                                
+                                <option value="SELF_EMPLOYED">Self-Employed</option>
+                                <option value="CONTRACTUAL">Contractual</option>
+                                
+                                <option value="ON_CALL">On-Call</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Position:</label>
+                            <input type="text" class="form-input" id="coePosition" value="" readonly>
+                        </div>
+                    
+                        <div class="form-row">
+                            <label>Date Hired:</label>
+                            <input type="text" class="form-input" id="coeDateHired" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Monthly Salary:</label>
+                            <input type="text" class="form-input" id="coeMonthlySalary" value="" readonly>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Image Upload Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Image of Valid ID:</label>
+                        </div>
+                        <div class="image-upload-section">
+                            <div class="image-placeholder" id="coeImagePlaceholder">
+                                <img src="" alt="Official Photo" class="id-image" id="coeImage">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" onclick="closeCoeDetailsModal()">Close</button>
+               
+            </div>
+        </div>
+    </div>
+
+    <!-- Clearance Form Modal -->
+    <div class="request-details-modal" id="clearanceDetailsModal" aria-hidden="true">
+        <div class="request-details-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="clearanceDetailsTitle">CLEARANCE FORM</h3>
+                </div>
+                <button class="close-btn" onclick="closeClearanceDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="clearance-form">
+                    <!-- Personal Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>First Name:</label>
+                            <input type="text" class="form-input" id="clearFirstName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Middle Name:</label>
+                            <input type="text" class="form-input" id="clearMiddleName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Last Name:</label>
+                            <input type="text" class="form-input" id="clearLastName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Age:</label>
+                            <input type="text" class="form-input" id="clearAge" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Address:</label>
+                            <input type="text" class="form-input" id="clearAddress" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Date:</label>
+                            <input type="text" class="form-input" id="clearBirthDate" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Place:</label>
+                            <input type="text" class="form-input" id="clearBirthPlace" value="" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Gender Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Gender:</label>
+                            <div class="radio-group horizontal">
+                                <label class="radio-label">
+                                    <input type="radio" name="clearGender" id="clearGenderMale" checked disabled>
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="clearGender" id="clearGenderFemale" disabled>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Civil Status Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Civil Status:</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="clearCivilStatus" id="clearCivilSingle" checked disabled>
+                                    <span>Single</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="clearCivilStatus" id="clearCivilMarried" disabled>
+                                    <span>Married</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="clearCivilStatus" id="clearCivilWidow" disabled>
+                                    <span>Widow</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Purpose Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Purpose:</label>
+                            <select class="form-select" id="clearPurpose" disabled>
+                                <option value="Police Clearance">Police Clearance</option>
+                                <option value="Barangay Clearance">Barangay Clearance</option>
+                                <option value="NBI Clearance">NBI Clearance</option>
+                                <option value="Business Permit">Business Permit</option>
+                                <option value="Employment">Employment</option>
+                                <option value="Government Transaction">Government Transaction</option>
+                                <option value="Background Check">Background Check</option>
+                                <option value="Legal Requirements">Legal Requirements</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <!-- Image Upload Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Image of Valid ID:</label>
+                        </div>
+                        <div class="image-upload-section">
+                            <div class="image-placeholder" id="clearImagePlaceholder">
+                                <img src="Images/" alt="Valid ID Image" class="id-image" id="clearImage">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" onclick="closeClearanceDetailsModal()">Close</button>
+              
+            </div>
+        </div>
+    </div>
+
+    <!-- Indigency Request Modal -->
+    <div class="request-details-modal" id="indigencyDetailsModal" aria-hidden="true">
+        <div class="request-details-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="indigencyDetailsTitle">INDIGENCY FORM</h3>
+                </div>
+                <button class="close-btn" onclick="closeIndigencyDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="indigency-form">
+                    <!-- Personal Information Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>First Name:</label>
+                            <input type="text" class="form-input" id="indigFirstName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Middle Name:</label>
+                            <input type="text" class="form-input" id="indigMiddleName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Last Name:</label>
+                            <input type="text" class="form-input" id="indigLastName" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Age:</label>
+                            <input type="text" class="form-input" id="indigAge" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Address:</label>
+                            <input type="text" class="form-input" id="indigAddress" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Date:</label>
+                            <input type="text" class="form-input" id="indigBirthDate" value="" readonly>
+                        </div>
+                        <div class="form-row">
+                            <label>Birth Place:</label>
+                            <input type="text" class="form-input" id="indigBirthPlace" value="" readonly>
+                        </div>
+                    </div>
+
+                    <!-- Gender Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Gender:</label>
+                            <div class="radio-group horizontal">
+                                <label class="radio-label">
+                                    <input type="radio" name="indigGender" id="indigGenderMale" disabled>
+                                    <span>Male</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="indigGender" id="indigGenderFemale" checked disabled>
+                                    <span>Female</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Civil Status Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Civil Status:</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="indigCivilStatus" id="indigCivilSingle" disabled>
+                                    <span>Single</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="indigCivilStatus" id="indigCivilMarried" checked disabled>
+                                    <span>Married</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="indigCivilStatus" id="indigCivilWidow" disabled>
+                                    <span>Widow</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Purpose Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label>Purpose:</label>
+                            <select class="form-select" id="indigPurpose" disabled>
+                                <option value="Medical Assistance">Medical Assistance</option>
+                                <option value="Financial Aid">Financial Aid</option>
+                                <option value="Educational Support">Educational Support</option>
+                                <option value="Housing Assistance">Housing Assistance</option>
+                                <option value="Food Assistance">Food Assistance</option>
+                                <option value="Social Services">Social Services</option>
+                                <option value="Government Program">Government Program</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload Section -->
+                    <div class="form-section">
+                        <div class="form-row">
+                            <label class="section-label">Image of Valid ID:</label>
+                        </div>
+                        <div class="image-upload-section">
+                            <div class="image-placeholder" id="indigImagePlaceholder">
+                                <img src="Images/" alt="Valid ID Image" class="id-image" id="indigImage">
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary-btn" onclick="closeIndigencyDetailsModal()">Close</button>
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Barangay ID Process Form Modal -->
+    <div class="request-details-modal" id="barangayIdProcessModal" aria-hidden="true">
+        <div class="request-details-dialog process-form-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3>BARANGAY ID PROCESS FORM</h3>
+                    <div class="request-date-info">
+                        <span class="date-label">Review and Generate ID</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeBarangayIdProcessModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="barangayIdProcessForm" class="barangay-id-process-form">
+                    <!-- Barangay ID Preview Layout -->
+                    <div class="barangay-id-preview">
+                        <div class="id-front">
+                            <h4>BARANGAY ID - FRONT SIDE</h4>
+                            <!-- Photo Section -->
+                            <div class="id-photo-section">
+                                <div class="photo-placeholder" id="processPhotoPlaceholder">
+                                    <div class="photo-placeholder-text">Photo</div>
+                                </div>
+                            </div>
+                            <div class="id-field">
+                                <label>BID Number:</label>
+                                <input type="text" id="processBidNumber" placeholder="YYYY-XXXX" maxlength="9" pattern="\d{4}-\d{4}">
+                            </div>
+                            <div class="id-field">
+                                <label>Full Name:</label>
+                                <span id="processFullName">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Birthday:</label>
+                                <span id="processBirthday">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Address:</label>
+                                <span id="processAddress">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="id-back">
+                            <h4>BARANGAY ID - BACK SIDE</h4>
+                            <div class="id-field">
+                                <label>Gender:</label>
+                                <span id="processGender">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Height:</label>
+                                <span id="processHeight">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Nationality:</label>
+                                <span id="processNationality">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Date Issued:</label>
+                                <span id="processDateIssued">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Contact Number:</label>
+                                <span id="processContactNumber">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Emergency Contact:</label>
+                                <span id="processEmergencyContact">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Civil Status:</label>
+                                <span id="processCivilStatus">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Weight:</label>
+                                <span id="processWeight">Loading...</span>
+                            </div>
+                            <div class="id-field">
+                                <label>Expiration Date:</label>
+                                <span id="processExpDate">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeBarangayIdProcessModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="markAsDone()">
+                    <i class="fas fa-check-circle"></i> Generate ID
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indigency Process Form Modal -->
+    <div class="request-details-modal" id="indigencyProcessModal" aria-hidden="true">
+        <div class="request-details-dialog process-form-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3>INDIGENCY CERTIFICATE PROCESS FORM</h3>
+                    <div class="request-date-info">
+                        <span class="date-label">Review and Generate Certificate</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="cancelIndigencyProcess()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="indigencyProcessForm" class="indigency-process-form">
+                    <!-- Language Selection Section -->
+                    <div class="language-selection-section">
+                        <h4 class="section-title">Document Language</h4>
+                        <div class="form-row">
+                            <label>Select Language:</label>
+                            <select class="form-select" id="indigencyLanguage" required>
+                                <option value="english">English</option>
+                                <option value="tagalog">Tagalog</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Indigency Certificate Preview Layout -->
+                    <div class="indigency-certificate-preview">
+                        <div class="certificate-header">
+                            <div class="barangay-hall-text">BARANGAY HALL OF BIGTE</div>
+                            <div class="barangay-seal">
+                                <img src="Images/logo.png" alt="Barangay Bigte Logo">
+                            </div>
+                        </div>
+                        
+                        <div class="certificate-title">
+                            <h2>CERTIFICATE OF INDIGENCY</h2>
+                        </div>
+                        
+                        <div class="certificate-content">
+                            <div class="certificate-text">
+                                <p>TO WHOM IT MAY CONCERN:</p>
+                                
+                                <p>THIS IS TO CERTIFY that <strong><span id="indigProcessFullName">[FULL NAME]</span></strong>, 
+                                of legal age, residents of Sitio <span id="indigProcessAddress">[ADDRESS]</span> 
+                                belongs to one of many indigent families of this barangay. The income of this family is barely enough to meet day to day needs.</p>
+                                
+                                <p>This certification is being issued upon the request of <strong><span id="indigProcessFullName2">[FULL NAME]</span></strong> 
+                                to apply for <span id="indigProcessPurpose">[PURPOSE]</span>.</p>
+                                
+                                <p>Issued this <span id="indigProcessCertificateDate">[CURRENT DATE]</span> 
+                                at Bigte, Norzagaray, Bulacan.</p>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cancelIndigencyProcess()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="doneIndigencyProcess()">
+                    <i class="fas fa-check-circle"></i> Generate Form
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- COE Process Form Modal -->
+    <div class="request-details-modal" id="coeProcessModal" aria-hidden="true">
+        <div class="request-details-dialog process-form-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3>CERTIFICATE OF EMPLOYMENT PROCESS FORM</h3>
+                    <div class="request-date-info">
+                        <span class="date-label">Review and Generate Certificate</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="closeCoeProcessModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="coeProcessForm" class="coe-process-form">
+                    <!-- COE Certificate Preview Layout -->
+                    <div class="coe-certificate-preview">
+                        <div class="certificate-header">
+                            <h2>CERTIFICATE OF EMPLOYMENT</h2>
+                        </div>
+                        
+                        <div class="certificate-content">
+                            <p>TO WHOM IT MAY CONCERN:</p>
+                            
+                            <p>THIS IS TO CERTIFY that <strong><span id="coeProcessFirstName">{{first_name}}</span> <span id="coeProcessMiddleName">{{middle_name}}</span> <span id="coeProcessLastName">{{last_name}}</span></strong>, 
+                            of legal age, residing at <span id="coeProcessAddress">{{address}}</span> 
+                            is employed in this Barangay as <span id="coeProcessEmploymentType">{{employment_type}}</span> 
+                            with the position of <span id="coeProcessPosition">{{position}}</span> 
+                            since <span id="coeProcessDateStarted">{{date_started}}</span> 
+                            with a monthly salary of <span id="coeProcessMonthlySalary">{{monthly_salary}}</span>.</p>
+                            
+                            <p>This certification is being issued upon the request of the above-named person 
+                            for whatever legal purpose it may serve.</p>
+                            
+                            <p>Issued this <span id="coeProcessDateIssued">{{date_issued}}</span> 
+                            at Bigte, Norzagaray, Bulacan.</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCoeProcessModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="doneCoeProcess()">
+                    <i class="fas fa-check-circle"></i> Generate Form
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clearance Process Form Modal -->
+    <div class="request-details-modal" id="clearanceProcessModal" aria-hidden="true">
+        <div class="request-details-dialog process-form-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3>BARANGAY CLEARANCE PROCESS FORM</h3>
+                    <div class="request-date-info">
+                        <span class="date-label">Review and Generate Clearance</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="cancelClearanceProcess()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="clearanceProcessForm" class="clearance-process-form">
+                    <!-- Clearance Certificate Preview Layout -->
+                    <div class="clearance-certificate-preview">
+                        <div class="certificate-header">
+                            <div class="barangay-hall-text">BARANGAY HALL OF BIGTE</div>
+                            <div class="barangay-seal">
+                                <img src="Images/logo.png" alt="Barangay Bigte Logo">
+                            </div>
+                        </div>
+                        
+                        <div class="certificate-title">
+                            <h2>CLEARANCE</h2>
+                        </div>
+                        
+                        <div class="certificate-content">
+                            <p>TO WHOM IT MAY CONCERN:</p>
+                            
+                            <div class="clearance-form-table">
+                                <table class="clearance-info-table">
+                                    <tr style="background: #e3f2fd;">
+                                        <td class="field-label">Purpose:</td>
+                                        <td class="field-value"><span id="clearProcessPurpose" style="font-weight: 600; color: #2c5aa0;">[PURPOSE]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">First Name:</td>
+                                        <td class="field-value"><span id="clearProcessFirstName">[FIRST NAME]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Middle Name:</td>
+                                        <td class="field-value"><span id="clearProcessMiddleName">[MIDDLE NAME]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Last Name:</td>
+                                        <td class="field-value"><span id="clearProcessLastName">[LAST NAME]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Address:</td>
+                                        <td class="field-value"><span id="clearProcessAddress">[ADDRESS]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Birthdate:</td>
+                                        <td class="field-value"><span id="clearProcessBirthDate">[BIRTH DATE]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Place of Birth:</td>
+                                        <td class="field-value"><span id="clearProcessBirthPlace">[BIRTH PLACE]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Gender:</td>
+                                        <td class="field-value"><span id="clearProcessGender">[GENDER]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Citizenship:</td>
+                                        <td class="field-value"><span id="clearProcessCitizenship">[CITIZENSHIP]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Civil Status:</td>
+                                        <td class="field-value"><span id="clearProcessCivilStatus">[CIVIL STATUS]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Date Issued:</td>
+                                        <td class="field-value"><span id="clearProcessDateIssued">[DATE ISSUED]</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">Valid Until:</td>
+                                        <td class="field-value">
+                                            <input type="date" id="clearanceExpirationInput" class="form-input" style="width: 200px;">
+                                            <span id="clearProcessExpiration" style="display: none;">[EXPIRATION]</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="field-label">REMARKS:</td>
+                                        <td class="field-value"><strong>NO RECORD ON FILE.</strong></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cancelClearanceProcess()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="doneClearanceProcess()">
+                    <i class="fas fa-check-circle"></i> Generate Form
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certification Process Form Modal -->
+    <div class="request-details-modal" id="certificationProcessModal" aria-hidden="true">
+        <div class="request-details-dialog process-form-dialog">
+            <div class="modal-header">
+                <div class="header-left">
+                    <h3 id="certProcessTitle">CERTIFICATION PROCESS FORM</h3>
+                    <div class="request-date-info">
+                        <span class="date-label">Review and Generate Certification</span>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="cancelCertificationProcess()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="certificationProcessForm">
+                    <!-- Certification Preview Layout -->
+                    <div class="certification-preview">
+                        <div class="form-section">
+                            <h4>Personal Information</h4>
+                            <div class="form-row">
+                                <label>Purpose:</label>
+                                <span id="certProcessPurpose" style="text-transform: capitalize; font-weight: 600; color: #2c5aa0;">[PURPOSE]</span>
+                            </div>
+                            <div class="form-row">
+                                <label>Name:</label>
+                                <span id="certProcessName">[FULL NAME]</span>
+                            </div>
+                            <div class="form-row">
+                                <label>Gender:</label>
+                                <span id="certProcessGender">[GENDER]</span>
+                            </div>
+                            <div class="form-row">
+                                <label>Citizenship:</label>
+                                <span id="certProcessCitizenship">[CITIZENSHIP]</span>
+                            </div>
+                            <div class="form-row">
+                                <label>Civil Status:</label>
+                                <span id="certProcessCivilStatus">[CIVIL STATUS]</span>
+                            </div>
+                            <div class="form-row">
+                                <label>Address:</label>
+                                <span id="certProcessAddress">[ADDRESS]</span>
+                            </div>
+                            
+                            <!-- Purpose-specific fields -->
+                            <div id="certProcessProofFields" style="display: none;">
+                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Residency Information</h4>
+                                <div class="form-row">
+                                    <label>Start Year:</label>
+                                    <span id="certProcessStartYear" style="font-weight: 500; color: #333;">[START YEAR]</span>
+                                </div>
+                            </div>
+                            
+                            <div id="certProcessPagIbigFields" style="display: none;">
+                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Employment Information</h4>
+                                <div class="form-row">
+                                    <label>Job Position:</label>
+                                    <span id="certProcessJobPosition" style="font-weight: 500; color: #333;">[JOB POSITION]</span>
+                                </div>
+                                <div class="form-row">
+                                    <label>Start of Work:</label>
+                                    <span id="certProcessStartOfWork" style="font-weight: 500; color: #333;">[START OF WORK]</span>
+                                </div>
+                                <div class="form-row">
+                                    <label>Monthly Income:</label>
+                                    <span id="certProcessMonthlyIncome" style="font-weight: 500; color: #333;">[MONTHLY INCOME]</span>
+                                </div>
+                            </div>
+                            
+                            <div id="certProcessDeadFields" style="display: none;">
+                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Death Information</h4>
+                                <div class="form-row">
+                                    <label>Month & Year:</label>
+                                    <span id="certProcessMonthYear" style="font-weight: 500; color: #333;">[MONTH YEAR]</span>
+                                </div>
+                            </div>
+                            
+                            <div id="certProcessBailFields" style="display: none;">
+                                <div class="form-row">
+                                    <label>Trial Court:</label>
+                                    <input type="text" id="certProcessTrialCourt" class="form-input" placeholder="Enter Trial Court">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <label>Date Issued:</label>
+                                <span id="certProcessDateIssued">[CURRENT DATE]</span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cancelCertificationProcess()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" onclick="doneCertificationProcess()">
+                    <i class="fas fa-check-circle"></i> Generate Form
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scroll to Top Button -->
+    <button class="scroll-to-top-btn" id="scrollToTopBtn" onclick="scrollToTop()">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+</body>
+</html>
+

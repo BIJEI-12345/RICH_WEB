@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/staff-dashboard.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="js/staff-dashboard.js" defer></script>
+</head>
+
+<body>
+    
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <h1 class="barangay-name">Barangay Bigte</h1>
+                </div>
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <!-- Barangay Bigte Card Section -->
+        <section class="brgyStaff-card-section">
+            <div class="brgyStaff-card">
+                <div class="brgyStaff-card-content">
+                    <div class="staff-profile-icon">
+                        <img src="Images/capa.png" alt="App Icon" class="app-icon">
+                    </div>
+                    <div class="brgyStaff-text">
+                        <h2>Welcome, Staff</h2>
+                        <p>View barangay services and monitor community activities</p>
+                    </div>
+                </div>
+                <div class="brgyStaff-card-image">
+                    <img src="Images/brgyHall.jpg" alt="Barangay Hall" class="brgy-hall-img">
+                    <div class="image-overlay"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="main-content-container">
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="welcome-section">
+                    <h2>Welcome to Staff Dashboard</h2>
+                    <p>View barangay services and monitor community activities (Read-Only Access)</p>
+                </div>
+
+                <!-- Category Buttons Section -->
+                <div class="category-section">
+                    <h3>View Categories</h3>
+                    <div class="category-buttons">
+                        <button class="category-btn document-btn" onclick="viewDocuments()">
+                            <div class="btn-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Document Requests</h4>
+                                <p>View document requests and applications</p>
+                            </div>
+                        </button>
+
+                        <button class="category-btn complaints-btn" onclick="viewFeedback()">
+                            <div class="btn-icon">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Feedback & Concerns</h4>
+                                <p>View community feedback and concerns</p>
+                            </div>
+                        </button>
+
+                        <button class="category-btn emergency-btn" onclick="viewEmergency()">
+                            <div class="btn-icon">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Emergency Reports</h4>
+                                <p>View emergency reports and alerts</p>
+                            </div>
+                        </button>
+
+                        <button class="category-btn user-management-btn" onclick="viewUsers()">
+                            <div class="btn-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>User Information</h4>
+                                <p>View user accounts and information</p>
+                            </div>
+                        </button>
+
+                        <button class="category-btn resident-info-btn" onclick="viewResidentInfo()">
+                            <div class="btn-icon">
+                                <i class="fas fa-address-book"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Resident Information</h4>
+                                <p>View resident records and information</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Announcements & Events Section -->
+                <section class="announce-section">
+                    <h3>Announcements & Events</h3>
+                    <div class="announce-slider" id="announceSlider">
+                        <div class="edge-hover left" id="hoverLeft" aria-hidden="true"></div>
+                        <div class="slides-wrapper" id="announceSlides">
+                            <!-- Announcements will be loaded dynamically from database -->
+                        </div>
+                        <div class="edge-hover left" id="hoverLeft" aria-hidden="true"></div>
+                        <div class="edge-hover right" id="hoverRight" aria-hidden="true"></div>
+                        <div class="dots" id="announceDots"></div>
+                    </div>
+                </section>
+            </main>
+        </div>    
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="edit-profile-modal" id="editProfileModal" aria-hidden="true">
+        <div class="edit-profile-dialog">
+            <div class="modal-header">
+                <h4>Edit Profile</h4>
+                <button class="close-modal-btn" onclick="closeEditProfileModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editProfileForm">
+                <div class="profile-image-section">
+                    <div class="current-image-container">
+                        <img src="Images/capa.png" alt="Current Profile" class="current-profile-img" id="currentProfileImg">
+                        <div class="image-overlay">
+                            <i class="fas fa-camera"></i>
+                        </div>
+                    </div>
+                    <input type="file" id="profileImageInput" name="profileImage" accept="image/*" style="display: none;">
+                    <button type="button" class="change-image-btn" onclick="document.getElementById('profileImageInput').click()">
+                        Change Image
+                    </button>
+                </div>
+                <div class="form-field">
+                    <label for="staffName">Staff Name</label>
+                    <input type="text" id="staffName" name="staffName" value="Staff" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn cancel-btn" onclick="closeEditProfileModal()">Cancel</button>
+                    <button type="submit" class="btn save-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal" aria-hidden="true">
+        <div class="status-dialog">
+            <div class="status-icon">
+                <i class="fas fa-check-circle" id="statusIcon"></i>
+            </div>
+            <div class="status-content">
+                <h4 id="statusTitle">Profile Updated Successfully!</h4>
+                <p id="statusMessage">Your profile has been updated successfully.</p>
+            </div>
+            <div class="status-actions">
+                <button class="btn cancel-status-btn" onclick="closeStatusModal()" style="display: none;">Cancel</button>
+                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+

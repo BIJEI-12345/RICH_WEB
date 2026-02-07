@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forgot Password - Barangay System</title>
+    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="Styles/forgotpass.css">
+</head>
+<body>
+    <main class="container">
+        <nav class="top-info" aria-label="Top info">
+            <a href="#about" class="info-link">VISITORS</a>
+            <a href="#questions" class="info-link">ABOUT</a>
+            <a href="#address" class="info-link">CONTACT US</a>
+        </nav>
+        <div class="left-container">
+            <H1>Welcome, Bigteño</H1>
+        </div>
+        
+        <div class="forgot-container">
+            <a href="index.html" class="btn back-btn">← Back to Login</a>
+            <h2>Forgot Password</h2>
+            <p>Enter your email address and we'll send you a verification code to reset your password.</p>
+            
+            <form action="php/send_code.php" method="POST">
+                <div class="input-group">
+                    <label for="email">Enter your email:</label>
+                    <input type="email" id="email" name="email" placeholder="your.email@example.com" required>
+                </div>
+                <button type="submit" class="btn">Send Verification Code</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>
