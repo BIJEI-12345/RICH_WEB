@@ -282,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RICH Login</title>
+  <title>RICH WEB</title>
   <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
   <link rel="stylesheet" type="text/css" href="Styles/login.css">
   <link rel="stylesheet" type="text/css" href="Styles/media.css">
