@@ -82,8 +82,8 @@ function logAuditTrail($actionType, $module, $description, $details = [], $targe
             if ($userStmt) {
                 $userStmt->bind_param('s', $userEmail);
                 $userStmt->execute();
-                $userResult = $userStmt->get_result();
-                if ($userRow = $userResult->fetch_assoc()) {
+                $userRow = rich_mysqli_stmt_fetch_assoc($userStmt);
+                if ($userRow) {
                     $userId = $userRow['id'];
                 }
                 $userStmt->close();

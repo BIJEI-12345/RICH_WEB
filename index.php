@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         $connection = getDatabaseConnection();
         $host = $connection->host_info;
         error_log("Connected to database: " . $host);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Database connection exception: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => "Database connection failed."]); 
@@ -78,9 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         
         $stmt->bind_param("s", $email);
         $stmt->execute();
-        $result = $stmt->get_result();
+        $row = rich_mysqli_stmt_fetch_assoc($stmt);
         
-        if ($result && $row = $result->fetch_assoc()) {
+        if ($row) {
             error_log("User found: " . $row['email'] . ", Verified: " . $row['verified_email'] . ", Action: " . ($row['action'] ?? 'null'));
             
             // Check if account is verified
@@ -225,10 +225,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             $stmt->close();
         }
         $connection->close();
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        error_log("Login AJAX error: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
         http_response_code(500);
         echo json_encode(["error" => "An unexpected error occurred. Please try again."]);
-        if (isset($connection)) {
+        if (isset($connection) && $connection instanceof mysqli) {
             $connection->close();
         }
     }
@@ -455,13 +456,21 @@ document.addEventListener('DOMContentLoaded', function() {
         password: password
       })
     })
-    .then(response => {
+    .then(async (response) => {
       console.log('Response status:', response.status);
-      return response.json();
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (parseErr) {
+        console.error('Non-JSON response:', text.slice(0, 500));
+        throw new Error('Server error (HTTP ' + response.status + '). If this persists, check Apache/PHP logs on the server.');
+      }
+      return { ok: response.ok, data };
     })
-    .then(data => {
+    .then(({ ok, data }) => {
       console.log('Response data:', data);
-      if (data.ok) {
+      if (data && data.ok) {
         showSuccessNotification('Login successful! Welcome ' + data.name);
         localStorage.setItem('user_email', email);
         console.log('Login successful for:', data.name, 'Position:', data.position);
@@ -471,7 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
           window.location.href = redirectUrl;
         }, 2000);
       } else {
-        showNotification(data.error || 'Login failed', 'error');
+        showNotification((data && data.error) ? data.error : 'Login failed', 'error');
       }
     })
     .catch(error => {
