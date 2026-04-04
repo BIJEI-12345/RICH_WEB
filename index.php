@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         }
         $buf = ob_get_contents();
         if ($buf !== false && $buf !== '') {
-            return;
+            error_log('RICH_LOGIN_AJAX fatal with prior output: ' . substr($buf, 0, 2000));
         }
         while (ob_get_level() > 0) {
             ob_end_clean();
@@ -60,11 +60,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         exit; 
     }
     
-    // Load before config so login works even if an older config.php omits this require
-    require_once __DIR__ . '/php/mysqli_helpers.php';
-    require_once __DIR__ . '/php/config.php';
-    require_once __DIR__ . '/php/audit_trail_helper.php';
-    
+    try {
+        require_once __DIR__ . '/php/mysqli_helpers.php';
+        require_once __DIR__ . '/php/config.php';
+        require_once __DIR__ . '/php/audit_trail_helper.php';
+    } catch (Throwable $e) {
+        error_log('Login AJAX bootstrap: ' . $e->getMessage());
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        http_response_code(500);
+        echo json_encode(['error' => 'Server configuration error. Please try again later.']);
+        exit;
+    }
+
     try {
         $connection = getDatabaseConnection();
         $host = $connection->host_info;
@@ -490,14 +502,15 @@ document.addEventListener('DOMContentLoaded', function() {
       const text = await response.text();
       let data = null;
       try {
-        data = text ? JSON.parse(text) : null;
+        const trimmed = text.trim();
+        data = trimmed ? JSON.parse(trimmed) : null;
       } catch (parseErr) {
         console.error('Non-JSON response:', text.slice(0, 500));
         throw new Error('Server error (HTTP ' + response.status + '). If this persists, check Apache/PHP logs on the server.');
       }
-      return { ok: response.ok, data };
+      return { ok: response.ok, status: response.status, data };
     })
-    .then(({ ok, data }) => {
+    .then(({ ok, status, data }) => {
       console.log('Response data:', data);
       if (data && data.ok) {
         showSuccessNotification('Login successful! Welcome ' + data.name);
@@ -508,13 +521,22 @@ document.addEventListener('DOMContentLoaded', function() {
           console.log('Redirecting to:', redirectUrl);
           window.location.href = redirectUrl;
         }, 2000);
-      } else {
-        showNotification((data && data.error) ? data.error : 'Login failed', 'error');
+        return;
       }
+      if (data && data.error) {
+        showNotification(data.error, 'error');
+        return;
+      }
+      if (!ok) {
+        showNotification('Login failed (HTTP ' + status + ').', 'error');
+        return;
+      }
+      showNotification('Login failed', 'error');
     })
     .catch(error => {
       console.error('Error:', error);
-      showNotification('Network error. Please try again.', 'error');
+      const msg = (error && error.message) ? error.message : 'Network error. Please try again.';
+      showNotification(msg, 'error');
     });
   });
 });
