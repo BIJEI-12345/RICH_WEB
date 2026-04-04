@@ -1,8 +1,9 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Configure session timeout before starting session
-ini_set('session.gc_maxlifetime', 7200); // 2 hours (7200 seconds)
+ini_set('session.gc_maxlifetime', 3600); // 1 hour (3600 seconds)
 session_set_cookie_params([
-    'lifetime' => 7200, // Cookie lifetime = 2 hours
+    'lifetime' => 3600, // Cookie lifetime = 1 hour
     'path' => '/',
     'domain' => '',
     'secure' => false, // Set to true if using HTTPS
@@ -10,7 +11,7 @@ session_set_cookie_params([
     'samesite' => 'Lax'
 ]);
 
-session_start();
+rich_session_start();
 
 // Disable error reporting to prevent HTML output
 error_reporting(0);
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 // Use config.php for database connection (tries local first, then AWS)
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
   $connection = getDatabaseConnection();
@@ -49,6 +51,11 @@ try {
   error_log("Login attempt - Email: " . $email . ", Password length: " . strlen($password));
 
   if ($email === '' || $password === '') {
+    try {
+      logFailedLoginAttempt($email !== '' ? $email : 'unknown', 'missing_credentials', null);
+    } catch (Exception $e) {
+      error_log("Audit login_failed: " . $e->getMessage());
+    }
     http_response_code(400);
     echo json_encode(["error" => "Email and password are required", "received" => ["email" => $email, "password_len" => strlen($password)]]);
     $connection->close();
@@ -56,7 +63,7 @@ try {
   }
 
   // Use prepared statements to avoid encoding/corruption issues
-  $stmt = $connection->prepare("SELECT email, password, verified_email, action, name, position FROM brgy_users WHERE email = ?");
+  $stmt = $connection->prepare("SELECT id, email, password, verified_email, action, name, position FROM brgy_users WHERE email = ?");
   if (!$stmt) {
     error_log("Prepare failed: " . $connection->error);
     http_response_code(500);
@@ -85,6 +92,11 @@ try {
     // Check if account is verified
     if (intval($row['verified_email']) !== 1) {
       error_log("Login failed: Email not verified for " . $row['email']);
+      try {
+        logFailedLoginAttempt($email, 'email_not_verified', $row);
+      } catch (Exception $e) {
+        error_log("Audit login_failed: " . $e->getMessage());
+      }
       http_response_code(403);
       echo json_encode(["error" => "Please verify your email first. Check your email for the verification link."]);
       $connection->close();
@@ -96,6 +108,11 @@ try {
     $actionLower = $action !== null ? strtolower(trim($action)) : '';
     if ($actionLower !== 'accepted') {
       error_log("Login failed: Account not accepted for " . $row['email'] . ", action: " . ($action ?? 'NULL'));
+      try {
+        logFailedLoginAttempt($email, 'account_not_accepted', $row);
+      } catch (Exception $e) {
+        error_log("Audit login_failed: " . $e->getMessage());
+      }
       http_response_code(403);
       $errorMsg = "Your account is pending approval. Please contact administrator.";
       if ($action === null || $action === '' || $actionLower === 'pending') {
@@ -114,6 +131,11 @@ try {
     $storedPasswordHash = $row['password'] ?? '';
     if (empty($storedPasswordHash)) {
       error_log("Login failed: No password found for " . $row['email']);
+      try {
+        logFailedLoginAttempt($email, 'no_password_set', $row);
+      } catch (Exception $e) {
+        error_log("Audit login_failed: " . $e->getMessage());
+      }
       http_response_code(401);
       echo json_encode(["error" => "Password not set. Please reset your password."]);
       $connection->close();
@@ -190,6 +212,31 @@ try {
       $_SESSION['login_time'] = time(); // Store login timestamp for calculating hours
       $_SESSION['last_activity'] = time(); // Track last activity to prevent timeout during active use
       
+      // Log audit trail for login (actor from DB row so INSERT is reliable even if session keys differ)
+      try {
+          logAuditTrail(
+              'login',
+              'auth',
+              "{$row['name']} accessed system",
+              [
+                  'user_id' => $row['id'],
+                  'position' => $row['position'] ?? null
+              ],
+              $row['id'],
+              'user',
+              null,
+              null,
+              [
+                  'email' => $row['email'],
+                  'name' => $row['name'],
+                  'position' => $row['position'] ?? null,
+                  'user_id' => (int)$row['id'],
+              ]
+          );
+      } catch (Exception $e) {
+          error_log("Error logging audit trail: " . $e->getMessage());
+      }
+      
       echo json_encode([
         "ok" => true, 
         "message" => "Login successful", 
@@ -198,6 +245,11 @@ try {
       ]);
     } else {
       error_log("Login failed: Password verification failed for " . $row['email']);
+      try {
+        logFailedLoginAttempt($email, 'invalid_password', $row);
+      } catch (Exception $e) {
+        error_log("Audit login_failed: " . $e->getMessage());
+      }
       http_response_code(401);
       
       // Return debug info to help diagnose the issue
@@ -230,6 +282,11 @@ try {
       ]);
     }
   } else {
+    try {
+      logFailedLoginAttempt($email, 'unknown_email', null);
+    } catch (Exception $e) {
+      error_log("Audit login_failed: " . $e->getMessage());
+    }
     http_response_code(404);
     echo json_encode(["error" => "Account not found. Please check your email or register first."]);
   }

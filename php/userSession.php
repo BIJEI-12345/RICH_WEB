@@ -1,14 +1,13 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Disable error reporting to prevent HTML output
 error_reporting(0);
 ini_set('display_errors', 0);
 
 // Configure session timeout before starting session
-ini_set('session.gc_maxlifetime', 7200); // 2 hours (7200 seconds)
+ini_set('session.gc_maxlifetime', 3600); // 1 hour (3600 seconds)
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+rich_session_start();
 
 header('Content-Type: application/json');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

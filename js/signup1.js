@@ -222,7 +222,18 @@ document.addEventListener('DOMContentLoaded', () => {
         body: formData
       });
 
-      const result = await response.json();
+      const raw = await response.text();
+      let result;
+      try {
+        result = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error('Signup response was not JSON:', raw.slice(0, 500));
+        throw new Error(
+          response.ok
+            ? 'Invalid server response. Check the browser console or PHP error log.'
+            : `Server error (${response.status}). Check the browser console or PHP error log.`
+        );
+      }
 
       if (result.success) {
         // Success - show success message and redirect
@@ -270,10 +281,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     } catch (error) {
       console.error('Error:', error);
+      const msg =
+        error && error.message && !String(error.message).includes('JSON')
+          ? error.message
+          : 'Network error. Please check your connection and try again.';
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Network error. Please check your connection and try again.',
+        text: msg,
         confirmButtonColor: '#dc2626'
       });
     } finally {

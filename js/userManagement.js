@@ -143,12 +143,9 @@ function initializeEventListeners() {
 }
 
 async function fetchUsers(userType = 'pending') {
-	const loadingState = document.getElementById(`${userType}-loadingState`);
 	const usersList = document.getElementById(`${userType}-users-list`);
 	const emptyState = document.getElementById(`${userType}-emptyState`);
 	
-	// Show loading state
-	if (loadingState) loadingState.style.display = 'flex';
 	if (usersList) usersList.style.display = 'none';
 	if (emptyState) emptyState.style.display = 'none';
 	
@@ -159,9 +156,6 @@ async function fetchUsers(userType = 'pending') {
 		});
 		if (!response.ok) throw new Error('Network response was not ok');
 		const data = await response.json();
-		
-		// Hide loading state
-		if (loadingState) loadingState.style.display = 'none';
 		
 		const users = data.users || [];
 		if (users.length === 0) {
@@ -175,9 +169,6 @@ async function fetchUsers(userType = 'pending') {
 			}
 		}
 	} catch (error) {
-		// Hide loading state
-		if (loadingState) loadingState.style.display = 'none';
-		
 		// Show error in users list
 		if (usersList) {
 			usersList.style.display = 'block';
@@ -572,7 +563,7 @@ function showLogoutConfirmationModal() {
 		if (window.performLogout) {
 			window.performLogout();
 		} else {
-			window.location.href = 'index.html';
+			window.location.href = 'index.php';
 		}
 	};
 	

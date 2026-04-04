@@ -556,10 +556,10 @@ try {
     
     // Generate unique filename
     $fullName = trim($data['first_name'] . ' ' . $data['middle_name'] . ' ' . $data['last_name']);
-    $filename = 'COE_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['last_name']) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['first_name']) . '_' . date('Ymd_His') . '.docx';
-    $fullOutputPath = $outputPath . $filename;
-    
-    // Check if template exists
+     $filename = 'COE_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['last_name']) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['first_name']) . '_' . date('Ymd_His') . '.docx';
+     $fullOutputPath = $outputPath . $filename;
+     
+     // Check if template exists
     if (!file_exists($templatePath)) {
         error_log("Template file not found at: " . $templatePath);
         throw new Exception('COE template not found at: ' . $templatePath);
@@ -595,7 +595,10 @@ try {
         $updateStmt->close();
         $connection->close();
         
-        error_log("COE Document generated successfully: " . $filename);
+        // Keep DOCX file (no PDF conversion)
+        $finalFilename = $filename;
+        
+        error_log("COE Document generated successfully: " . $finalFilename);
         
         // Clear any unexpected output and send JSON response
         ob_clean();
@@ -603,8 +606,8 @@ try {
         echo json_encode([
             'success' => true,
             'message' => 'Certificate of Employment generated successfully with personal details',
-            'filename' => $filename,
-            'downloadUrl' => 'uploads/generated_documents/' . $filename,
+            'filename' => $finalFilename,
+            'downloadUrl' => 'uploads/generated_documents/' . $finalFilename,
             'data' => $data
         ]);
     } else {

@@ -4,107 +4,114 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign up • RICH</title>
-  <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+  <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
   <link rel="stylesheet" href="Styles/signup1.css" />
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
   <main class="auth">
     <header class="auth__header">
-      <a class="back" href="index.html" aria-label="Go back">&#x2039;</a>
       <div class="progress">
         <span class="progress__dot progress__dot--active"></span>
         <span class="progress__dot"></span>
         <span class="progress__dot"></span>
       </div>
-      <img class="brand" src="Images/logo.png" alt="App logo" />
-      <h1 class="header">Let's Get Started!</h1>
     </header>
     <div class="form-container">
     <form class="form" id="signupForm" method="post" novalidate>
-      <h2 class="section-title">Register</h2>
+      <a class="back" href="index.php" aria-label="Go back">
+        <span class="back-arrow">←</span>
+        <span class="back-label">Back to login</span>
+      </a>
+      <h2 class="section-title">Create your account</h2>
 
-      <label class="input_group">
-        <span class="email">Email</span>
-        <input type="email" name="email" autocomplete="email" required />
-      </label>
+      <div class="form-columns">
+        <div class="column-left">
+          <label class="input_group">
+            <span class="email">Email</span>
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
 
-      <div class="row">
-        <label class="input_group">
-          <span class="name">Full Name</span>
-          <input type="text" name="name" autocomplete="name" required />
-        </label>
-        <label class="input_group">
-          <span class="age">Age</span>
-          <input type="number" name="age" min="0" max="120" inputmode="numeric" />
-        </label>
-      </div>
-
-      <div class="row">
-        <label class="input_group">
-          <span class="position">Position</span>
-          <select name="position" required>
-            <option value="" disabled selected>Select your Department</option>
-            <option value="Admin">Admin</option>
-            <option value="Concerns & Reporting">Concerns & Reporting</option>
-            <option value="Emergency Category">Emergency Category</option>
-            <option value="Document Request Category">Document Request Category</option>
-          </select>
-        </label>
-        <label class="input_group">
-          <span class="gender">Gender</span>
-          <select name="gender" required>
-            <option value="" disabled selected>Select your gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-        </label>
-      </div>
-
-      <label class="input_group">
-        <span class="address">Complete Address</span>
-        <textarea name="address" rows="3" placeholder="House No., Street, Barangay" required></textarea>
-      </label>
-
-      <div class="form-section-divider" role="separator" aria-hidden="true"></div>
-
-      <div class="password-container">
-        <h2 class="section-title">Set Password</h2>
-
-        <label class="input_group pass-focus">
-          <span class="pass">Password</span>
-          <div class="password-wrapper">
-            <input type="password" name="pass" placeholder="" required />
-            <button type="button" class="password-toggle" onclick="togglePassword('pass')">
-              <span class="password-icon">Show</span>
-            </button>
+          <div class="row">
+            <label class="input_group">
+              <span class="name">Full Name</span>
+              <input type="text" name="name" class="word-caps" autocomplete="name" required />
+            </label>
+            <label class="input_group">
+              <span class="age">Age</span>
+              <input type="number" name="age" min="0" max="120" inputmode="numeric" />
+            </label>
           </div>
-          <div class="password-strength-container">
-            <div class="password-strength-bar">
-              <div class="password-strength-fill" id="passStrengthFill"></div>
+
+          <div class="row">
+            <label class="input_group">
+              <span class="position">Position</span>
+              <select name="position" required>
+                <option value="" disabled selected>Select your Department</option>
+                <option value="Admin">Admin</option>
+                <option value="Concerns & Reporting">Concerns & Reporting</option>
+                <option value="Emergency Category">Emergency Category</option>
+                <option value="Document Request Category">Document Request Category</option>
+                <option value="Mother Leader">Mother Leader</option>
+              </select>
+            </label>
+            <label class="input_group">
+              <span class="gender">Gender</span>
+              <select name="gender" required>
+                <option value="" disabled selected>Select your gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="input_group">
+            <span class="address">Complete Address</span>
+            <textarea name="address" rows="3" placeholder="House No., Street, Barangay" required></textarea>
+          </label>
+        </div>
+
+        <div class="column-divider"></div>
+
+        <div class="column-right">
+          <h2 class="section-title">Set Password</h2>
+
+          <label class="input_group pass-focus">
+            <span class="pass">Password</span>
+            <div class="password-wrapper">
+              <input type="password" name="pass" placeholder="" required />
+              <button type="button" class="password-toggle" onclick="togglePassword('pass')">
+                <span class="password-icon">Show</span>
+              </button>
             </div>
-            <div class="password-strength-label" id="passStrengthLabel">Password strength:</div>
-          </div>
-          <div class="password-missing-requirements" id="passMissingRequirements">
-            <!-- Missing requirements will be shown here -->
-          </div>
-        </label>
+            <div class="password-strength-container">
+              <div class="password-strength-bar">
+                <div class="password-strength-fill" id="passStrengthFill"></div>
+              </div>
+              <div class="password-strength-label" id="passStrengthLabel">Password strength:</div>
+            </div>
+            <div class="password-missing-requirements" id="passMissingRequirements">
+              <!-- Missing requirements will be shown here -->
+            </div>
+          </label>
 
-        <label class="input_group confirm-focus">
-          <span class="confirm">Confirm Password</span>
-          <div class="password-wrapper">
-            <input type="password" name="confirm" placeholder="" required />
-            <button type="button" class="password-toggle" onclick="togglePassword('confirm')">
-              <span class="password-icon">Show</span>
-            </button>
-          </div>
-        </label>
+          <label class="input_group confirm-focus">
+            <span class="confirm">Confirm Password</span>
+            <div class="password-wrapper">
+              <input type="password" name="confirm" placeholder="" required />
+              <button type="button" class="password-toggle" onclick="togglePassword('confirm')">
+                <span class="password-icon">Show</span>
+              </button>
+            </div>
+          </label>
 
-        <button id="createAccountBtn" class="btn btn--primary" type="submit">Create Account</button>
+          <button id="createAccountBtn" class="btn btn--primary" type="submit">Create Account</button>
+        </div>
       </div>
     </form>
     </div>
   </main>
+  <script src="js/inputWordCaps.js"></script>
   <script src="js/signup1.js"></script>
 </body>
 </html>

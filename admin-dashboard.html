@@ -4,27 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Barangay Bigte</title>
-    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
     <link rel="stylesheet" href="Styles/admin-dashboard.css">
+    <link rel="stylesheet" href="Styles/loading-overlay.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
     <script src="js/admin-dashboard.js" defer></script>
     
 </head>
 
 <body>
+
+    <div id="adminDashboardLoading" class="loading-overlay admin-dashboard-loading" aria-live="polite" aria-busy="true" role="status">
+        <div class="loading-content">
+            <img src="Images/loading_circle.png" alt="" class="loading-spinner-img" width="120" height="120" />
+            <p class="loading-text">Loading dashboard…</p>
+        </div>
+    </div>
     
     <div class="page-container">
         <!-- Header Section -->
         <header class="header">
-            <div class="header-content">
+            <div class="logo-container">
                 <div class="logo-section">
                     <div class="logo">
                         <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
                     </div>
-                    <h1 class="barangay-name">Barangay Bigte</h1>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
                 </div>
+            </div>
+            <div class="header-content">
                 <div class="header-actions">
                     <div class="notification-icon" id="notificationBell" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-bell"></i>
@@ -155,6 +167,26 @@
                                 <p>Manage resident records and information</p>
                             </div>
                         </button>
+
+                        <button class="category-btn archive-btn archive-access" onclick="navigateToArchive()">
+                            <div class="btn-icon">
+                                <i class="fas fa-archive"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Archive</h4>
+                                <p>View archived records and data</p>
+                            </div>
+                        </button>
+
+                        <button class="category-btn audit-trail-btn audit-trail-access" onclick="navigateToAuditTrail()">
+                            <div class="btn-icon">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div class="btn-content">
+                                <h4>Audit Trail</h4>
+                                <p>Track changes to user categories and positions</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
@@ -256,5 +288,6 @@
             </div>
         </div>
     </div>
+
 </body>
 </html>

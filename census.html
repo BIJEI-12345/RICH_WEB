@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Census Form - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="Styles/resident-info.css" rel="stylesheet">
+    <link href="Styles/census.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goBack()" title="Back to Dashboard">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
+                </div>
+            </div>
+            <div class="header-content">
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content-container">
+            <div class="resident-management-container">
+                <div class="page-header">
+                    <h2>Census Information Management</h2>
+                    <p>View and manage census form records</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="action-btn users-btn" onclick="goToUsers()">
+                        <i class="fas fa-users"></i>
+                        USERS
+                    </button>
+                    <button class="action-btn census-btn selected" onclick="goToCensus()">
+                        <i class="fas fa-clipboard-list"></i>
+                        CENSUS
+                    </button>
+                    <button class="action-btn search-btn" onclick="toggleSearchBar()">
+                        <i class="fas fa-search"></i>
+                        Search Census
+                    </button>
+                    <button class="action-btn print-btn" onclick="printData()">
+                        <i class="fas fa-print"></i>
+                        Print Data
+                    </button>
+                    <button type="button" class="action-btn add-resident-btn" id="addResidentBtn" onclick="openAddCensusModal()">
+                        <i class="fas fa-user-plus"></i>
+                        Add Resident
+                    </button>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-container" id="searchContainer" style="display: none;">
+                    <div class="search-bar">
+                        <div class="search-input-container">
+                            <input type="text" id="searchInput" placeholder="Search census records...">
+                            <button class="clear-search-btn" id="clearSearchBtn" onclick="clearSearch()" title="Clear search">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <button class="search-submit-btn" onclick="searchCensus()">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Census Table -->
+                <div class="table-container">
+                    <table class="residents-table" id="censusTable">
+                        <thead id="censusTableHead">
+                            <tr>
+                                <th>Loading...</th>
+                            </tr>
+                        </thead>
+                        <tbody id="census-body">
+                            <tr>
+                                <td colspan="100%" style="text-align: center; padding: 2rem;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #2c5aa0;"></i>
+                                    <p style="margin-top: 1rem; color: #666;">Loading census data...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Census Statistics Summary -->
+                <div class="census-statistics" id="censusStatistics" style="display: none;">
+                    <span class="stat-label">Total: <span class="stat-number" id="statTotal">0</span></span>
+                    <span class="stat-label">Male: <span class="stat-number" id="statMale">0</span></span>
+                    <span class="stat-label">Female: <span class="stat-number" id="statFemale">0</span></span>
+                    <span class="stat-label">PWDs: <span class="stat-number" id="statDisabilities">0</span></span>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn" onclick="previousPage()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                    <button class="page-btn" onclick="nextPage()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Resident Modal -->
+    <div class="view-resident-modal census-add-modal" id="addCensusModal" aria-hidden="true">
+        <div class="view-resident-dialog census-add-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Add Resident</h3>
+                <button type="button" class="close-modal-btn" onclick="closeAddCensusModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="addCensusForm" class="census-add-form" onsubmit="submitAddCensus(event)" novalidate>
+                <div class="census-add-grid">
+                    <label class="census-field full">
+                        <span>Select Household <abbr title="required">*</abbr></span>
+                        <select id="addCensusHousehold" name="census_id">
+                            <option value="">Select Household</option>
+                            <option value="0">New Household</option>
+                        </select>
+                    </label>
+                    <label class="census-field">
+                        <span>Last name <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_last_name" name="last_name" class="word-caps" maxlength="100" autocomplete="family-name">
+                    </label>
+                    <label class="census-field">
+                        <span>First name <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_first_name" name="first_name" class="word-caps" maxlength="100" autocomplete="given-name">
+                    </label>
+                    <label class="census-field">
+                        <span>Middle name <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_middle_name" name="middle_name" class="word-caps" maxlength="100">
+                    </label>
+                    <label class="census-field">
+                        <span>Suffix</span>
+                        <input type="text" id="add_suffix" name="suffix" class="word-caps" maxlength="10">
+                    </label>
+                    <label class="census-field">
+                        <span>Birthdate <abbr title="required">*</abbr></span>
+                        <input type="date" id="add_birthday" name="birthday">
+                    </label>
+                    <label class="census-field">
+                        <span>Age</span>
+                        <input type="text" id="add_age" name="age_display" readonly placeholder="Age">
+                    </label>
+                    <label class="census-field">
+                        <span>Sex <abbr title="required">*</abbr></span>
+                        <select id="add_sex" name="sex">
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </label>
+                    <label class="census-field">
+                        <span>Civil status <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_civil_status" name="civil_status" class="word-caps" maxlength="50">
+                    </label>
+                    <label class="census-field">
+                        <span>Contact number <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_contact_number" name="contact_number" maxlength="20">
+                    </label>
+                    <label class="census-field">
+                        <span>Occupation <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_occupation" name="occupation" class="word-caps" maxlength="100">
+                    </label>
+                    <label class="census-field">
+                        <span>Place of work <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_place_of_work" name="place_of_work" class="word-caps" maxlength="150">
+                    </label>
+                    <label class="census-field">
+                        <span>Disabilities <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_disabilities" name="disabilities" class="word-caps" maxlength="100" placeholder="e.g. None">
+                    </label>
+                    <label class="census-field">
+                        <span>Relation to household <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_relation_to_household" name="relation_to_household" class="word-caps" maxlength="50">
+                    </label>
+                    <label class="census-field">
+                        <span>House no. <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_house_no" name="house_no" class="word-caps" maxlength="50">
+                    </label>
+                    <label class="census-field full">
+                        <span>Street <abbr title="required">*</abbr></span>
+                        <input type="text" id="add_street" name="street" class="word-caps" maxlength="255">
+                    </label>
+                    <label class="census-field full">
+                        <span>Sitio <abbr title="required">*</abbr></span>
+                        <select id="add_sitio" name="sitio" class="sitio-select">
+                            <option value="">Select Sitio</option>
+                            <option value="AHUNIN">AHUNIN</option>
+                            <option value="BALTAZAR">BALTAZAR</option>
+                            <option value="BIAK NA BATO">BIAK NA BATO</option>
+                            <option value="CALLE ONSE/SAMPAGUITA">CALLE ONSE/SAMPAGUITA</option>
+                            <option value="UPPER COC">UPPER COC</option>
+                            <option value="CRUSHER HIGHWAY">CRUSHER HIGHWAY</option>
+                            <option value="INNER CRUSHER">INNER CRUSHER</option>
+                            <option value="LOOBAN 1">LOOBAN 1</option>
+                            <option value="LOOBAN 2">LOOBAN 2</option>
+                            <option value="NABUS">NABUS</option>
+                            <option value="OLD BARRIO NPC">OLD BARRIO NPC</option>
+                            <option value="OLD BARRIO 2">OLD BARRIO 2</option>
+                            <option value="OLD BARRIO EXT">OLD BARRIO EXT</option>
+                            <option value="POBLACION">POBLACION</option>
+                            <option value="KADAYUNAN">KADAYUNAN</option>
+                            <option value="MANGGAHAN">MANGGAHAN</option>
+                            <option value="RIVERSIDE">RIVERSIDE</option>
+                            <option value="SETTLING">SETTLING</option>
+                            <option value="SPAR">SPAR</option>
+                            <option value="ALINSANGAN">ALINSANGAN</option>
+                            <option value="RCD">RCD</option>
+                            <option value="BRIA PHASE 1">BRIA PHASE 1</option>
+                            <option value="BRIA PHASE 2">BRIA PHASE 2</option>
+                        </select>
+                    </label>
+                    <label class="census-field">
+                        <span>Barangay</span>
+                        <input type="text" id="add_barangay" value="Bigte" readonly class="census-readonly">
+                    </label>
+                    <label class="census-field">
+                        <span>Municipality</span>
+                        <input type="text" id="add_municipality" value="Norzagaray" readonly class="census-readonly">
+                    </label>
+                    <label class="census-field full">
+                        <span>Province</span>
+                        <input type="text" id="add_province" value="Bulacan" readonly class="census-readonly">
+                    </label>
+                    <label class="census-field full">
+                        <span>Barangay supported benefits <abbr title="required">*</abbr></span>
+                        <textarea id="add_barangay_supported_benefits" name="barangay_supported_benefits" class="word-caps" rows="2" placeholder="e.g. None"></textarea>
+                    </label>
+                </div>
+                <div class="census-add-actions">
+                    <button type="button" class="census-btn-secondary" onclick="closeAddCensusModal()">Cancel</button>
+                    <button type="submit" class="census-btn-primary" id="addCensusSubmitBtn">Save resident</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Census Modal -->
+    <div class="view-resident-modal" id="viewCensusModal">
+        <div class="view-resident-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Census Information</h3>
+                <button class="close-modal-btn" onclick="closeViewCensusModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="view-content" id="viewCensusContent">
+                <!-- Content will be dynamically generated -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/userSession.js" defer></script>
+    <script src="js/inputWordCaps.js" defer></script>
+    <script src="js/census.js" defer></script>
+</body>
+</html>
+

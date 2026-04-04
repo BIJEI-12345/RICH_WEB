@@ -1,5 +1,13 @@
 <?php
-require_once 'config/database.php';
+require_once __DIR__ . '/config.php';
+
+try {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    header('Location: reset_password.html?error=' . urlencode('Database connection failed. Please try again later.'));
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
@@ -80,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         mail($email, $subject, $message, $headers);
         
         // Redirect to login page with success message
-        header('Location: index.html?success=Password has been successfully reset. You can now login with your new password.');
+        header('Location: index.php?success=Password has been successfully reset. You can now login with your new password.');
         exit();
         
     } catch (PDOException $e) {

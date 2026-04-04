@@ -12,11 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
-    ]);
-} catch (PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed']);
     exit;
@@ -321,6 +318,137 @@ $data = [
 ];
 $data['previousRangeLabel'] = $previousRangeLabel;
 $data['period'] = $period;
+
+// Fetch jobseeker report data directly from certification_forms
+$jobseekerReports = [];
+try {
+    $sql = "
+        SELECT *
+        FROM certification_forms
+        WHERE LOWER(purpose) = 'jobseeker'
+          AND LOWER(status) = 'finished'
+        ORDER BY id ASC
+    ";
+    $stmt = $pdo->query($sql);
+    if ($stmt) {
+        $no = 1;
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            // Map name fields with fallbacks
+            $lastName = $row['last_name'] ?? $row['lastname'] ?? $row['lastName'] ?? '';
+            $firstName = $row['first_name'] ?? $row['firstname'] ?? $row['firstName'] ?? '';
+            $middleName = $row['middle_name'] ?? $row['middlename'] ?? $row['middleName'] ?? '';
+
+            // Birthdate handling
+            $birthDate = $row['birth_date'] ?? $row['birthday'] ?? $row['birthDate'] ?? '';
+            $birthMonth = '';
+            $birthDay = '';
+            $birthYear = '';
+            if (!empty($birthDate) && $birthDate !== '0000-00-00') {
+                try {
+                    $date = new DateTime($birthDate);
+                    $birthMonth = $date->format('m');
+                    $birthDay = $date->format('d');
+                    $birthYear = $date->format('Y');
+                } catch (Exception $e) {
+                    $birthMonth = '';
+                    $birthDay = '';
+                    $birthYear = '';
+                }
+            }
+
+            // Age: prefer stored age, otherwise compute from birthdate
+            $age = isset($row['age']) ? (int)$row['age'] : 0;
+            if ($age === 0 && !empty($birthYear)) {
+                try {
+                    $birth = new DateTime($birthDate);
+                    $today = new DateTime('now', $timezone);
+                    $age = $today->diff($birth)->y;
+                } catch (Exception $e) {
+                    $age = 0;
+                }
+            }
+
+            // Educational level
+            $educationalLevel = $row['educational_level'] ?? $row['educationalLevel'] ?? $row['educationallevel'] ?? '';
+
+            // Course - extract acronym similar to previous logic
+            $courseRaw = $row['course'] ?? '';
+            $course = '';
+            if (!empty($courseRaw)) {
+                if (preg_match('/^([A-Z0-9]{2,}(?:\s+[A-Z0-9]+)*)(?:\s*[-–—]|\s|$)/i', $courseRaw, $acronymMatch)) {
+                    $course = strtoupper(trim($acronymMatch[1]));
+                } elseif (preg_match_all('/\b([A-Z0-9]{2,}(?:\s+[A-Z0-9]+)*)\b/', strtoupper($courseRaw), $acronymMatches)) {
+                    $course = $acronymMatches[1][0];
+                } else {
+                    $words = preg_split('/[\s\-–—]+/', $courseRaw);
+                    $acronym = '';
+                    foreach ($words as $word) {
+                        if (!empty($word) && preg_match('/[A-Za-z0-9]/', $word)) {
+                            $acronym .= strtoupper($word[0]);
+                        }
+                    }
+                    $course = !empty($acronym) ? $acronym : '';
+                }
+            }
+
+            // Sex from gender
+            $genderRaw = $row['gender'] ?? '';
+            $sex = '';
+            if (!empty($genderRaw)) {
+                $g = strtolower(trim($genderRaw));
+                if (in_array($g, ['male', 'm'], true)) {
+                    $sex = 'Male';
+                } elseif (in_array($g, ['female', 'f'], true)) {
+                    $sex = 'Female';
+                } else {
+                    $sex = $genderRaw;
+                }
+            }
+
+            // Out of school youth - check various possible column names
+            $outOfSchoolYouth = 0;
+            if (isset($row['out_of_school_youth'])) {
+                $outOfSchoolYouth = (int)$row['out_of_school_youth'];
+            } elseif (isset($row['outOfSchoolYouth'])) {
+                $outOfSchoolYouth = (int)$row['outOfSchoolYouth'];
+            } elseif (isset($row['out_of_school'])) {
+                $outOfSchoolYouth = (int)$row['out_of_school'];
+            }
+
+            // Normalize educational level for checkmark logic
+            $educationalLevelNormalized = strtolower(trim($educationalLevel));
+            $isElementary = ($educationalLevelNormalized === 'elementary');
+            $isHighSchool = ($educationalLevelNormalized === 'high school' || $educationalLevelNormalized === 'highschool');
+            $isCollege = ($educationalLevelNormalized === 'college');
+
+            // Structure data in the correct column order: No., Last Name, First Name, Middle Name, Age, Month, Day, Year, Sex, Educational Level (for reference), Course, Out of School Youth
+            // Note: Educational level checkmarks (Elementary, High School, College) will be handled in frontend
+            $jobseekerReports[] = [
+                'no' => $no,
+                'last_name' => $lastName,
+                'first_name' => $firstName,
+                'middle_name' => $middleName,
+                'age' => $age,
+                'birth_month' => $birthMonth,
+                'birth_day' => $birthDay,
+                'birth_year' => $birthYear,
+                'sex' => $sex,
+                'educational_level' => $educationalLevel, // Keep original for reference
+                'elementary_check' => $isElementary ? 1 : 0,
+                'high_school_check' => $isHighSchool ? 1 : 0,
+                'college_check' => $isCollege ? 1 : 0,
+                'course' => $course,
+                'out_of_school_youth' => $outOfSchoolYouth
+            ];
+
+            $no++;
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error fetching jobseeker reports from certification_forms: " . $e->getMessage());
+}
+
+$data['jobseekerReports'] = $jobseekerReports;
 
 echo json_encode(['success' => true, 'data' => $data]);
 

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Certification Document Generation
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -22,9 +23,7 @@ try {
     header('Access-Control-Allow-Headers: Content-Type');
     
     // Start session
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    rich_session_start();
     
     error_log("Getting database connection...");
     $connection = getDatabaseConnection();
@@ -98,7 +97,7 @@ try {
         'first_name' => strtoupper($certificationData['first_name'] ?? $certificationData['firstname'] ?? ''),
         'middle_name' => strtoupper($certificationData['middle_name'] ?? $certificationData['middlename'] ?? ''),
         'last_name' => strtoupper($certificationData['last_name'] ?? $certificationData['lastname'] ?? ''),
-        'address' => strtoupper($certificationData['address'] ?? ''),
+        'address' => $certificationData['address'] ?? '',
         'birth_date' => formatDateToCaps($certificationData['birth_date'] ?? $certificationData['birthday'] ?? ''),
         'birth_place' => strtoupper($certificationData['birth_place'] ?? $certificationData['birthplace'] ?? ''),
         'gender' => strtoupper($certificationData['gender'] ?? ''),
@@ -117,7 +116,18 @@ try {
     }
     
     // Handle additional fields for specific certification types
-    if ($purpose === 'proof-of-residency') {
+    if ($purpose === 'jobseeker') {
+        // Current year
+        $data['current_year'] = date('Y');
+        // Current date in format: 16th day of June 2025 (no comma)
+        $data['curdate'] = formatDateWithOrdinalNoComma(date('Y-m-d'));
+        // Calculate age from birth_date
+        $birthDate = $certificationData['birth_date'] ?? $certificationData['birthday'] ?? '';
+        $data['age'] = calculateAge($birthDate);
+        // Full name in caps (already in baseData, but ensure it's there)
+        // first_name, middle_name, last_name, and address are already in baseData
+        error_log("JOBSEEKER DATA - current_year: {$data['current_year']}, curdate: {$data['curdate']}, age: {$data['age']}, first_name: {$data['first_name']}, middle_name: {$data['middle_name']}, last_name: {$data['last_name']}, address: {$data['address']}");
+    } elseif ($purpose === 'proof-of-residency') {
         $data['start_year'] = $certificationData['start_year'] ?? $certificationData['startYear'] ?? '';
     } elseif ($purpose === 'pag-ibig loan' || $purpose === 'pag-ibig-loan') {
         // Get job_position from database - handle all possible column name variations
@@ -142,24 +152,46 @@ try {
     }
     
     error_log("Generating document...");
-    // Generate document with purpose-based template
-    $outputPath = generateCertificationDocument($data, $purpose);
     
-    if ($outputPath && file_exists($outputPath)) {
-        error_log("Document generated successfully: $outputPath");
+    // For jobseeker, generate 2 documents
+    if ($purpose === 'jobseeker') {
+        $outputPaths = generateJobseekerDocuments($data);
         
-        // Don't update to Finished here - status will be updated when Ready to Receive is clicked
-        
-        // Clear any output buffer content
-        ob_clean();
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Certification document generated successfully',
-            'download_url' => 'uploads/generated_documents/certification/' . basename($outputPath)
-        ]);
+        if ($outputPaths && count($outputPaths) === 2 && file_exists($outputPaths[0]) && file_exists($outputPaths[1])) {
+            error_log("Jobseeker documents generated successfully");
+            
+            // Clear any output buffer content
+            ob_clean();
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Jobseeker documents generated successfully',
+                'download_url' => 'uploads/generated_documents/certification/' . basename($outputPaths[0]),
+                'download_url_2' => 'uploads/generated_documents/certification/' . basename($outputPaths[1])
+            ]);
+        } else {
+            throw new Exception('Failed to generate jobseeker documents');
+        }
     } else {
-        throw new Exception('Failed to generate certification document');
+        // Generate document with purpose-based template
+        $outputPath = generateCertificationDocument($data, $purpose);
+        
+        if ($outputPath && file_exists($outputPath)) {
+            error_log("Document generated successfully: $outputPath");
+            
+            // Don't update to Finished here - status will be updated when Ready to Receive is clicked
+            
+            // Clear any output buffer content
+            ob_clean();
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Certification document generated successfully',
+                'download_url' => 'uploads/generated_documents/certification/' . basename($outputPath)
+            ]);
+        } else {
+            throw new Exception('Failed to generate certification document');
+        }
     }
     
 } catch (Exception $e) {
@@ -271,6 +303,62 @@ function formatDateWithOrdinal($dateString) {
 }
 
 /**
+ * Calculate age from birth date
+ */
+function calculateAge($birthDate) {
+    if (empty($birthDate) || $birthDate === '0000-00-00' || $birthDate === '') {
+        return 0;
+    }
+    
+    try {
+        $birth = new DateTime($birthDate);
+        $today = new DateTime();
+        $age = $today->diff($birth)->y;
+        return $age;
+    } catch (Exception $e) {
+        error_log("Age calculation error: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Format date with ordinal without comma (16th day of June 2025)
+ */
+function formatDateWithOrdinalNoComma($dateString) {
+    if (empty($dateString)) {
+        return '';
+    }
+    
+    try {
+        $date = new DateTime($dateString);
+        $monthNames = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'
+        ];
+        
+        $day = (int)$date->format('j');
+        $month = $monthNames[(int)$date->format('n')];
+        $year = $date->format('Y');
+        
+        // Add ordinal suffix
+        $suffix = 'th';
+        if ($day % 10 == 1 && $day != 11) {
+            $suffix = 'st';
+        } elseif ($day % 10 == 2 && $day != 12) {
+            $suffix = 'nd';
+        } elseif ($day % 10 == 3 && $day != 13) {
+            $suffix = 'rd';
+        }
+        
+        return $day . $suffix . ' day of ' . $month . ' ' . $year;
+    } catch (Exception $e) {
+        error_log("Date formatting error: " . $e->getMessage());
+        return $dateString;
+    }
+}
+
+/**
  * Convert number to words (PESOS) - handles up to millions
  */
 function numberToWords($number) {
@@ -308,6 +396,142 @@ function numberToWords($number) {
 }
 
 /**
+ * Generate both jobseeker documents (CERT and OATH)
+ */
+function generateJobseekerDocuments($data) {
+    try {
+        error_log("Starting jobseeker documents generation...");
+        
+        $outputPaths = [];
+        
+        // Create output directory if it doesn't exist
+        $outputDir = '../uploads/generated_documents/certification';
+        if (!is_dir($outputDir)) {
+            error_log("Creating output directory...");
+            if (!mkdir($outputDir, 0755, true)) {
+                throw new Exception("Failed to create output directory: $outputDir");
+            }
+        }
+        
+        // Generate timestamp for unique filenames
+        $timestamp = date('Y-m-d_H-i-s');
+        $lastName = $data['last_name'] ?? 'UNKNOWN';
+        
+        // Template paths
+        $certTemplatePath = '../brgy_forms/certification/JOBSEEKER_CERT_NEW.docx';
+        $oathTemplatePath = '../brgy_forms/certification/JOBSEEKER_OATH_NEW.docx';
+        
+        // Check if templates exist
+        if (!file_exists($certTemplatePath)) {
+            throw new Exception("Template file not found: $certTemplatePath");
+        }
+        if (!file_exists($oathTemplatePath)) {
+            throw new Exception("Template file not found: $oathTemplatePath");
+        }
+        
+        // Generate CERT document
+        $certFilename = "JOBSEEKER_CERT_" . $lastName . "_" . $timestamp . ".docx";
+        $certOutputPath = $outputDir . '/' . $certFilename;
+        
+        error_log("Generating CERT document: $certOutputPath");
+        if (!copy($certTemplatePath, $certOutputPath)) {
+            throw new Exception("Failed to copy CERT template");
+        }
+        
+        // Process CERT template
+        processTemplate($certOutputPath, $data);
+        $outputPaths[] = $certOutputPath;
+        
+        // Generate OATH document
+        $oathFilename = "JOBSEEKER_OATH_" . $lastName . "_" . $timestamp . ".docx";
+        $oathOutputPath = $outputDir . '/' . $oathFilename;
+        
+        error_log("Generating OATH document: $oathOutputPath");
+        if (!copy($oathTemplatePath, $oathOutputPath)) {
+            throw new Exception("Failed to copy OATH template");
+        }
+        
+        // Process OATH template
+        processTemplate($oathOutputPath, $data);
+        $outputPaths[] = $oathOutputPath;
+        
+        error_log("Jobseeker documents generated successfully");
+        return $outputPaths;
+        
+    } catch (Exception $e) {
+        error_log("generateJobseekerDocuments function error: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        throw new Exception("Failed to generate jobseeker documents: " . $e->getMessage());
+    }
+}
+
+/**
+ * Process template with data replacement
+ */
+function processTemplate($outputPath, $data) {
+    // Open the Word document as ZIP
+    $zip = new ZipArchive();
+    if ($zip->open($outputPath) !== TRUE) {
+        throw new Exception("Cannot open Word document as ZIP");
+    }
+    
+    // Get the document.xml content
+    $documentXml = $zip->getFromName('word/document.xml');
+    if ($documentXml === false) {
+        throw new Exception("Cannot read document.xml");
+    }
+    
+    // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
+    $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+    
+    // Put the converted XML back
+    if ($zip->addFromString('word/document.xml', $documentXml) === false) {
+        throw new Exception("Failed to update document.xml");
+    }
+    $zip->close();
+    
+    // Create a temporary file for TemplateProcessor to work with
+    $tempTemplatePath = $outputPath . '.template';
+    if (file_exists($tempTemplatePath)) {
+        unlink($tempTemplatePath);
+    }
+    if (!copy($outputPath, $tempTemplatePath)) {
+        throw new Exception("Failed to copy template to temporary file");
+    }
+    
+    // Now use PhpWord TemplateProcessor with ${} syntax
+    $template = new \PhpOffice\PhpWord\TemplateProcessor($tempTemplatePath);
+    
+    // Replace all placeholders
+    foreach ($data as $key => $value) {
+        try {
+            $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
+            $template->setValue($key, $valueToSet);
+        } catch (Exception $e) {
+            error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+        }
+    }
+    
+    // Save the template
+    $template->saveAs($outputPath);
+    
+    // Clean up temporary file
+    if (file_exists($tempTemplatePath)) {
+        unlink($tempTemplatePath);
+    }
+    
+    // Verify file was created and has content
+    if (!file_exists($outputPath)) {
+        throw new Exception("Output file was not created");
+    }
+    
+    $fileSize = filesize($outputPath);
+    if ($fileSize < 1000) { // Less than 1KB is suspicious
+        throw new Exception("Output file is too small, may be corrupted");
+    }
+}
+
+/**
  * Generate certification document using template
  */
 function generateCertificationDocument($data, $purpose) {
@@ -318,6 +542,9 @@ function generateCertificationDocument($data, $purpose) {
         // Determine template path based on purpose
         $templatePath = '';
         switch($purpose) {
+            case 'jobseeker':
+                $templatePath = '../brgy_forms/certification/JOBSEEKER_CERT_NEW.docx';
+                break;
             case 'proof-of-residency':
                 $templatePath = '../brgy_forms/certification/PROOF_OF_RESIDENCY.docx';
                 break;
@@ -369,10 +596,10 @@ function generateCertificationDocument($data, $purpose) {
             $filenamePrefix = "CERTIFICATION";
         }
         
-        $filename = $filenamePrefix . "_" . $data['last_name'] . "_" . $timestamp . ".docx";
-        $outputPath = $outputDir . '/' . $filename;
-        
-        error_log("Output path: $outputPath");
+         $filename = $filenamePrefix . "_" . $data['last_name'] . "_" . $timestamp . ".docx";
+         $outputPath = $outputDir . '/' . $filename;
+         
+         error_log("Output path: $outputPath");
         
         // Copy template to output location
         error_log("Copying template...");
@@ -450,6 +677,7 @@ function generateCertificationDocument($data, $purpose) {
             throw new Exception("Output file is too small, may be corrupted");
         }
         
+        // Keep DOCX file (no PDF conversion)
         return $outputPath;
         
     } catch (Exception $e) {

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Trail - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/audit-trail.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
+    <script src="js/audit-trail.js" defer></script>
+    
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="navigateToDashboard()" title="Back to Dashboard">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
+                </div>
+            </div>
+            <div class="header-content">
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content-container">
+            <div class="resident-management-container">
+                <div class="page-header">
+                    <h2>Audit Trail</h2>
+                </div>
+
+                <div class="audit-global-actions">
+                    <button class="refresh-btn" onclick="loadAuditTrail()" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button type="button" class="action-btn print-btn" onclick="printAuditTrail()" title="Print table">
+                        <i class="fas fa-print"></i>
+                        Print
+                    </button>
+                </div>
+
+                <section class="audit-trail-section audit-subsection audit-single-section">
+                    <div class="section-header section-header--single">
+                        <h3>Authentication activity</h3>
+                    </div>
+
+                    <div class="table-container" id="tableContainer">
+                        <table class="audit-trail-table" id="auditTrailTable">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Position</th>
+                                    <th>Action</th>
+                                    <th>Details</th>
+                                    <th>IP Address</th>
+                                    <th>Date &amp; Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditTrailBody">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="empty-state" id="emptyState" style="display: none;">
+                        <div class="empty-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <h4>No records yet</h4>
+                        <p>There are no authentication events recorded.</p>
+                    </div>
+
+                    <div class="pagination" id="pagination" style="display: none;">
+                        <button class="pagination-btn" id="prevBtn" onclick="changePage(-1)">
+                            <i class="fas fa-chevron-left"></i>
+                            Previous
+                        </button>
+                        <span class="pagination-info" id="paginationInfo"></span>
+                        <button class="pagination-btn" id="nextBtn" onclick="changePage(1)">
+                            Next
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Modal -->
+    <div class="status-modal" id="statusModal">
+        <div class="status-modal-content">
+            <div class="status-icon" id="statusIcon"></div>
+            <h3 id="statusTitle"></h3>
+            <p id="statusMessage"></p>
+            <button class="status-btn" onclick="closeStatusModal()">OK</button>
+        </div>
+    </div>
+</body>
+</html>

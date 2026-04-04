@@ -40,41 +40,9 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 });
 
-// Loading Indicator Functions
-function showLoadingIndicator(section) {
-    let loadingId;
-    if (section === 'resolved') {
-        loadingId = 'resolved-loading';
-    } else {
-        loadingId = 'all-loading';
-    }
-    
-    const loadingIndicator = document.getElementById(loadingId);
-    if (loadingIndicator) {
-        loadingIndicator.classList.remove('hidden');
-    }
-}
-
-function hideLoadingIndicator(section) {
-    let loadingId;
-    if (section === 'resolved') {
-        loadingId = 'resolved-loading';
-    } else {
-        loadingId = 'all-loading';
-    }
-    
-    const loadingIndicator = document.getElementById(loadingId);
-    if (loadingIndicator) {
-        loadingIndicator.classList.add('hidden');
-    }
-}
-
 // Load emergency data from PHP backend
 async function loadEmergencyData() {
     try {
-        // Show loading indicator
-        showLoadingIndicator(currentSection);
-        
         const response = await fetch('php/emergency.php');
         const data = await response.json();
         emergencyData = data.reports || [];
@@ -90,9 +58,6 @@ async function loadEmergencyData() {
         emergencyData = getSampleData();
         console.log('Using fallback data:', emergencyData);
         updateDashboard();
-    } finally {
-        // Hide loading indicator
-        hideLoadingIndicator(currentSection);
     }
 }
 
@@ -547,7 +512,7 @@ function logout() {
         if (window.performLogout) {
             window.performLogout();
         } else {
-            window.location.href = 'index.html';
+            window.location.href = 'index.php';
         }
     }
     closeAdminDropdown();

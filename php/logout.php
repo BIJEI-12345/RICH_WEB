@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/init_session.php';
+rich_session_start();
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
@@ -14,20 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = 3306; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
-    $connection = new mysqli($host, $user, $pass, $db, $port);
-    if ($connection->connect_error) {
-        error_log("Database connection error: " . $connection->connect_error);
-        http_response_code(500);
-        echo json_encode(["error" => "Database connection failed."]);
-        exit;
-    }
+    $connection = getDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection exception: " . $e->getMessage());
     http_response_code(500);
@@ -149,6 +142,33 @@ try {
             // If no last_login, just set last_logout and online_offline to 'offline'
             $updateQuery = "UPDATE brgy_users SET last_logout = '{$now}', online_offline = 'offline' WHERE email = '{$emailEsc}'";
             $connection->query($updateQuery);
+        }
+        
+        // Log audit trail for logout
+        try {
+            require_once __DIR__ . '/audit_trail_helper.php';
+            $userSql = "SELECT id, name FROM brgy_users WHERE email = ?";
+            $userStmt = $connection->prepare($userSql);
+            $userStmt->bind_param('s', $emailEsc);
+            $userStmt->execute();
+            $userResult = $userStmt->get_result();
+            $userData = $userResult->fetch_assoc();
+            
+            if ($userData) {
+                logAuditTrail(
+                    'logout',
+                    'auth',
+                    "{$userData['name']} exited system",
+                    [
+                        'user_id' => $userData['id'],
+                        'active_hours' => round($activeHours, 2)
+                    ],
+                    $userData['id'],
+                    'user'
+                );
+            }
+        } catch (Exception $e) {
+            error_log("Error logging audit trail: " . $e->getMessage());
         }
         
         // Destroy session

@@ -149,15 +149,29 @@ function handleConcernRowClick(event) {
 }
 
 function openRelatableForSelected(viewCategory) {
-    if (!selectedConcernId) {
-        showStatusModal('warning', 'Select a concern', 'Click a concern row before checking for related reports.');
-        return;
+    let concernIdToUse = selectedConcernId;
+    
+    // If no concern is selected, use the first concern in the current view
+    if (!concernIdToUse) {
+        // Get concerns for the current category
+        const categoryConcerns = concernsData.filter(concern => {
+            if (viewCategory === 'new') return concern.status === 'new';
+            if (viewCategory === 'processing') return concern.status === 'processing';
+            if (viewCategory === 'finished' || viewCategory === 'resolved') return concern.status === 'resolved';
+            return false;
+        });
+        
+        if (categoryConcerns.length === 0) {
+            showStatusModal('info', 'No concerns', 'No concerns available in this category.');
+            return;
+        }
+        
+        // Use the first concern
+        concernIdToUse = categoryConcerns[0].concern_id;
     }
-    if (selectedConcernCategory !== viewCategory) {
-        showStatusModal('warning', 'Wrong tab', 'Switch to the tab that holds the selected concern first.');
-        return;
-    }
-    showRelatableConcerns(selectedConcernId);
+    
+    // Show relatable concerns immediately
+    showRelatableConcerns(concernIdToUse);
 }
 
 // Navigation Functions
@@ -304,7 +318,7 @@ function showLogoutConfirmationModal() {
         if (window.performLogout) {
             window.performLogout();
         } else {
-            window.location.href = 'index.html';
+            window.location.href = 'index.php';
         }
     };
     
@@ -383,9 +397,13 @@ async function loadConcerns(status = null) {
         if (result.success) {
             concernsData = result.data;
             console.log('Loaded concerns data:', concernsData);
+            if (result.counts) {
+                applyNavCounts(result.counts);
+            }
             displayConcerns(concernsData, status);
-            // Update counts after displaying concerns
-            await updateCategoryCounts();
+            if (!result.counts) {
+                await updateCategoryCounts();
+            }
         } else {
             console.error('Failed to load concerns:', result.message);
             showStatusModal('error', 'Error', 'Failed to load concerns from database.');
@@ -834,32 +852,101 @@ function formatRelatableDate(dateValue) {
     });
 }
 
-function showRelatableConcerns(concernId) {
+async function showRelatableConcerns(concernId) {
     const baseConcern = concernsData.find(concern => concern.concern_id === concernId);
     if (!baseConcern) {
         showStatusModal('error', 'Concern not found', 'Unable to locate the selected concern.');
         return;
     }
 
-    const similarConcerns = findSimilarConcerns(baseConcern);
-    
-    // Include the selected concern in the list (marked as selected)
-    const allRelatableConcerns = [
-        { concern: baseConcern, score: 1.0, locationMatch: true, commonWordCount: 999, isSelected: true },
-        ...similarConcerns
-    ];
-    
+    // Show loading state
+    const modal = document.getElementById('relatableModal');
     const modalTitle = document.getElementById('relatableModalTitle');
+    const summaryElement = document.getElementById('relatableSummaryText');
+    const tableBody = document.getElementById('relatableTableBody');
+    
     if (modalTitle) {
         modalTitle.textContent = `Similar Concerns for ${concernId}`;
     }
-    updateRelatableActionVisibility(baseConcern.status);
-    populateRelatableModal(allRelatableConcerns, baseConcern);
-
-    const modal = document.getElementById('relatableModal');
+    if (summaryElement) {
+        summaryElement.textContent = 'Analyzing similar concerns using AI...';
+    }
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading...</td></tr>';
+    }
+    
     if (modal) {
         modal.classList.add('show');
         modal.setAttribute('aria-hidden', 'false');
+    }
+    
+    try {
+        // Call AI API to find similar concerns
+        const response = await fetch('php/concerns.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'find_similar',
+                concern_id: concernId
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+            throw new Error(result.message || 'Failed to find similar concerns');
+        }
+        
+        const similarIds = result.similar_ids || [];
+        
+        // Find similar concerns from concernsData
+        const similarConcerns = [];
+        const similarIdsSet = new Set(similarIds);
+        
+        concernsData.forEach(concern => {
+            if (similarIdsSet.has(concern.concern_id)) {
+                similarConcerns.push({
+                    concern: concern,
+                    score: 1.0,
+                    locationMatch: true,
+                    commonWordCount: 999,
+                    isSelected: true // Auto-select similar concerns
+                });
+            }
+        });
+        
+        // Only show other similar concerns, not the base concern itself
+        // If no similar concerns found, show empty state
+        if (similarConcerns.length === 0) {
+            updateRelatableActionVisibility(baseConcern.status);
+            populateRelatableModal([], baseConcern);
+        } else {
+            // Only show the similar concerns, not the base concern
+            updateRelatableActionVisibility(baseConcern.status);
+            populateRelatableModal(similarConcerns, baseConcern);
+        }
+        
+    } catch (error) {
+        console.error('Error finding similar concerns:', error);
+        // Fallback to old method if AI fails
+        const similarConcerns = findSimilarConcerns(baseConcern);
+        
+        // Only show other similar concerns, not the base concern itself
+        if (similarConcerns.length === 0) {
+            updateRelatableActionVisibility(baseConcern.status);
+            populateRelatableModal([], baseConcern);
+        } else {
+            // Only show the similar concerns, not the base concern
+            const similarOnly = similarConcerns.map(sc => ({ ...sc, isSelected: true })); // Auto-select all similar concerns
+            updateRelatableActionVisibility(baseConcern.status);
+            populateRelatableModal(similarOnly, baseConcern);
+        }
     }
 }
 
@@ -871,9 +958,13 @@ function populateRelatableModal(similarConcerns, baseConcern) {
     const emptyState = document.getElementById('relatableEmptyState');
 
     if (summaryElement) {
-        summaryElement.textContent = similarConcerns.length > 0
-            ? `Found ${similarConcerns.length} similar concern(s) around ${baseConcern.location || 'the same area'}.`
-            : 'No similar concerns detected for this report.';
+        // similarConcerns already excludes the base concern, so just count them
+        const similarCount = similarConcerns.length;
+        if (similarCount > 0) {
+            summaryElement.textContent = `Found ${similarCount} similar concern(s) based on same concern type and location. All similar concerns are automatically selected.`;
+        } else {
+            summaryElement.textContent = 'No similar concerns found with the same concern type and location.';
+        }
     }
 
     if (selectAllCheckbox) {
@@ -910,10 +1001,18 @@ function populateRelatableModal(similarConcerns, baseConcern) {
                 ? (entry.concern.statement.length > 90 ? entry.concern.statement.substring(0, 90) + '...' : entry.concern.statement)
                 : rawStatement;
             const preview = escapeForHtml(previewValue);
-            const isSelected = entry.isSelected || false;
+            const isSelected = entry.isSelected !== false; // Default to true (auto-selected)
             const riskLevel = entry.concern.risk_level || '';
             const riskClass = riskLevel ? `risk-${riskLevel}` : '';
             const riskDot = riskLevel ? `<span class="relatable-risk-dot ${riskClass}" title="${riskLevel} risk"></span>` : '';
+            
+            // Display image if available
+            let imageHtml = '<span style="color: #999;">No image</span>';
+            if (entry.concern.concern_image) {
+                const imageUrl = entry.concern.concern_image;
+                imageHtml = `<img src="${imageUrl}" alt="Concern Image" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="viewConcernImage('${entry.concern.concern_id}', '${escapeForHtml(entry.concern.reporter_name || '')}', '${imageUrl}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display: none; color: #999;">No image</span>`;
+            }
+            
             return `
             <tr class="${isSelected ? 'relatable-selected' : ''}">
                 <td>
@@ -923,6 +1022,7 @@ function populateRelatableModal(similarConcerns, baseConcern) {
                 <td>${formatRelatableDate(entry.concern.date_and_time)}</td>
                 <td class="relatable-statement" title="${safeStatement}">${preview}</td>
                 <td>${entry.concern.location || 'N/A'}</td>
+                <td style="text-align: center;">${imageHtml}</td>
                 <td>${(entry.concern.status || 'N/A').replace('_', ' ')}</td>
             </tr>
         `;
@@ -936,8 +1036,18 @@ function populateRelatableModal(similarConcerns, baseConcern) {
         });
     });
 
+    // Update select all state and buttons after populating
     updateRelatableSelectAllState();
     updateRelatableBulkButtons();
+    
+    // Enable buttons if there are auto-selected concerns
+    const selectedCount = getSelectedRelatableIds().length;
+    if (selectedCount > 0) {
+        const processBtn = document.getElementById('relatableProcessBtn');
+        const resolveBtn = document.getElementById('relatableResolveBtn');
+        if (processBtn) processBtn.disabled = false;
+        if (resolveBtn) resolveBtn.disabled = false;
+    }
 }
 
 function toggleRelatableSelectAll(source) {
@@ -1261,18 +1371,10 @@ function showConcernModal(concernData) {
         </div>
     `;
     
-    // Update resolve button based on status AND access control
-    const canEdit = (typeof canEditModule === 'function') ? canEditModule('concerns') : true;
-    if (concernData.status === 'resolved' || !canEdit) {
-        resolveBtn.style.display = 'none';
-        resolveBtn.onclick = null;
-    } else {
-        resolveBtn.style.display = 'block';
-        resolveBtn.onclick = function() {
-            closeConcernModal();
-            resolveConcern(concernData.concern_id);
-        };
-    }
+    // Hide resolve button when viewing concern details (View button)
+    // Resolve button should only appear when processing concerns, not when viewing
+    resolveBtn.style.display = 'none';
+    resolveBtn.onclick = null;
     
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
@@ -1390,12 +1492,23 @@ document.addEventListener('DOMContentLoaded', function() {
     loadConcerns('new');
 });
 
-// Update category counts based on the data
+function applyNavCounts(counts) {
+    if (!counts || typeof counts !== 'object') return;
+    const newCountElement = document.getElementById('new-count');
+    const processingCountElement = document.getElementById('processing-count');
+    const finishedCountElement = document.getElementById('finished-count');
+    const totalCountElement = document.getElementById('total-concerns');
+    if (newCountElement) newCountElement.textContent = counts.new ?? 0;
+    if (processingCountElement) processingCountElement.textContent = counts.processing ?? 0;
+    if (finishedCountElement) finishedCountElement.textContent = counts.resolved ?? 0;
+    if (totalCountElement) totalCountElement.textContent = counts.total ?? 0;
+}
+
+// Update category counts (fallback when API omits counts)
 async function updateCategoryCounts() {
     try {
         console.log('Starting updateCategoryCounts...');
         
-        // Fetch all concerns to count them
         const response = await fetch('php/concerns.php');
         console.log('Response status:', response.status);
         
@@ -1421,6 +1534,10 @@ async function updateCategoryCounts() {
         }
         
         if (result.success) {
+            if (result.counts) {
+                applyNavCounts(result.counts);
+                return;
+            }
             const allConcerns = result.data;
             console.log('All concerns data:', allConcerns);
             console.log('Number of concerns from API:', allConcerns.length);
@@ -1431,36 +1548,12 @@ async function updateCategoryCounts() {
             const totalConcerns = allConcerns.length;
             
             console.log('Calculated counts - New:', newConcerns, 'Processing:', processingConcerns, 'Finished:', finishedConcerns, 'Total:', totalConcerns);
-    
-            // Update navigation counts
-            const newCountElement = document.getElementById('new-count');
-            const processingCountElement = document.getElementById('processing-count');
-            const finishedCountElement = document.getElementById('finished-count');
-            const totalCountElement = document.getElementById('total-concerns');
-            
-            console.log('Found elements:', {
-                newCountElement,
-                processingCountElement,
-                finishedCountElement,
-                totalCountElement
+            applyNavCounts({
+                new: newConcerns,
+                processing: processingConcerns,
+                resolved: finishedConcerns,
+                total: totalConcerns
             });
-            
-            if (newCountElement) {
-                newCountElement.textContent = newConcerns;
-                console.log('Updated new-count to:', newCountElement.textContent);
-            }
-            if (processingCountElement) {
-                processingCountElement.textContent = processingConcerns;
-                console.log('Updated processing-count to:', processingCountElement.textContent);
-            }
-            if (finishedCountElement) {
-                finishedCountElement.textContent = finishedConcerns;
-                console.log('Updated finished-count to:', finishedCountElement.textContent);
-            }
-            if (totalCountElement) {
-                totalCountElement.textContent = totalConcerns;
-                console.log('Updated total-concerns to:', totalCountElement.textContent);
-            }
         } else {
             console.error('Failed to update category counts:', result.message);
         }

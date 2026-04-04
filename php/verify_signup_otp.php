@@ -1,23 +1,17 @@
 <?php
-session_start();
+require_once __DIR__ . '/init_session.php';
+rich_session_start();
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
 
 // Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = "3306"; // Default MySQL port for RDS
-$dbname = "rich_db"; 
-$username = "admin";
-$password = "4mazonb33j4y!";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $username, $password, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 10,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-} catch (PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Database connection failed']);
     exit();

@@ -1,0 +1,64 @@
+/* Shared Full Screen Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.loading-overlay.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-spinner-img {
+    width: 80px;
+    height: 80px;
+    animation: spin 2s linear infinite;
+    margin: 0 auto 1.5rem;
+    display: block;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    font-size: 1.1rem;
+    color: #000000;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Admin dashboard: larger community loading graphic */
+.admin-dashboard-loading .loading-spinner-img {
+    width: 120px;
+    max-width: min(120px, 45vw);
+    height: auto;
+}
+

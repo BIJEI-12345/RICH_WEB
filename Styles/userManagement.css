@@ -29,21 +29,37 @@ body {
 .header {
     background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
     color: white;
-    padding: 1rem 0;
+    padding: 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;
     z-index: 1000;
+    display: flex;
+    align-items: stretch;
+}
+
+.logo-container {
+    background-color: white;
+    padding: 0.5rem 9rem 0.5rem 1rem;
+    border-radius: 0;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 2px 10px rgb(89 93 101),
+                inset 0 1px 0 rgb(0 98 245 / 70%);
+    display: flex;
+    align-items: center;
+    margin: 0;
+    align-self: stretch;
 }
 
 .header-content {
     max-width: 1200px;
-    margin-left: 1.5rem;
+    margin-left: 0;
     margin-right: auto;
     padding: 0 2rem;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
+    flex: 1;
 }
 
 .logo-section {
@@ -55,7 +71,7 @@ body {
 .back-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;
-    color: white;
+    color: #000000;
     padding: 0.5rem;
     border-radius: 8px;
     cursor: pointer;
@@ -66,6 +82,8 @@ body {
     font-size: 1rem;
     width: 40px;
     height: 40px;
+    margin-right: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 1.15);
 }
 
 .back-btn:hover {
@@ -94,6 +112,13 @@ body {
     font-weight: 700;
     color: white;
     font-family: "Segoe UI", sans-serif;
+}
+
+.logo-header-img {
+    height: 50px;
+    width: auto;
+    object-fit: contain;
+}
 }
 
 .header-actions {
@@ -629,30 +654,6 @@ body {
     font-size: 16px;
 }
 
-/* Loading State */
-.loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 3rem;
-    color: #64748b;
-}
-
-.loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e2e8f0;
-    border-top: 4px solid #2c5aa0;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 1rem;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
 
 /* Users Container */
 .users-container {

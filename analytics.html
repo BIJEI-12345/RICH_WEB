@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Analytics - Barangay Bigte</title>
-    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
     <link rel="stylesheet" href="Styles/admin-dashboard.css">
     <link rel="stylesheet" href="Styles/analytics.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -12,7 +12,7 @@
 <body>
     <div class="page-container">
         <header class="header">
-            <div class="header-content">
+            <div class="logo-container">
                 <div class="logo-section">
                     <button class="back-btn" onclick="window.location.href='admin-dashboard.html'" aria-label="Back to dashboard">
                         <i class="fas fa-arrow-left"></i>
@@ -20,8 +20,10 @@
                     <div class="logo">
                         <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
                     </div>
-                    <h1 class="barangay-name">Barangay Bigte</h1>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
                 </div>
+            </div>
+            <div class="header-content">
                 <div class="header-actions">
                 </div>
             </div>
@@ -41,8 +43,7 @@
                                 <span class="analytics-meta" id="analyticsScopeLabel">Updated —</span>
                                 <div class="analytics-control-group">
                                     <select id="analyticsMonthSelect" class="analytics-range-select">
-                                        <option value="this-month" selected>This month</option>
-                                        <option value="last-month">Last month</option>
+                                        <option value="">Select month</option>
                                     </select>
                                     <select id="analyticsYearSelect" class="analytics-range-select" style="display: none;">
                                         <option value="">Select year</option>
@@ -51,7 +52,6 @@
                                         <i class="fas fa-calendar-alt"></i> Year view
                                     </button>
                                 </div>
-                                <span id="analyticsLoadingIndicator" class="loading-indicator" aria-live="polite">Loading data…</span>
                             </div>
                         </header>
                         <div class="analytics-tables-section">
@@ -174,15 +174,33 @@
                                     </table>
                                 </div>
                             </div>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Jobseeker Report</h5>
+                                        <p class="table-subtitle" id="jobseekerReportSubtitle">All Records</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printJobseekerTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="table-wrapper">
+                                    <table class="analytics-comparison-table" id="jobseekerReportTable">
+                                        <thead id="jobseekerReportTableHead">
+                                            <tr>
+                                                <th class="table-loading">Loading...</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="jobseekerReportTableBody">
+                                            <tr>
+                                                <td colspan="100" class="table-loading">Loading...</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                         <div class="analytics-secondary-grid">
-                            <div class="analytics-panel">
-                                <h5>Top concerns this month</h5>
-                                <ul class="insight-list">
-                                    <li>— No data yet</li>
-                                    <li>— Waiting for reports</li>
-                                </ul>
-                            </div>
                             <div class="analytics-panel">
                                 <h5>Document Requests Breakdown</h5>
                                 <p class="panel-subtitle" id="docBreakdownMonthLabel">This Month</p>
@@ -203,7 +221,10 @@
     <button id="scrollToTop" class="scroll-to-top-btn" aria-label="Scroll to top" title="Scroll to top">
         <i class="fas fa-arrow-up"></i>
     </button>
+    <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
     <script src="js/analytics.js" defer></script>
+
 </body>
 </html>
 

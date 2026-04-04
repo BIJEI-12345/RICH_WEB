@@ -2,20 +2,13 @@
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
 
-// Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = "3306"; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Database configuration - Use config.php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$db;charset=utf8", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 10,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-} catch (PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     header('Location: ../verify_code.html?error=' . urlencode('Database connection failed. Please try again later.'));
     exit();
@@ -127,14 +120,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($updatedUser && !empty($updatedUser['password'])) {
                     $storedPasswordHash = trim($updatedUser['password']);
                     
+                    try {
+                        logAuditTrail(
+                            'password_changed',
+                            'auth',
+                            "Password changed via OTP reset for {$email}",
+                            ['method' => 'otp_reset'],
+                            (int)$user['id'],
+                            'user',
+                            null,
+                            null,
+                            [
+                                'email' => $email,
+                                'name' => $user['name'] ?? 'Unknown',
+                                'user_id' => (int)$user['id'],
+                                'position' => null,
+                            ]
+                        );
+                    } catch (Exception $e) {
+                        error_log("Audit password_changed: " . $e->getMessage());
+                    }
+
                     // Verify hashed password using password_verify()
                     if (password_verify($new_password, $storedPasswordHash)) {
                         error_log("Password reset successful for email: " . $email);
-                        header('Location: ../index.html?success=' . urlencode('Password reset successfully! You can now login with your new password.'));
+                        header('Location: ../index.php?success=' . urlencode('Password reset successfully! You can now login with your new password.'));
                         exit();
                     } else {
                         error_log("Password reset verification failed for email: " . $email);
-                        header('Location: ../index.html?success=' . urlencode('Password was updated. Please try logging in with your new password.'));
+                        header('Location: ../index.php?success=' . urlencode('Password was updated. Please try logging in with your new password.'));
                         exit();
                     }
                 } else {

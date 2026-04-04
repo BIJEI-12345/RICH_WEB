@@ -94,6 +94,9 @@ try {
                 throw new Exception('Missing required parameters');
             }
             
+            // Normalize status to handle values like "finished", "FINISHED", etc.
+            $normalizedStatus = ucfirst(strtolower(trim($status)));
+            
             // Validate table name
             $allowedTables = ['clearance', 'indigency', 'coe', 'barangay_id', 'certification'];
             if (!in_array($table, $allowedTables)) {
@@ -115,7 +118,7 @@ try {
             // Get current time using PHP timezone (Philippine time)
             $currentTime = date('Y-m-d H:i:s');
             
-            if ($status === 'Processing') {
+            if ($normalizedStatus === 'Processing') {
                 // Set status to Processing and update process_at timestamp (using PHP timezone)
                 $sql = "UPDATE $actualTable SET status = ?, process_at = ? WHERE id = ?";
                 $stmt = $connection->prepare($sql);
@@ -124,8 +127,8 @@ try {
                     throw new Exception('Failed to prepare update statement: ' . $connection->error);
                 }
                 
-                $stmt->bind_param('ssi', $status, $currentTime, $id);
-            } elseif ($status === 'Finished') {
+                $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
+            } elseif ($normalizedStatus === 'Finished') {
                 // Set status to Finished and update finish_at timestamp (using PHP timezone)
                 $sql = "UPDATE $actualTable SET status = ?, finish_at = ? WHERE id = ?";
                 $stmt = $connection->prepare($sql);
@@ -134,7 +137,7 @@ try {
                     throw new Exception('Failed to prepare update statement: ' . $connection->error);
                 }
                 
-                $stmt->bind_param('ssi', $status, $currentTime, $id);
+                $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
             } else {
                 // Regular status update without timestamp
                 $sql = "UPDATE $actualTable SET status = ? WHERE id = ?";
@@ -144,7 +147,7 @@ try {
                     throw new Exception('Failed to prepare update statement: ' . $connection->error);
                 }
                 
-                $stmt->bind_param('si', $status, $id);
+                $stmt->bind_param('si', $normalizedStatus, $id);
             }
             
             if (!$stmt->execute()) {
@@ -153,6 +156,132 @@ try {
             
             if ($stmt->affected_rows === 0) {
                 throw new Exception('No rows updated - ID may not exist');
+            }
+            
+            // If status is Finished and this is a certification with purpose='jobseeker', insert into job_seeker_report
+            if ($normalizedStatus === 'Finished' && $table === 'certification' && $actualTable === 'certification_forms') {
+                try {
+                    // Get certification data
+                    $certSql = "SELECT * FROM certification_forms WHERE id = ?";
+                    $certStmt = $connection->prepare($certSql);
+                    if ($certStmt) {
+                        $certStmt->bind_param('i', $id);
+                        $certStmt->execute();
+                        $certResult = $certStmt->get_result();
+                        $certData = $certResult->fetch_assoc();
+                        
+                        if ($certData) {
+                            $purpose = strtolower($certData['purpose'] ?? '');
+                            
+                            // Check if purpose is jobseeker
+                            if ($purpose === 'jobseeker') {
+                                // Get data from certification_forms
+                                $lastName = $certData['last_name'] ?? $certData['lastname'] ?? '';
+                                $firstName = $certData['first_name'] ?? $certData['firstname'] ?? '';
+                                $middleName = $certData['middle_name'] ?? $certData['middlename'] ?? '';
+                                $birthDate = $certData['birth_date'] ?? $certData['birthday'] ?? '';
+                                $educationalLevel = $certData['educational_level'] ?? $certData['educationalLevel'] ?? $certData['educationallevel'] ?? '';
+                                $course = $certData['course'] ?? '';
+                                
+                                // Map gender from certification_forms to sex column in job_seeker_report
+                                $genderRaw = $certData['gender'] ?? '';
+                                $sex = '';
+                                if (!empty($genderRaw)) {
+                                    $g = strtolower(trim($genderRaw));
+                                    if (in_array($g, ['male', 'm'], true)) {
+                                        $sex = 'Male';
+                                    } elseif (in_array($g, ['female', 'f'], true)) {
+                                        $sex = 'Female';
+                                    } else {
+                                        // Keep original text if it's something else (e.g., prefer not to say)
+                                        $sex = $certData['gender'];
+                                    }
+                                }
+                                
+                                // Calculate age from birth_date (current date - birth_date)
+                                $age = 0;
+                                if (!empty($birthDate) && $birthDate !== '0000-00-00') {
+                                    try {
+                                        $birth = new DateTime($birthDate);
+                                        $today = new DateTime();
+                                        $age = $today->diff($birth)->y;
+                                    } catch (Exception $e) {
+                                        error_log("Error calculating age: " . $e->getMessage());
+                                    }
+                                }
+                                
+                                // Check if record already exists (to avoid duplicates)
+                                $checkSql = "SELECT id FROM job_seeker_report WHERE 
+                                            (first_name = ? OR first_name = ?) AND 
+                                            (last_name = ? OR last_name = ?) AND 
+                                            birth_date = ?";
+                                $checkStmt = $connection->prepare($checkSql);
+                                if ($checkStmt) {
+                                    // bind_param requires variables passed by reference, 
+                                    // so avoid using expressions directly.
+                                    $firstNameAlt = isset($certData['firstname']) ? $certData['firstname'] : '';
+                                    $lastNameAlt = isset($certData['lastname']) ? $certData['lastname'] : '';
+
+                                    $checkStmt->bind_param(
+                                        'sssss',
+                                        $firstName,
+                                        $firstNameAlt,
+                                        $lastName,
+                                        $lastNameAlt,
+                                        $birthDate
+                                    );
+                                    $checkStmt->execute();
+                                    $checkResult = $checkStmt->get_result();
+                                    
+                                    // Only insert if record doesn't exist
+                                    if ($checkResult->num_rows === 0) {
+                                        // Compute next sequential number for "no" column (start from 1)
+                                        $no = 1;
+                                        $noSql = "SELECT MAX(no) AS max_no FROM job_seeker_report";
+                                        $noResult = $connection->query($noSql);
+                                        if ($noResult && $rowNo = $noResult->fetch_assoc()) {
+                                            $currentMax = (int)($rowNo['max_no'] ?? 0);
+                                            $no = $currentMax + 1;
+                                        }
+                                        
+                                        // Insert into job_seeker_report (including no and sex)
+                                        $insertSql = "INSERT INTO job_seeker_report 
+                                                      (no, last_name, first_name, middle_name, sex, age, birth_date, educational_level, course) 
+                                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                                        $insertStmt = $connection->prepare($insertSql);
+                                        if ($insertStmt) {
+                                            $insertStmt->bind_param('issssisss', 
+                                                $no,
+                                                $lastName, 
+                                                $firstName, 
+                                                $middleName, 
+                                                $sex,
+                                                $age, 
+                                                $birthDate, 
+                                                $educationalLevel, 
+                                                $course
+                                            );
+                                            
+                                            if ($insertStmt->execute()) {
+                                                error_log("Successfully inserted jobseeker report for certification ID: $id");
+                                            } else {
+                                                error_log("Failed to insert jobseeker report: " . $insertStmt->error);
+                                            }
+                                            $insertStmt->close();
+                                        }
+                                    } else {
+                                        error_log("Jobseeker report already exists for certification ID: $id");
+                                    }
+                                    $checkStmt->close();
+                                }
+                            }
+                        }
+                        $certStmt->close();
+                    }
+                } catch (Exception $e) {
+                    error_log("Error inserting jobseeker report: " . $e->getMessage());
+                    // Don't throw - allow status update to continue even if jobseeker report insert fails
+                }
             }
             
             echo json_encode([
@@ -231,6 +360,7 @@ try {
                     $givenName = $row['given_name'] ?? $row['givenname'] ?? $row['first_name'] ?? $row['firstname'] ?? '';
                     $middleName = $row['middle_name'] ?? $row['middlename'] ?? '';
                     $birthDate = $row['birth_date'] ?? $row['birthdate'] ?? $row['birthday'] ?? '';
+                    $birthPlace = $row['birth_place'] ?? $row['birthplace'] ?? $row['birthPlace'] ?? '';
                     
                     $requests[] = [
                         'id' => $id,
@@ -240,6 +370,8 @@ try {
                         'givenname' => $givenName,
                         'middlename' => $middleName,
                         'birthday' => $birthDate,
+                        'birthplace' => $birthPlace,
+                        'birthPlace' => $birthPlace,
                         'address' => $row['address'] ?? '',
                         'civilStatus' => $row['civil_status'] ?? $row['civilstatus'] ?? '',
                         'height' => $row['height'] ?? '',

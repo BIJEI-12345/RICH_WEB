@@ -1,61 +1,61 @@
 <?php
-session_start();
+ob_start();
+require_once __DIR__ . '/init_session.php';
+rich_session_start();
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
 
-const TOTAL_ACCOUNT_LIMIT = 8;
+const TOTAL_ACCOUNT_LIMIT = 10;
 const POSITION_ACCOUNT_LIMITS = [
     'Admin' => 2,
     'Concerns & Reporting' => 2,
     'Emergency Category' => 2,
-    'Document Request Category' => 2
+    'Document Request Category' => 2,
+    'Mother Leader' => 2
 ];
 
-// Include PHPMailer
+// Load config first (.env); email_config also pulls config if loaded alone
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/email_config.php';
-
-use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
-// Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = "3306"; // Default MySQL port for RDS
-$dbname = "rich_db"; 
-$username = "admin";
-$password = "4mazonb33j4y!";
+require_once __DIR__ . '/rich_smtp.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4", $username, $password, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 10,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-    $pdo->setAttribute(PDO::MYSQL_ATTR_INIT_COMMAND, "SET NAMES utf8mb4");
-} catch (PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     die("Database connection failed: " . $e->getMessage());
 }
 
+/**
+ * Send JSON and exit. Clears output buffers so PHP notices/warnings do not break JSON parsing in the browser.
+ */
+function signup_json_exit(array $payload, int $httpCode = 200): void
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    http_response_code($httpCode);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['slot_status'])) {
-    header('Content-Type: application/json');
     try {
         $status = getSlotStatus($pdo);
-        echo json_encode([
+        signup_json_exit([
             'success' => true,
             'status' => $status
         ]);
     } catch (PDOException $e) {
-        http_response_code(500);
         error_log("Slot status lookup failed: " . $e->getMessage());
-        echo json_encode([
+        signup_json_exit([
             'success' => false,
             'message' => 'Unable to retrieve slot availability. Please try again later.'
-        ]);
+        ], 500);
     }
-    exit;
 }
 
 // Function to validate email
@@ -82,9 +82,9 @@ function generateOTP() {
     return sprintf('%06d', rand(100000, 999999));
 }
 
-// Function to get OTP expiration time (5 minutes from now)
+// Function to get OTP expiration time (3 minutes from now)
 function getOTPExpirationTime() {
-    return date('Y-m-d H:i:s', strtotime('+5 minutes'));
+    return date('Y-m-d H:i:s', strtotime('+3 minutes'));
 }
 
 // Function to cleanup expired unverified accounts
@@ -142,7 +142,7 @@ function getSlotLimitErrors($pdo, $position) {
     $totalActive = getActiveAccountCount($pdo);
     if ($totalActive >= TOTAL_ACCOUNT_LIMIT) {
         error_log("Slot limit reached: total active users = $totalActive");
-        $errors['general'] = 'The maximum number of user accounts (8) has been reached. Please contact the administrator.';
+        $errors['general'] = 'The maximum number of user accounts (' . TOTAL_ACCOUNT_LIMIT . ') has been reached. Please contact the administrator.';
         return $errors;
     }
 
@@ -180,30 +180,16 @@ function getSlotStatus($pdo) {
     ];
 }
 
-// Function to send OTP verification email
+// Function to send OTP verification email (to the address the user typed — e.g. beejay@...; uses .env only for SMTP login)
 function sendOTPEmail($email, $name, $otpCode) {
-    
-    $mail = new PHPMailer(true);
-    
-    try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = SMTP_PORT;
-        
-        // Recipients
-        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        $mail->addAddress($email, $name);
-        
-        // Content
-        $mail->isHTML(true);
-        $mail->Subject = "OTP Verification Code - RICH Barangay System";
-        
-        $mail->Body = "
+    if (!rich_smtp_configured()) {
+        error_log(
+            'sendOTPEmail: SMTP not configured. In the project root .env set SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL (see .env.example). Gmail: use an App Password (Google Account → Security → 2-Step Verification → App passwords), not your normal password.'
+        );
+        return false;
+    }
+
+    $html = "
         <!DOCTYPE html>
         <html>
         <head>
@@ -247,7 +233,7 @@ function sendOTPEmail($email, $name, $otpCode) {
                     </div>
                     
                     <div class='warning'>
-                        <strong>Important:</strong> This OTP code will expire in 5 minutes. Please use it as soon as possible.
+                        <strong>Important:</strong> This OTP code will expire in 3 minutes. Please use it as soon as possible.
                     </div>
                     
                     <p>Enter this code in the verification page to activate your account.</p>
@@ -262,13 +248,19 @@ function sendOTPEmail($email, $name, $otpCode) {
             </div>
         </body>
         </html>";
-        
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log("Email sending failed: " . $mail->ErrorInfo);
-        return false;
-    }
+
+    $plain = "RICH Barangay System — OTP Verification\n\n"
+        . "Your verification code is: {$otpCode}\n\n"
+        . "This code expires in 3 minutes.\n";
+
+    return rich_smtp_send_with_gmail_fallback(static function (\PHPMailer\PHPMailer\PHPMailer $mail) use ($email, $name, $html, $plain) {
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($email, $name);
+        $mail->isHTML(true);
+        $mail->Subject = 'OTP Verification Code - RICH Barangay System';
+        $mail->Body = $html;
+        $mail->AltBody = $plain;
+    });
 }
 
 // Check if form was submitted
@@ -324,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($position)) {
         $errors['position'] = 'Please select your department';
         error_log("ERROR: Position is empty");
-    } elseif (!in_array($position, ['Admin', 'Concerns & Reporting', 'Emergency Category', 'Document Request Category'])) {
+    } elseif (!in_array($position, ['Admin', 'Concerns & Reporting', 'Emergency Category', 'Document Request Category', 'Mother Leader'], true)) {
         $errors['position'] = 'Invalid department selection';
         error_log("ERROR: Position '" . $position . "' is not in valid list");
     } else {
@@ -420,91 +412,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Get current Philippine time
             $philippineTime = date('Y-m-d H:i:s');
             
-            // Prepare INSERT statement with OTP and action columns
+            // Prepare INSERT statement with OTP and action columns (save OTP in DB first; email can fail independently)
             $stmt = $pdo->prepare("
                 INSERT INTO brgy_users 
                 (email, name, age, position, gender, address, password, confirm_pass, created_at, verified_email, action, otp_code, otp_expires_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, ?)
             ");
-            
-            // Send OTP email first to avoid creating account if email fails
-            if (sendOTPEmail($email, $name, $otpCode)) {
-                // Debug the data being inserted
-                error_log("=== DATABASE INSERTION DEBUG ===");
-                error_log("Inserting user data - Position: '" . $position . "', Email: " . $email);
-                error_log("All insertion values:");
-                error_log("Email: " . $email);
-                error_log("Name: " . $name);
-                error_log("Age: " . $age);
-                error_log("Position: '" . $position . "'");
-                error_log("Gender: " . $gender);
-                error_log("Address: " . $address);
-                
-                // Execute the statement with hashed passwords
-                $result = $stmt->execute([
-                    $email,
-                    $name,
-                    $age,
-                    $position,
-                    $gender,
-                    $address,
-                    $hashed_password,
-                    $hashed_confirm_password,
-                    $philippineTime,
-                    $otpCode,
-                    $otpExpiresAt
-                ]);
-                
-                if ($result) {
-                    error_log("User inserted successfully with position: '" . $position . "'");
-                    
-                    // Verify the insertion by querying the database
-                    $verifyStmt = $pdo->prepare("SELECT id, name, position FROM brgy_users WHERE email = ? ORDER BY id DESC LIMIT 1");
-                    $verifyStmt->execute([$email]);
-                    $insertedUser = $verifyStmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($insertedUser) {
-                        error_log("VERIFICATION: User ID " . $insertedUser['id'] . " inserted with position: '" . $insertedUser['position'] . "'");
-                    } else {
-                        error_log("ERROR: Could not verify user insertion!");
-                    }
-                    
-                    // Store user data in session for next step
-                    $_SESSION['signup_email'] = $email;
-                    $_SESSION['signup_name'] = $name;
-                    
-                    // Send success response
-                    echo json_encode([
+
+            error_log("=== DATABASE INSERTION DEBUG ===");
+            error_log("Inserting user data - Position: '" . $position . "', Email: " . $email);
+
+            $result = $stmt->execute([
+                $email,
+                $name,
+                $age,
+                $position,
+                $gender,
+                $address,
+                $hashed_password,
+                $hashed_confirm_password,
+                $philippineTime,
+                $otpCode,
+                $otpExpiresAt
+            ]);
+
+            if ($result) {
+                error_log("User inserted successfully with position: '" . $position . "'");
+
+                $verifyStmt = $pdo->prepare("SELECT id, name, position FROM brgy_users WHERE email = ? ORDER BY id DESC LIMIT 1");
+                $verifyStmt->execute([$email]);
+                $insertedUser = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($insertedUser) {
+                    error_log("VERIFICATION: User ID " . $insertedUser['id'] . " inserted with position: '" . $insertedUser['position'] . "'");
+
+                    require_once __DIR__ . '/audit_trail_helper.php';
+                    logCategoryAuditTrail(
+                        $insertedUser['id'],
+                        $email,
+                        $name,
+                        'created',
+                        $position,
+                        null,
+                        null,
+                        null,
+                        'System',
+                        'User account created during registration'
+                    );
+                } else {
+                    error_log("ERROR: Could not verify user insertion!");
+                }
+
+                $_SESSION['signup_email'] = $email;
+                $_SESSION['signup_name'] = $name;
+
+                $emailSent = sendOTPEmail($email, $name, $otpCode);
+                if ($emailSent) {
+                    $_SESSION['signup_otp_last_sent'] = time();
+                    signup_json_exit([
                         'success' => true,
                         'message' => 'Registration successful! Please check your email for the OTP code and verify your account.',
-                        'redirect' => 'signup2.html'
-                    ]);
-                } else {
-                    error_log("Failed to insert user - PDO error: " . implode(', ', $stmt->errorInfo()));
-                    echo json_encode([
-                        'success' => false,
-                        'errors' => ['general' => 'Failed to create account. Please try again.']
+                        'redirect' => 'signup2.html',
+                        'email_sent' => true
                     ]);
                 }
-            } else {
-                echo json_encode([
-                    'success' => false,
-                    'errors' => ['general' => 'Failed to send OTP email. Please check your email address and try again.']
+
+                error_log("signup1: User ID saved with OTP but email send failed for: " . $email);
+                signup_json_exit([
+                    'success' => true,
+                    'message' => 'Account created. The verification email could not be sent. Continue to the next page and use Resend OTP, or ask your administrator to check SMTP settings.',
+                    'redirect' => 'signup2.html',
+                    'email_sent' => false
                 ]);
             }
+
+            error_log("Failed to insert user - PDO error: " . implode(', ', $stmt->errorInfo()));
+            signup_json_exit([
+                'success' => false,
+                'errors' => ['general' => 'Failed to create account. Please try again.']
+            ]);
             
         } catch (PDOException $e) {
             error_log("Database insertion error: " . $e->getMessage());
             error_log("Error code: " . $e->getCode());
             error_log("SQL State: " . $e->errorInfo[0]);
-            echo json_encode([
+            signup_json_exit([
                 'success' => false,
-                'errors' => ['general' => 'Database error occurred: ' . $e->getMessage()]
+                'errors' => ['general' => 'Database error occurred. Please try again.']
             ]);
         }
     } else {
         // Return validation errors
-        echo json_encode([
+        signup_json_exit([
             'success' => false,
             'errors' => $errors
         ]);
@@ -515,4 +514,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: signup1.html');
     exit();
 }
-?>

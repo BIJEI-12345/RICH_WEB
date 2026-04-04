@@ -1,0 +1,738 @@
+/* Small Desktop / Laptop */
+@media screen and (min-width: 1024px) and (max-width: 1279px) {
+  /* Container adjustments */
+  .container {
+    padding: 2% 1%;
+    height: 100vh;
+    padding-top: calc(3.5vh + 56px);
+    min-height: 600px;
+  }
+
+  /* Login card adjustments */
+  .login-card {
+    max-width: 54%;
+    min-width: 420px;
+    width: auto;
+    padding: clamp(0.8rem, 1.8vw, 1.2rem) clamp(1.8rem, 3.5vw, 2.5rem) clamp(1.2rem, 2.5vw, 1.8rem) clamp(1.8rem, 3.5vw, 2.5rem);
+    margin: 0 auto;
+    height: auto;
+    max-height: 90vh;
+    overflow-y: visible;
+    overflow-x: visible;
+  }
+
+  /* Brand Container */
+  .brand-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(0.6rem, 1vw, 0.9rem);
+    padding: clamp(0.15rem, 0.3vw, 0.25rem) 0;
+    margin-bottom: clamp(0.3rem, 0.6vw, 0.5rem);
+    margin-top: 0;
+  }
+
+  .brand-logo-app2 {
+    width: clamp(80px, 10vw, 110px);
+    height: clamp(80px, 10vw, 110px);
+    max-width: 110px;
+    max-height: 110px;
+  }
+
+  .rich-title {
+    font-size: clamp(3.5rem, 5vw, 4.5rem);
+  }
+
+  .rich-meaning {
+    font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+  }
+
+  .brand-logo {
+    width: clamp(80px, 10vw, 110px);
+    height: clamp(80px, 10vw, 110px);
+    max-width: 110px;
+    max-height: 110px;
+  }
+
+  .brand-title {
+    font-size: clamp(2.3rem, 2.8vw, 2.5rem);
+    line-height: 1.3;
+    color: #000000;
+    flex: 1;
+    order: 2;
+    font-family: "Segoe UI", sans-serif;
+  }
+
+  .brand-subtitle {
+    font-size: clamp(0.85rem, 1.1vw, 1rem);
+    margin-top: clamp(0.15rem, 0.3vw, 0.25rem);
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* Top info bar */
+  .top-info {
+    padding: 0.8rem 2%;
+    gap: clamp(30px, 3.5vw, 40px);
+    height: 3.5vh;
+    min-height: 50px;
+  }
+
+  .top-info .info-link {
+    font-size: clamp(0.85rem, 0.9vw, 0.95rem);
+    padding: 0.5rem 0.9rem;
+  }
+
+  /* Input group spacing */
+  .input-group {
+    margin-bottom: clamp(0.7rem, 1.3vw, 1rem);
+  }
+
+  .input-group label {
+    font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+    margin-bottom: clamp(0.4rem, 0.8vw, 0.6rem);
+  }
+
+  .input-group input {
+    width: 95%;
+    padding: clamp(0.45rem, 0.8vw, 0.6rem);
+    font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+  }
+
+  .password-container input {
+    padding-right: 2.5rem;
+  }
+
+  /* Button adjustments */
+  .btn {
+    width: clamp(40%, 45vw, 50%);
+    padding: clamp(0.8rem, 1.5vw, 1rem) clamp(1.5rem, 3vw, 2rem);
+    font-size: clamp(1.25rem, 1.5vw, 1.4rem);
+    margin: clamp(1.5rem, 3vw, 2rem) auto 0 auto;
+  }
+
+  /* Title adjustments */
+  .login-card h2 {
+    font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+    margin-bottom: clamp(0.4rem, 1vw, 0.7rem);
+    margin-top: 0;
+  }
+
+  /* Forgot text positioning */
+  .forgot-text {
+    padding-left: 0;
+    text-align: right;
+    font-size: clamp(1.25rem, 1.5vw, 1.4rem);
+    margin-top: clamp(0.7rem, 1.5vw, 1rem);
+  }
+
+  .forgot-text a {
+    font-size: clamp(1.25rem, 1.5vw, 1.4rem);
+  }
+
+  /* Signup text */
+  .signup-text {
+    font-size: clamp(1.35rem, 1.7vw, 1.5rem);
+    margin-top: clamp(0.7rem, 1.5vw, 1rem);
+    width: 100%;
+    font-weight: 500;
+  }
+
+  .signup-text a {
+    font-size: clamp(1.35rem, 1.7vw, 1.5rem);
+  }
+
+  /* Notification adjustments */
+  .success-notification {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .notification-content i {
+    font-size: 1.1rem;
+  }
+
+  /* Password toggle */
+  .toggle-password {
+    width: 24px;
+    height: 24px;
+    right: calc(5% + 0.5rem);
+    z-index: 10;
+  }
+
+  .password-icon {
+    font-size: 1.1rem;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Medium Desktop */
+@media screen and (min-width: 1280px) and (max-width: 1439px) {
+  /* Container adjustments */
+  .container {
+    padding: 2% 1%;
+    height: 100vh;
+    padding-top: calc(3.5vh + 56px);
+    min-height: 650px;
+  }
+
+  /* Login card adjustments */
+  .login-card {
+    max-width: 52%;
+    min-width: 470px;
+    width: auto;
+    padding: clamp(0.9rem, 2vw, 1.4rem) clamp(2rem, 4vw, 3rem) clamp(1.3rem, 2.8vw, 2rem) clamp(2rem, 4vw, 3rem);
+    margin: 0 auto;
+    height: auto;
+    max-height: 90vh;
+    overflow-y: visible;
+    overflow-x: visible;
+  }
+
+  /* Brand Container */
+  .brand-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(0.7rem, 1.2vw, 1rem);
+    padding: clamp(0.2rem, 0.4vw, 0.3rem) 0;
+    margin-bottom: clamp(0.4rem, 0.7vw, 0.6rem);
+    margin-top: 0;
+  }
+
+  .brand-logo-app2 {
+    width: clamp(90px, 11vw, 125px);
+    height: clamp(90px, 11vw, 125px);
+    max-width: 125px;
+    max-height: 125px;
+  }
+
+  .rich-title {
+    font-size: clamp(3.7rem, 5.2vw, 4.8rem);
+  }
+
+  .rich-meaning {
+    font-size: clamp(1rem, 1.6vw, 1.2rem);
+  }
+
+  .brand-logo {
+    width: clamp(90px, 11vw, 125px);
+    height: clamp(90px, 11vw, 125px);
+    max-width: 125px;
+    max-height: 125px;
+  }
+
+  .brand-title {
+    font-size: clamp(2.35rem, 2.85vw, 2.55rem);
+    line-height: 1.3;
+    color: #000000;
+    flex: 1;
+    order: 2;
+    font-family: "Segoe UI", sans-serif;
+  }
+
+  .brand-subtitle {
+    font-size: clamp(0.9rem, 1.15vw, 1.05rem);
+    margin-top: clamp(0.18rem, 0.35vw, 0.3rem);
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* Top info bar */
+  .top-info {
+    padding: 0.8rem 2.5%;
+    gap: clamp(40px, 3.5vw, 48px);
+    height: 3.5vh;
+    min-height: 52px;
+  }
+
+  .top-info .info-link {
+    font-size: clamp(0.9rem, 0.95vw, 1rem);
+    padding: 0.6rem 1rem;
+  }
+
+  /* Input group spacing */
+  .input-group {
+    margin-bottom: clamp(0.9rem, 1.6vw, 1.2rem);
+  }
+
+  .input-group label {
+    font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+    margin-bottom: clamp(0.45rem, 0.9vw, 0.6rem);
+  }
+
+  .input-group input {
+    width: 95%;
+    padding: clamp(0.45rem, 0.85vw, 0.65rem);
+    font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  }
+
+  .password-container input {
+    padding-right: 2.5rem;
+  }
+
+  /* Button adjustments */
+  .btn {
+    width: clamp(40%, 45vw, 50%);
+    padding: clamp(0.85rem, 1.6vw, 1.05rem) clamp(1.8rem, 3.5vw, 2.2rem);
+    font-size: clamp(1.3rem, 1.6vw, 1.45rem);
+    margin: clamp(1.8rem, 3.5vw, 2.2rem) auto 0 auto;
+  }
+
+  /* Title adjustments */
+  .login-card h2 {
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
+    margin-bottom: clamp(0.5rem, 1.2vw, 0.8rem);
+    margin-top: 0;
+  }
+
+  /* Forgot text positioning */
+  .forgot-text {
+    padding-left: 0;
+    text-align: right;
+    font-size: 1.3rem;
+    margin-top: 0.9rem;
+  }
+
+  .forgot-text a {
+    font-size: 1.3rem;
+  }
+
+  /* Signup text */
+  .signup-text {
+    font-size: 1.4rem;
+    margin-top: 0.9rem;
+  }
+
+  .signup-text a {
+    font-size: 1.4rem;
+  }
+
+  /* Notification adjustments */
+  .success-notification {
+    padding: 0.9rem 1.3rem;
+    font-size: 0.95rem;
+  }
+
+  .notification-content i {
+    font-size: 1.15rem;
+  }
+
+  /* Password toggle */
+  .toggle-password {
+    width: 24px;
+    height: 24px;
+    right: calc(5% + 0.5rem);
+    z-index: 10;
+  }
+
+  .password-icon {
+    font-size: 1.15rem;
+    width: 19px;
+    height: 19px;
+  }
+}
+
+/* Large Desktop */
+@media screen and (min-width: 1440px) and (max-width: 1919px) {
+  /* Container adjustments */
+  .container {
+    padding: 2% 1%;
+    height: 100vh;
+    padding-top: calc(3.5vh + 56px);
+    min-height: 700px;
+  }
+
+  /* Login card adjustments */
+  .login-card {
+    max-width: 50%;
+    min-width: 510px;
+    width: auto;
+    padding: clamp(1rem, 2.5vw, 1.8rem) clamp(2.2rem, 4.5vw, 3.5rem) clamp(1.5rem, 3vw, 2.5rem) clamp(2.2rem, 4.5vw, 3.5rem);
+    margin: 0 auto;
+    height: auto;
+    max-height: 90vh;
+    overflow-y: visible;
+    overflow-x: visible;
+  }
+
+  /* Brand Container */
+  .brand-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(0.8rem, 1.3vw, 1.1rem);
+    padding: clamp(0.25rem, 0.5vw, 0.4rem) 0;
+    margin-bottom: clamp(0.5rem, 0.9vw, 0.7rem);
+    margin-top: 0;
+  }
+
+  .brand-logo-app2 {
+    width: clamp(100px, 12vw, 140px);
+    height: clamp(100px, 12vw, 140px);
+    max-width: 140px;
+    max-height: 140px;
+  }
+
+  .rich-title {
+    font-size: clamp(3.9rem, 5.5vw, 5rem);
+  }
+
+  .rich-meaning {
+    font-size: clamp(1.05rem, 1.7vw, 1.25rem);
+  }
+
+  .brand-logo {
+    width: clamp(100px, 12vw, 140px);
+    height: clamp(100px, 12vw, 140px);
+    max-width: 140px;
+    max-height: 140px;
+  }
+
+  .brand-title {
+    font-size: clamp(2.4rem, 2.9vw, 2.6rem);
+    line-height: 1.3;
+    color: #000000;
+    flex: 1;
+    order: 2;
+    font-family: "Segoe UI", sans-serif;
+  }
+
+  .brand-subtitle {
+    font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+    margin-top: clamp(0.2rem, 0.4vw, 0.3rem);
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* Top info bar */
+  .top-info {
+    padding: 0.8rem 2.5%;
+    gap: clamp(48px, 3.6vw, 56px);
+    height: 3.5vh;
+    min-height: 54px;
+  }
+
+  .top-info .info-link {
+    font-size: clamp(0.95rem, 1vw, 1.05rem);
+    padding: 0.6rem 1rem;
+  }
+
+  /* Input group spacing */
+  .input-group {
+    margin-bottom: clamp(1rem, 1.8vw, 1.3rem);
+  }
+
+  .input-group label {
+    font-size: clamp(1rem, 1.3vw, 1.15rem);
+    margin-bottom: clamp(0.5rem, 1vw, 0.6rem);
+  }
+
+  .input-group input {
+    width: 95%;
+    padding: clamp(0.45rem, 0.9vw, 0.7rem);
+    font-size: clamp(1rem, 1.3vw, 1.15rem);
+  }
+
+  .password-container input {
+    padding-right: 2.5rem;
+  }
+
+  /* Button adjustments */
+  .btn {
+    width: clamp(40%, 45vw, 50%);
+    padding: clamp(0.9rem, 1.7vw, 1.15rem) clamp(2rem, 4vw, 2.5rem);
+    font-size: clamp(1.35rem, 1.7vw, 1.5rem);
+    margin: clamp(2rem, 4vw, 2.5rem) auto 0 auto;
+  }
+
+  /* Title adjustments */
+  .login-card h2 {
+    font-size: clamp(1.6rem, 2.7vw, 2.1rem);
+    margin-bottom: clamp(0.6rem, 1.3vw, 1rem);
+    margin-top: 0;
+  }
+
+  /* Forgot text positioning */
+  .forgot-text {
+    padding-left: 0;
+    text-align: right;
+    font-size: 1.35rem;
+    margin-top: 1rem;
+  }
+
+  .forgot-text a {
+    font-size: 1.35rem;
+  }
+
+  /* Signup text */
+  .signup-text {
+    font-size: 1.45rem;
+    margin-top: 1rem;
+  }
+
+  .signup-text a {
+    font-size: 1.45rem;
+  }
+
+  /* Notification adjustments */
+  .success-notification {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .notification-content i {
+    font-size: 1.2rem;
+  }
+
+  /* Password toggle */
+  .toggle-password {
+    width: 24px;
+    height: 24px;
+    right: calc(5% + 0.5rem);
+    z-index: 10;
+  }
+
+  .password-icon {
+    font-size: 1.2rem;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Extra Large Desktop */
+@media screen and (min-width: 1920px) {
+  /* Container adjustments */
+  .container {
+    padding: 2% 1%;
+    height: 100vh;
+    padding-top: calc(3.75vh + 60px);
+    min-height: 750px;
+  }
+
+  /* Login card adjustments */
+  .login-card {
+    max-width: 48%;
+    min-width: 540px;
+    width: auto;
+    padding: clamp(1.2rem, 3vw, 2.2rem) clamp(2.8rem, 5.5vw, 4.5rem) clamp(2rem, 4vw, 3rem) clamp(2.8rem, 5.5vw, 4.5rem);
+    margin: 0 auto;
+    height: auto;
+    max-height: 90vh;
+    overflow-y: visible;
+    overflow-x: visible;
+  }
+
+  /* Brand Container */
+  .brand-container {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(0.9rem, 1.5vw, 1.2rem);
+    padding: clamp(0.3rem, 0.6vw, 0.5rem) 0;
+    margin-bottom: clamp(0.6rem, 1vw, 0.8rem);
+    margin-top: 0;
+  }
+
+  .brand-logo-app2 {
+    width: clamp(110px, 13vw, 155px);
+    height: clamp(110px, 13vw, 155px);
+    max-width: 155px;
+    max-height: 155px;
+  }
+
+  .rich-title {
+    font-size: clamp(4.1rem, 5.8vw, 5.2rem);
+  }
+
+  .rich-meaning {
+    font-size: clamp(1.1rem, 1.8vw, 1.3rem);
+  }
+
+  .brand-logo {
+    width: clamp(110px, 13vw, 155px);
+    height: clamp(110px, 13vw, 155px);
+    max-width: 155px;
+    max-height: 155px;
+  }
+
+  .brand-title {
+    font-size: clamp(2.45rem, 2.95vw, 2.65rem);
+    line-height: 1.3;
+    color: #000000;
+    flex: 1;
+    order: 2;
+    font-family: "Segoe UI", sans-serif;
+  }
+
+  .brand-subtitle {
+    font-size: clamp(1rem, 1.25vw, 1.15rem);
+    margin-top: clamp(0.25rem, 0.45vw, 0.35rem);
+    line-height: 1.4;
+    color: #000000;
+  }
+
+  /* Top info bar */
+  .top-info {
+    padding: 1rem 2.1%;
+    gap: clamp(56px, 3.2vw, 64px);
+    height: 3.75vh;
+    min-height: 58px;
+  }
+
+  .top-info .info-link {
+    font-size: clamp(1rem, 1.1vw, 1.15rem);
+    padding: 0.7rem 1.2rem;
+  }
+
+  /* Input group spacing */
+  .input-group {
+    margin-bottom: clamp(1.1rem, 2vw, 1.4rem);
+  }
+
+  .input-group label {
+    font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+    margin-bottom: clamp(0.5rem, 1vw, 0.7rem);
+  }
+
+  .input-group input {
+    width: 95%;
+    padding: clamp(0.5rem, 0.95vw, 0.75rem);
+    font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+  }
+
+  .password-container input {
+    padding-right: 2.5rem;
+  }
+
+  /* Button adjustments */
+  .btn {
+    width: clamp(40%, 45vw, 50%);
+    padding: clamp(1rem, 1.8vw, 1.25rem) clamp(2.2rem, 4.5vw, 2.8rem);
+    font-size: clamp(1.4rem, 1.8vw, 1.55rem);
+    margin: clamp(2.2rem, 4.5vw, 2.8rem) auto 0 auto;
+  }
+
+  /* Title adjustments */
+  .login-card h2 {
+    font-size: clamp(1.8rem, 2.7vw, 2.4rem);
+    margin-bottom: clamp(0.7rem, 1.5vw, 1.2rem);
+    margin-top: 0;
+  }
+
+  /* Forgot text positioning */
+  .forgot-text {
+    padding-left: 0;
+    text-align: right;
+    font-size: 1.4rem;
+    margin-top: 1.1rem;
+  }
+
+  .forgot-text a {
+    font-size: 1.4rem;
+  }
+
+  /* Signup text */
+  .signup-text {
+    font-size: 1.5rem;
+    margin-top: 1.1rem;
+  }
+
+  .signup-text a {
+    font-size: 1.5rem;
+  }
+
+  /* Notification adjustments */
+  .success-notification {
+    padding: 1.2rem 1.8rem;
+    font-size: 1.1rem;
+    top: 2vh;
+  }
+
+  .notification-content i {
+    font-size: 1.3rem;
+  }
+
+  /* Password toggle icon */
+  .toggle-password {
+    width: 26px;
+    height: 26px;
+    right: calc(5% + 0.6rem);
+    z-index: 10;
+  }
+
+  .password-icon {
+    font-size: 1.3rem;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* General responsive improvements for all desktop sizes */
+@media screen and (min-width: 1024px) {
+  /* Improve readability on larger screens */
+  body {
+    font-size: 16px;
+  }
+
+  /* Focus ring only — keep 1px border so fields do not jump when focused */
+  .input-group input:focus {
+    border-width: 1px;
+    border-color: #228b22;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.16), 0 0 0 3px rgba(0, 128, 0, 0.18);
+    outline: none;
+  }
+
+  /* Hover: shadow only — no translateY (avoids button “bouncing” on press) */
+  .btn:hover {
+    box-shadow: 0px 6px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn:active {
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Better card shadow on larger screens */
+  .login-card {
+    box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Ensure login card content is properly aligned */
+  .login-card form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  /* Ensure all form elements are properly aligned */
+  .login-card .input-group {
+    width: 100%;
+    align-self: stretch;
+  }
+
+  .login-card .forgot-text {
+    width: 100%;
+    align-self: flex-end;
+  }
+
+  .login-card .signup-text {
+    width: 100%;
+    align-self: center;
+  }
+
+  /* Better text alignment */
+  .forgot-text {
+    display: block;
+  }
+
+  /* Improve logo aspect ratio */
+  .brand-logo-app2,
+  .brand-logo {
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+  }
+
+  /* Better container alignment */
+  .container {
+    align-items: center;
+    justify-content: center;
+  }
+}

@@ -3,31 +3,21 @@
 date_default_timezone_set('Asia/Manila');
 
 // Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = "3306"; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$db;charset=utf8", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 10,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-} catch (PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     header('Location: ../forgotpass.html?error=' . urlencode('Database connection failed. Please try again later.'));
     exit();
 }
 
 // Include PHPMailer
-require_once '../vendor/autoload.php';
-require_once 'email_config.php';
-
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\SMTP;
-use PHPMailer\PHPMailer\Exception;
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/email_config.php';
+require_once __DIR__ . '/rich_smtp.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
@@ -73,27 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("UPDATE brgy_users SET otp_code = ?, otp_expires_at = ? WHERE email = ?");
         $stmt->execute([$verification_code, $expires_at, $email]);
         
-        // Send email with verification code using PHPMailer
-        $mail = new PHPMailer(true);
-        
-        try {
-            // Server settings
-            $mail->isSMTP();
-            $mail->Host = SMTP_HOST;
-            $mail->SMTPAuth = true;
-            $mail->Username = SMTP_USERNAME;
-            $mail->Password = SMTP_PASSWORD;
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = SMTP_PORT;
-            
-            // Recipients
-            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-            $mail->addAddress($email, $user['name']);
-            
-            // Content
-            $mail->isHTML(true);
-            $mail->Subject = 'Password Reset Verification Code';
-            $mail->Body = "
+        $html = "
             <html>
             <head>
                 <title>Password Reset Verification Code</title>
@@ -109,21 +79,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </body>
             </html>
             ";
-            
-            $mail->send();
-            
-            // Debug: Log successful email send
-            error_log("Email sent successfully to: " . $email);
-            
-            // Redirect to verification page with email parameter
+        $plain = "Password reset code: {$verification_code}\n(Expires in 3 minutes.)\n";
+
+        $sent = rich_smtp_send_with_gmail_fallback(static function (\PHPMailer\PHPMailer\PHPMailer $mail) use ($email, $user, $html, $plain) {
+            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+            $mail->addAddress($email, $user['name']);
+            $mail->isHTML(true);
+            $mail->Subject = 'Password Reset Verification Code';
+            $mail->Body = $html;
+            $mail->AltBody = $plain;
+        });
+
+        if ($sent) {
+            error_log('Email sent successfully to: ' . $email);
             header('Location: ../verify_code.html?email=' . urlencode($email) . '&success=' . urlencode('Verification code sent to your email'));
             exit();
-            
-        } catch (Exception $e) {
-            error_log("Email sending failed: " . $mail->ErrorInfo);
-            header('Location: ../forgotpass.html?error=' . urlencode('Failed to send verification code. Please try again.'));
-            exit();
         }
+
+        error_log('Email sending failed after SMTP retries for: ' . $email);
+        header('Location: ../forgotpass.html?error=' . urlencode('Failed to send verification code. Please try again.'));
+        exit();
         
     } catch (PDOException $e) {
         error_log("Database error in send_code.php: " . $e->getMessage());

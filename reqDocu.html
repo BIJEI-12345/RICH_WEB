@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Request Management - Barangay Bigte</title>
-    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
     <link rel="stylesheet" href="Styles/reqDocu.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
     <script src="js/reqDocu.js" defer></script>
     
 </head>
@@ -17,7 +18,7 @@
     <div class="page-container">
         <!-- Header Section -->
         <header class="header">
-            <div class="header-content">
+            <div class="logo-container">
                 <div class="logo-section">
                     <button class="back-btn" onclick="goBack()">
                         <i class="fas fa-arrow-left"></i>
@@ -25,8 +26,10 @@
                     <div class="logo">
                         <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
                     </div>
-                    <h1 class="barangay-name">Barangay Bigte</h1>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
                 </div>
+            </div>
+            <div class="header-content">
                 <div class="header-actions">
                     <button class="mobile-menu-btn" onclick="toggleMobileNav()">
                         <i class="fas fa-bars"></i>
@@ -121,6 +124,10 @@
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" id="documentSearch" class="search-input" placeholder="name or doc type" oninput="filterDocumentRequests(this.value)">
                     </div>
+                    <!-- Ready to Receive Multiple Button (only visible on checked tab) -->
+                    <button class="btn-action ready-multiple-btn" id="readyMultipleBtn" onclick="toggleReadyMultipleMode()" style="display: none; margin-right: 10px;">
+                        <i class="fas fa-check-square"></i> <span id="readyMultipleBtnText">Select Multiple</span>
+                    </button>
                     <button class="btn-action print-multiple-btn" id="printMultipleBtn" onclick="togglePrintMultipleMode()" style="margin-right: 10px;">
                         <i class="fas fa-check-square"></i> <span id="printMultipleBtnText">Print Multiple</span>
                     </button>
@@ -163,22 +170,12 @@
                         <div class="status-section">
                             <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
                             <div class="request-cards" id="barangayId-new-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="barangayId-new-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading Barangay ID requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
                         <div class="status-section">
                             <h4><i class="fas fa-cog"></i> Processing</h4>
                             <div class="request-cards" id="barangayId-processing-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="barangayId-processing-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading processing requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
@@ -210,22 +207,12 @@
                         <div class="status-section">
                             <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
                             <div class="request-cards" id="certification-new-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="certification-new-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading Certification requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
                         <div class="status-section">
                             <h4><i class="fas fa-cog"></i> Processing</h4>
                             <div class="request-cards" id="certification-processing-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="certification-processing-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading processing requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
@@ -257,22 +244,12 @@
                         <div class="status-section">
                             <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
                             <div class="request-cards" id="coe-new-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="coe-new-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading COE requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
                         <div class="status-section">
                             <h4><i class="fas fa-cog"></i> Processing</h4>
                             <div class="request-cards" id="coe-processing-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="coe-processing-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading processing requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
@@ -304,22 +281,12 @@
                         <div class="status-section">
                             <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
                             <div class="request-cards" id="clearance-new-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="clearance-new-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading Clearance requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
                         <div class="status-section">
                             <h4><i class="fas fa-cog"></i> Processing</h4>
                             <div class="request-cards" id="clearance-processing-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="clearance-processing-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading processing requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
@@ -351,22 +318,12 @@
                         <div class="status-section">
                             <h4><i class="fas fa-plus-circle"></i> New Requests</h4>
                             <div class="request-cards" id="indigency-new-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="indigency-new-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading Indigency requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
                         <div class="status-section">
                             <h4><i class="fas fa-cog"></i> Processing</h4>
                             <div class="request-cards" id="indigency-processing-cards">
-                                <!-- Loading indicator -->
-                                <div class="loading-indicator" id="indigency-processing-loading">
-                                    <div class="loading-spinner"></div>
-                                    <p>Loading processing requests...</p>
-                                </div>
                                 <!-- Dynamic cards will be inserted here -->
                             </div>
                         </div>
@@ -734,7 +691,10 @@
                             <label>Birth Date:</label>
                             <input type="text" class="form-input" id="detailBirthDate" readonly>
                         </div>
-                       
+                        <div class="form-row">
+                            <label>Birth Place:</label>
+                            <input type="text" class="form-input" id="detailBirthPlace" readonly>
+                        </div>
                     </div>
 
                     <!-- Civil Status Section -->
@@ -779,13 +739,7 @@
                     <div class="form-section" id="nationalitySection">
                         <div class="form-row">
                             <label>Nationality:</label>
-                            <select class="form-select" id="detailNationality" disabled>
-                                <option value="Filipino">Filipino</option>
-                                <option value="American">American</option>
-                                <option value="Chinese">Chinese</option>
-                                <option value="Japanese">Japanese</option>
-                                <option value="Korean">Korean</option>
-                            </select>
+                            <input type="text" class="form-input" id="detailNationality" readonly>
                         </div>
                     </div>
 
@@ -1379,54 +1333,54 @@
                             </div>
                             <div class="id-field">
                                 <label>Full Name:</label>
-                                <span id="processFullName">Loading...</span>
+                                <input type="text" id="processFullName" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Birthday:</label>
-                                <span id="processBirthday">Loading...</span>
+                                <input type="text" id="processBirthday" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Address:</label>
-                                <span id="processAddress">Loading...</span>
+                                <input type="text" id="processAddress" class="form-input" value="Loading...">
                             </div>
                         </div>
                         <div class="id-back">
                             <h4>BARANGAY ID - BACK SIDE</h4>
                             <div class="id-field">
                                 <label>Gender:</label>
-                                <span id="processGender">Loading...</span>
+                                <input type="text" id="processGender" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Height:</label>
-                                <span id="processHeight">Loading...</span>
+                                <input type="text" id="processHeight" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Nationality:</label>
-                                <span id="processNationality">Loading...</span>
+                                <input type="text" id="processNationality" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Date Issued:</label>
-                                <span id="processDateIssued">Loading...</span>
+                                <input type="text" id="processDateIssued" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Contact Number:</label>
-                                <span id="processContactNumber">Loading...</span>
+                                <input type="text" id="processContactNumber" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Emergency Contact:</label>
-                                <span id="processEmergencyContact">Loading...</span>
+                                <input type="text" id="processEmergencyContact" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Civil Status:</label>
-                                <span id="processCivilStatus">Loading...</span>
+                                <input type="text" id="processCivilStatus" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Weight:</label>
-                                <span id="processWeight">Loading...</span>
+                                <input type="text" id="processWeight" class="form-input" value="Loading...">
                             </div>
                             <div class="id-field">
                                 <label>Expiration Date:</label>
-                                <span id="processExpDate">Loading...</span>
+                                <input type="text" id="processExpDate" class="form-input" value="Loading...">
                             </div>
                         </div>
                     </div>
@@ -1488,14 +1442,14 @@
                             <div class="certificate-text">
                                 <p>TO WHOM IT MAY CONCERN:</p>
                                 
-                                <p>THIS IS TO CERTIFY that <strong><span id="indigProcessFullName">[FULL NAME]</span></strong>, 
-                                of legal age, residents of Sitio <span id="indigProcessAddress">[ADDRESS]</span> 
+                                <p>THIS IS TO CERTIFY that <strong><input type="text" id="indigProcessFullName" class="form-input inline-input" value="[FULL NAME]"></strong>, 
+                                of legal age, residents of Sitio <input type="text" id="indigProcessAddress" class="form-input inline-input" value="[ADDRESS]"> 
                                 belongs to one of many indigent families of this barangay. The income of this family is barely enough to meet day to day needs.</p>
                                 
-                                <p>This certification is being issued upon the request of <strong><span id="indigProcessFullName2">[FULL NAME]</span></strong> 
-                                to apply for <span id="indigProcessPurpose">[PURPOSE]</span>.</p>
+                                <p>This certification is being issued upon the request of <strong><input type="text" id="indigProcessFullName2" class="form-input inline-input" value="[FULL NAME]"></strong> 
+                                to apply for <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="[PURPOSE]">.</p>
                                 
-                                <p>Issued this <span id="indigProcessCertificateDate">[CURRENT DATE]</span> 
+                                <p>Issued this <input type="text" id="indigProcessCertificateDate" class="form-input inline-input" value="[CURRENT DATE]"> 
                                 at Bigte, Norzagaray, Bulacan.</p>
                             </div>
                             
@@ -1539,17 +1493,17 @@
                         <div class="certificate-content">
                             <p>TO WHOM IT MAY CONCERN:</p>
                             
-                            <p>THIS IS TO CERTIFY that <strong><span id="coeProcessFirstName">{{first_name}}</span> <span id="coeProcessMiddleName">{{middle_name}}</span> <span id="coeProcessLastName">{{last_name}}</span></strong>, 
-                            of legal age, residing at <span id="coeProcessAddress">{{address}}</span> 
-                            is employed in this Barangay as <span id="coeProcessEmploymentType">{{employment_type}}</span> 
-                            with the position of <span id="coeProcessPosition">{{position}}</span> 
-                            since <span id="coeProcessDateStarted">{{date_started}}</span> 
-                            with a monthly salary of <span id="coeProcessMonthlySalary">{{monthly_salary}}</span>.</p>
+                            <p>THIS IS TO CERTIFY that <strong><input type="text" id="coeProcessFirstName" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="coeProcessMiddleName" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="coeProcessLastName" class="form-input inline-input" value="{{last_name}}"></strong>, 
+                            of legal age, residing at <input type="text" id="coeProcessAddress" class="form-input inline-input" value="{{address}}"> 
+                            is employed in this Barangay as <input type="text" id="coeProcessEmploymentType" class="form-input inline-input" value="{{employment_type}}"> 
+                            with the position of <input type="text" id="coeProcessPosition" class="form-input inline-input" value="{{position}}"> 
+                            since <input type="text" id="coeProcessDateStarted" class="form-input inline-input" value="{{date_started}}"> 
+                            with a monthly salary of <input type="text" id="coeProcessMonthlySalary" class="form-input inline-input" value="{{monthly_salary}}">.</p>
                             
                             <p>This certification is being issued upon the request of the above-named person 
                             for whatever legal purpose it may serve.</p>
                             
-                            <p>Issued this <span id="coeProcessDateIssued">{{date_issued}}</span> 
+                            <p>Issued this <input type="text" id="coeProcessDateIssued" class="form-input inline-input" value="{{date_issued}}"> 
                             at Bigte, Norzagaray, Bulacan.</p>
                         </div>
                     </div>
@@ -1602,47 +1556,47 @@
                                 <table class="clearance-info-table">
                                     <tr style="background: #e3f2fd;">
                                         <td class="field-label">Purpose:</td>
-                                        <td class="field-value"><span id="clearProcessPurpose" style="font-weight: 600; color: #2c5aa0;">[PURPOSE]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessPurpose" class="form-input" style="font-weight: 600; color: #2c5aa0; width: 100%;" value="[PURPOSE]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">First Name:</td>
-                                        <td class="field-value"><span id="clearProcessFirstName">[FIRST NAME]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessFirstName" class="form-input" style="width: 100%;" value="[FIRST NAME]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Middle Name:</td>
-                                        <td class="field-value"><span id="clearProcessMiddleName">[MIDDLE NAME]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessMiddleName" class="form-input" style="width: 100%;" value="[MIDDLE NAME]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Last Name:</td>
-                                        <td class="field-value"><span id="clearProcessLastName">[LAST NAME]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessLastName" class="form-input" style="width: 100%;" value="[LAST NAME]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Address:</td>
-                                        <td class="field-value"><span id="clearProcessAddress">[ADDRESS]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessAddress" class="form-input" style="width: 100%;" value="[ADDRESS]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Birthdate:</td>
-                                        <td class="field-value"><span id="clearProcessBirthDate">[BIRTH DATE]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessBirthDate" class="form-input" style="width: 100%;" value="[BIRTH DATE]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Place of Birth:</td>
-                                        <td class="field-value"><span id="clearProcessBirthPlace">[BIRTH PLACE]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessBirthPlace" class="form-input" style="width: 100%;" value="[BIRTH PLACE]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Gender:</td>
-                                        <td class="field-value"><span id="clearProcessGender">[GENDER]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessGender" class="form-input" style="width: 100%;" value="[GENDER]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Citizenship:</td>
-                                        <td class="field-value"><span id="clearProcessCitizenship">[CITIZENSHIP]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessCitizenship" class="form-input" style="width: 100%;" value="[CITIZENSHIP]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Civil Status:</td>
-                                        <td class="field-value"><span id="clearProcessCivilStatus">[CIVIL STATUS]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessCivilStatus" class="form-input" style="width: 100%;" value="[CIVIL STATUS]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Date Issued:</td>
-                                        <td class="field-value"><span id="clearProcessDateIssued">[DATE ISSUED]</span></td>
+                                        <td class="field-value"><input type="text" id="clearProcessDateIssued" class="form-input" style="width: 100%;" value="[DATE ISSUED]"></td>
                                     </tr>
                                     <tr>
                                         <td class="field-label">Valid Until:</td>
@@ -1650,10 +1604,6 @@
                                             <input type="date" id="clearanceExpirationInput" class="form-input" style="width: 200px;">
                                             <span id="clearProcessExpiration" style="display: none;">[EXPIRATION]</span>
                                         </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="field-label">REMARKS:</td>
-                                        <td class="field-value"><strong>NO RECORD ON FILE.</strong></td>
                                     </tr>
                                 </table>
                             </div>
@@ -1694,27 +1644,27 @@
                             <h4>Personal Information</h4>
                             <div class="form-row">
                                 <label>Purpose:</label>
-                                <span id="certProcessPurpose" style="text-transform: capitalize; font-weight: 600; color: #2c5aa0;">[PURPOSE]</span>
+                                <input type="text" id="certProcessPurpose" class="form-input" style="text-transform: uppercase; font-weight: 600; color: #2c5aa0;" value="[PURPOSE]">
                             </div>
                             <div class="form-row">
                                 <label>Name:</label>
-                                <span id="certProcessName">[FULL NAME]</span>
+                                <input type="text" id="certProcessName" class="form-input" value="[FULL NAME]">
                             </div>
                             <div class="form-row">
                                 <label>Gender:</label>
-                                <span id="certProcessGender">[GENDER]</span>
+                                <input type="text" id="certProcessGender" class="form-input" value="[GENDER]">
                             </div>
                             <div class="form-row">
                                 <label>Citizenship:</label>
-                                <span id="certProcessCitizenship">[CITIZENSHIP]</span>
+                                <input type="text" id="certProcessCitizenship" class="form-input" value="[CITIZENSHIP]">
                             </div>
                             <div class="form-row">
                                 <label>Civil Status:</label>
-                                <span id="certProcessCivilStatus">[CIVIL STATUS]</span>
+                                <input type="text" id="certProcessCivilStatus" class="form-input" value="[CIVIL STATUS]">
                             </div>
                             <div class="form-row">
                                 <label>Address:</label>
-                                <span id="certProcessAddress">[ADDRESS]</span>
+                                <input type="text" id="certProcessAddress" class="form-input" value="[ADDRESS]">
                             </div>
                             
                             <!-- Purpose-specific fields -->
@@ -1722,7 +1672,7 @@
                                 <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Residency Information</h4>
                                 <div class="form-row">
                                     <label>Start Year:</label>
-                                    <span id="certProcessStartYear" style="font-weight: 500; color: #333;">[START YEAR]</span>
+                                    <input type="text" id="certProcessStartYear" class="form-input" value="[START YEAR]">
                                 </div>
                             </div>
                             
@@ -1730,15 +1680,15 @@
                                 <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Employment Information</h4>
                                 <div class="form-row">
                                     <label>Job Position:</label>
-                                    <span id="certProcessJobPosition" style="font-weight: 500; color: #333;">[JOB POSITION]</span>
+                                    <input type="text" id="certProcessJobPosition" class="form-input" value="[JOB POSITION]">
                                 </div>
                                 <div class="form-row">
                                     <label>Start of Work:</label>
-                                    <span id="certProcessStartOfWork" style="font-weight: 500; color: #333;">[START OF WORK]</span>
+                                    <input type="text" id="certProcessStartOfWork" class="form-input" value="[START OF WORK]">
                                 </div>
                                 <div class="form-row">
                                     <label>Monthly Income:</label>
-                                    <span id="certProcessMonthlyIncome" style="font-weight: 500; color: #333;">[MONTHLY INCOME]</span>
+                                    <input type="text" id="certProcessMonthlyIncome" class="form-input" value="[MONTHLY INCOME]">
                                 </div>
                             </div>
                             
@@ -1746,7 +1696,7 @@
                                 <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: #2c5aa0; font-size: 0.95rem; font-weight: 600;">Death Information</h4>
                                 <div class="form-row">
                                     <label>Month & Year:</label>
-                                    <span id="certProcessMonthYear" style="font-weight: 500; color: #333;">[MONTH YEAR]</span>
+                                    <input type="text" id="certProcessMonthYear" class="form-input" value="[MONTH YEAR]">
                                 </div>
                             </div>
                             
@@ -1759,7 +1709,7 @@
                             
                             <div class="form-row">
                                 <label>Date Issued:</label>
-                                <span id="certProcessDateIssued">[CURRENT DATE]</span>
+                                <input type="text" id="certProcessDateIssued" class="form-input" value="[CURRENT DATE]">
                             </div>
                         </div>
                     </div>
@@ -1776,10 +1726,32 @@
         </div>
     </div>
 
+    <!-- Image Modal -->
+    <div class="image-modal" id="imageModal" aria-hidden="true">
+        <div class="image-modal-overlay" onclick="closeImageModal()">
+            <div class="image-modal-content" onclick="event.stopPropagation()">
+                <div class="image-modal-header">
+                    <h3 id="imageModalTitle">ID Image</h3>
+                    <button class="close-image-modal-btn" onclick="closeImageModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="image-modal-body">
+                    <img id="imageModalImg" src="" alt="ID Image" style="max-width: 100%; max-height: 70vh; border-radius: 8px;">
+                    <div id="imageModalNoImage" style="display: none; text-align: center; padding: 40px; color: #333;">
+                        <i class="fas fa-image" style="font-size: 48px; color: #333; margin-bottom: 10px; display: block;"></i>
+                        No Image Available
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scroll to Top Button -->
     <button class="scroll-to-top-btn" id="scrollToTopBtn" onclick="scrollToTop()">
         <i class="fas fa-arrow-up"></i>
     </button>
+
 </body>
 </html>
 

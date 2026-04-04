@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archive - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="Styles/resident-info.css" rel="stylesheet">
+    <link href="Styles/archive.css" rel="stylesheet">
+    <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
+</head>
+
+<body>
+    <div class="page-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-section">
+                    <button class="back-btn" onclick="goToDashboard()">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
+                </div>
+            </div>
+            <div class="header-content">
+                <div class="header-actions">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content-container">
+            <div class="resident-management-container">
+                <div class="page-header">
+                    <h2>Archive Management</h2>
+                    <p>View archived records and data</p>
+                </div>
+
+                <!-- Archive Category Buttons -->
+                <div class="action-buttons">
+                    <button class="action-btn archive-concern-btn" onclick="loadArchiveData('concern')">
+                        <i class="fas fa-comments"></i>
+                        Concern
+                    </button>
+                    <button class="action-btn archive-emergency-btn" onclick="loadArchiveData('emergency')">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Emergency
+                    </button>
+                    <button class="action-btn archive-docu-btn" onclick="loadArchiveData('document')">
+                        <i class="fas fa-file-alt"></i>
+                        Document Request
+                    </button>
+                    <button class="action-btn archive-census-btn" onclick="loadArchiveData('census')">
+                        <i class="fas fa-clipboard-list"></i>
+                        Census
+                    </button>
+                </div>
+
+                <!-- Document Type Tabs (shown when Document Request is selected) -->
+                <div class="document-type-tabs" id="documentTypeTabs" style="display: none;">
+                    <button class="doc-type-tab" onclick="loadDocumentType('barangay_id')" data-type="barangay_id">
+                        Barangay ID
+                    </button>
+                    <button class="doc-type-tab" onclick="loadDocumentType('coe')" data-type="coe">
+                        COE
+                    </button>
+                    <button class="doc-type-tab" onclick="loadDocumentType('certification')" data-type="certification">
+                        Certification
+                    </button>
+                    <button class="doc-type-tab" onclick="loadDocumentType('clearance')" data-type="clearance">
+                        Clearance
+                    </button>
+                    <button class="doc-type-tab" onclick="loadDocumentType('indigency')" data-type="indigency">
+                        Indigency
+                    </button>
+                </div>
+
+                <!-- Archive Table -->
+                <div class="table-container">
+                    <table class="residents-table" id="archiveTable">
+                        <thead id="archiveTableHead">
+                            <tr>
+                                <th>Loading...</th>
+                            </tr>
+                        </thead>
+                        <tbody id="archive-body">
+                            <tr>
+                                <td colspan="100%" style="text-align: center; padding: 2rem;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #2c5aa0;"></i>
+                                    <p style="margin-top: 1rem; color: #666;">Select a category to view archived records</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <button class="page-btn" onclick="previousPage()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info" id="pageInfo">Page 1 of 1</span>
+                    <button class="page-btn" onclick="nextPage()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/archive.js"></script>
+</body>
+</html>

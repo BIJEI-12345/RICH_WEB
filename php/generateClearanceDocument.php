@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Clearance Document Generation
 error_reporting(0);
 ini_set('display_errors', 0);
@@ -22,9 +23,7 @@ try {
     header('Access-Control-Allow-Headers: Content-Type');
     
     // Start session
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    rich_session_start();
     
     error_log("Getting database connection...");
     $connection = getDatabaseConnection();
@@ -396,6 +395,7 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
             throw new Exception("Output file is too small, may be corrupted");
         }
         
+        // Keep DOCX file (no PDF conversion)
         return $outputPath;
         
     } catch (Exception $e) {

@@ -1,0 +1,584 @@
+/* Title uses .page-header from resident-info.css (same as Users) */
+
+/* Census Folder Styles */
+.house-folder-row {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* Keep left + bottom edge visible (do not use border:none — it hid the Users-style left line) */
+.house-folder-cell {
+    padding: 0 !important;
+    border-left: 1px solid #e2e8f0 !important;
+    border-bottom: 1px solid #e0e0e0;
+    border-top: none;
+    border-right: none;
+}
+
+/* Outer census table: first column is full-width folder rows — restore left border over resident-info td:first-child reset */
+#censusTable.residents-table td:first-child {
+    border-left: 1px solid #e2e8f0 !important;
+}
+
+.house-folder {
+    background: #ffffff;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.folder-header {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.folder-header:hover {
+    background: linear-gradient(135deg, #357ab8 0%, #2a4f7a 100%);
+    transform: translateX(2px);
+}
+
+.folder-icon {
+    font-size: 1.5rem;
+    color: #ffd700;
+}
+
+.folder-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+}
+
+.folder-title strong {
+    font-weight: 600;
+}
+
+.sitio-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.folder-arrow {
+    font-size: 1rem;
+    transition: transform 0.3s ease;
+}
+
+.folder-content {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-top: 2px solid #e0e0e0;
+}
+
+.family-folder {
+    background: #ffffff;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e0e0e0;
+    overflow: hidden;
+}
+
+.family-header {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    padding: 0.875rem 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.family-header:hover {
+    background: linear-gradient(135deg, #5dade2 0%, #3498db 100%);
+    transform: translateX(2px);
+}
+
+.family-icon {
+    font-size: 1.25rem;
+    color: #fff;
+}
+
+.family-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+}
+
+.family-title strong {
+    font-weight: 600;
+}
+
+.member-count {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.family-arrow {
+    font-size: 0.9rem;
+    transition: transform 0.3s ease;
+}
+
+.family-content {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-top: 1px solid #e0e0e0;
+}
+
+.members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.member-row-header {
+    display: grid;
+    grid-template-columns: 2fr 1.05fr 0.5fr 0.55fr 0.95fr 0.85fr 1.05fr 1.05fr 1.25fr 1.05fr 1.05fr minmax(5.25rem, 0.7fr);
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: #2c5aa0;
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    border-bottom: 2px solid #1e3a5f;
+}
+
+.member-row {
+    display: grid;
+    grid-template-columns: 2fr 1.05fr 0.5fr 0.55fr 0.95fr 0.85fr 1.05fr 1.05fr 1.25fr 1.05fr 1.05fr minmax(5.25rem, 0.7fr);
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-items: center;
+}
+
+.member-actions-header {
+    min-width: 5.25rem;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    text-align: center;
+}
+
+.member-actions-cell {
+    text-align: center;
+    cursor: default;
+    min-width: 5.25rem;
+    overflow: visible;
+    white-space: normal;
+}
+
+.member-remove-btn {
+    background: transparent;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.member-remove-btn:hover {
+    background: rgba(192, 57, 43, 0.12);
+    color: #a93226;
+}
+
+.member-return-btn {
+    background: transparent;
+    border: none;
+    color: #1e6b2b;
+    cursor: pointer;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.member-return-btn:hover {
+    background: rgba(30, 107, 43, 0.12);
+    color: #145a22;
+}
+
+.member-row:last-child {
+    border-bottom: none;
+}
+
+.member-row:hover {
+    background: #f0f7ff;
+    transform: translateX(2px);
+}
+
+.member-row-cell {
+    font-size: 0.85rem;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Action column: show full "ACTION" header + trash button (override ellipsis) */
+.member-row-header .member-row-cell.member-actions-header,
+.member-row .member-row-cell.member-actions-cell {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+}
+
+.member-name-cell {
+    font-weight: 600;
+    color: #2c5aa0;
+}
+
+.member-age-cell,
+.member-sex-cell,
+.member-birthday-cell,
+.member-relation-cell,
+.member-status-cell,
+.member-contact-cell,
+.member-occupation-cell,
+.member-workplace-cell,
+.member-disabilities-cell,
+.member-benefits-cell {
+    color: #666;
+    font-size: 0.75rem;
+}
+
+/* Census Statistics Summary */
+.census-statistics {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 2.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+    text-align: right;
+    clear: both;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.census-statistics .stat-label {
+    font-size: 1.05rem;
+    color: #000000;
+    font-weight: 500;
+    white-space: nowrap;
+    margin-right: 2.5rem;
+}
+
+.census-statistics .stat-label:last-child {
+    margin-right: 0;
+}
+
+.census-statistics .stat-label .stat-number {
+    font-weight: 600;
+    color: #2c5aa0;
+    margin-left: 0.25rem;
+}
+
+/* Ensure no overlap with table container */
+.table-container {
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive adjustments for folders */
+@media (max-width: 768px) {
+    .folder-header,
+    .family-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .folder-title,
+    .family-title {
+        font-size: 0.95rem;
+    }
+    
+    .member-row-header {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        font-size: 0.7rem;
+    }
+    
+    .member-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding: 0.75rem;
+    }
+    
+    .member-row-cell {
+        font-size: 0.85rem;
+        white-space: normal;
+    }
+    
+    .member-row-cell::before {
+        content: attr(data-label) ': ';
+        font-weight: 600;
+        color: #2c5aa0;
+    }
+}
+
+/* Print styles for statistics */
+/* Add resident modal — compact width, large type, header fixed + form scrolls */
+.view-resident-modal.census-add-modal {
+    padding: clamp(0.65rem, 3vw, 1.25rem);
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+}
+
+.view-resident-dialog.census-add-dialog {
+    width: min(720px, calc(100vw - 1.25rem));
+    max-width: min(720px, calc(100vw - 1.25rem));
+    max-height: min(88vh, calc(100vh - 2rem));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    /* Extra bottom padding so footer buttons aren’t flush / clipped at the card edge */
+    padding: clamp(1rem, 3vw, 1.5rem) clamp(1rem, 3vw, 1.75rem) clamp(1.35rem, 4vw, 2rem);
+    box-sizing: border-box;
+}
+
+/* Title bar stays visible; only the form body scrolls */
+.view-resident-dialog.census-add-dialog .modal-header {
+    flex-shrink: 0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.85rem;
+    position: relative;
+    z-index: 3;
+    background: #fff;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.view-resident-dialog.census-add-dialog .modal-title {
+    font-size: clamp(1.35rem, 2.8vw, 1.65rem);
+    font-weight: 700;
+}
+
+.census-add-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Scroll middle section only — header + Save/Cancel stay visible */
+.census-add-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(0.75rem, 2vw, 1rem) clamp(0.85rem, 2vw, 1.15rem);
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    /* Top padding prevents first label (Select Household) from clipping under header border when scrolling */
+    padding: 0.5rem clamp(0.35rem, 2vw, 0.85rem) 0.75rem;
+    scroll-padding-top: 0.5rem;
+    /* Do not set z-index here — it would stack the whole grid above .census-add-actions and hide the buttons */
+}
+
+.census-add-grid .census-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.census-add-grid .census-field.full {
+    grid-column: 1 / -1;
+}
+
+.census-add-grid .census-field span {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+    padding-top: 0.05rem;
+}
+
+.census-field span {
+    display: block;
+    font-size: clamp(0.92rem, 2.2vw, 1.05rem);
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.4rem;
+}
+
+.census-field span abbr {
+    text-decoration: none;
+    color: #c0392b;
+}
+
+.census-field input,
+.census-field select,
+.census-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+    line-height: 1.4;
+}
+
+.census-field textarea {
+    resize: vertical;
+    min-height: 64px;
+}
+
+.census-readonly {
+    background: #f0f4f8 !important;
+    color: #555;
+    cursor: not-allowed;
+}
+
+.census-add-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0; /* reset resident-info.css * { margin: -2px } */
+    padding: 1rem 0 0.85rem;
+    border-top: 1px solid #e0e0e0;
+    flex-shrink: 0;
+    background: #fff;
+    position: relative;
+    z-index: 5;
+}
+
+.census-btn-primary,
+.census-btn-secondary {
+    padding: 0.6rem 1.35rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+}
+
+.census-btn-primary {
+    background: #2c5aa0;
+    color: #fff;
+}
+
+.census-btn-primary:hover {
+    background: #357ab8;
+}
+
+.census-btn-secondary {
+    background: #e8e8e8;
+    color: #333;
+}
+
+.census-btn-secondary:hover {
+    background: #ddd;
+}
+
+.action-btn.add-resident-btn {
+    background: #2c5aa0;
+    color: #fff;
+}
+
+.action-btn.add-resident-btn:hover {
+    background: #1e3a5f;
+    box-shadow: 0 5px 15px rgba(44, 90, 160, 0.3);
+}
+
+/* Tablet: single column, slightly narrower side padding */
+@media (max-width: 768px) {
+    .view-resident-dialog.census-add-dialog {
+        width: calc(100vw - 1.5rem);
+        max-width: min(720px, 100vw - 1.5rem);
+        max-height: 90vh;
+    }
+
+    .census-add-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Phone */
+@media (max-width: 480px) {
+    .view-resident-modal.census-add-modal {
+        padding: 0.5rem;
+        align-items: flex-end;
+    }
+
+    .view-resident-dialog.census-add-dialog {
+        width: 100%;
+        max-width: none;
+        max-height: 94vh;
+        border-radius: 12px 12px 0 0;
+        padding: 1rem clamp(0.85rem, 3vw, 1.25rem) max(1.5rem, env(safe-area-inset-bottom, 0px));
+        box-sizing: border-box;
+    }
+
+    .view-resident-dialog.census-add-dialog .modal-title {
+        font-size: 1.35rem;
+    }
+
+    .census-add-actions {
+        justify-content: stretch;
+    }
+
+    .census-btn-primary,
+    .census-btn-secondary {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+    }
+}
+
+@media print {
+    .census-statistics {
+        display: flex !important;
+        justify-content: flex-end;
+        margin-bottom: 0.5rem;
+        page-break-inside: avoid;
+        padding: 0.5rem 0;
+        gap: 2.5rem;
+    }
+    
+    .census-statistics .stat-label {
+        font-size: 0.95rem;
+        color: #000000;
+        margin-right: 2.5rem;
+    }
+    
+    .census-statistics .stat-label:last-child {
+        margin-right: 0;
+    }
+    
+    .census-statistics .stat-label .stat-number {
+        color: #2c5aa0;
+        font-weight: 700;
+    }
+}
+

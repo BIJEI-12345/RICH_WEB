@@ -4,6 +4,10 @@
 let printMultipleMode = false;
 let selectedCards = new Set();
 
+// Ready Multiple Selection State
+let readyMultipleMode = false;
+let selectedReadyCards = new Set();
+
 // Navigation Functions
 function goBack() {
     window.location.href = 'admin-dashboard.html';
@@ -182,6 +186,32 @@ async function printSelectedCards() {
         return;
     }
     
+    // Show confirmation dialog
+    const confirmResult = await Swal.fire({
+        icon: 'question',
+        title: 'Confirm Print',
+        html: `Are you sure you want to print <strong>${requestsToPrint.length}</strong> selected document(s)?`,
+        showCancelButton: true,
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#87CEEB',
+        cancelButtonColor: '#6c757d',
+        width: '450px',
+        padding: '1.5rem',
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        customClass: {
+            popup: 'swal2-small-popup swal2-confirm-dialog',
+            title: 'swal2-small-title',
+            content: 'swal2-small-content'
+        }
+    });
+    
+    // If user cancelled, don't proceed (selections remain)
+    if (!confirmResult.isConfirmed) {
+        return;
+    }
+    
     // Show loading
     showStatusModal('info', 'Printing', `Printing ${requestsToPrint.length} document(s)...`);
     
@@ -202,7 +232,234 @@ async function printSelectedCards() {
     // Clear selection and exit mode
     selectedCards.clear();
     togglePrintMultipleMode();
-    showStatusModal('success', 'Print Complete', `Successfully printed ${requestsToPrint.length} document(s).`);
+    showStatusModal('success', 'Print Complete', `Successfully printed ${requestsToPrint.length} document(s).`, null, true, 2000);
+}
+
+// Toggle Ready Multiple Mode
+function toggleReadyMultipleMode() {
+    // If we're in mode and have selections, mark them as ready
+    if (readyMultipleMode && selectedReadyCards.size > 0) {
+        markSelectedAsReady();
+        return;
+    }
+    
+    readyMultipleMode = !readyMultipleMode;
+    const btn = document.getElementById('readyMultipleBtn');
+    const btnText = document.getElementById('readyMultipleBtnText');
+    
+    if (readyMultipleMode) {
+        btn.classList.add('active');
+        btnText.textContent = 'Ready to Receive';
+        // Add checkboxes to all cards in checked tab
+        enableReadyCardSelection();
+    } else {
+        btn.classList.remove('active');
+        btnText.textContent = 'Select Multiple';
+        // Remove checkboxes and selection
+        disableReadyCardSelection();
+        selectedReadyCards.clear();
+    }
+}
+
+// Select All Ready Cards
+function selectAllReadyCards() {
+    const allCards = document.querySelectorAll('#checked-tab .request-card');
+    let selectedCount = 0;
+    
+    allCards.forEach(card => {
+        // Skip hidden cards (from search filter)
+        if (card.style.display === 'none') return;
+        
+        const checkbox = card.querySelector('.ready-card-checkbox');
+        if (checkbox && !checkbox.checked) {
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change'));
+            selectedCount++;
+        }
+    });
+    
+    if (selectedCount > 0) {
+        showStatusModal('info', 'Selected', `Selected ${selectedCount} card(s).`, null, true, 1500);
+    } else {
+        showStatusModal('info', 'Already Selected', 'All visible cards are already selected.', null, true, 1500);
+    }
+}
+
+// Enable ready card selection mode (only for checked tab cards)
+function enableReadyCardSelection() {
+    const allCards = document.querySelectorAll('#checked-tab .request-card');
+    allCards.forEach(card => {
+        // Skip if checkbox already exists
+        if (card.querySelector('.ready-card-checkbox')) return;
+        
+        // Ensure card has position relative
+        card.style.position = 'relative';
+        card.classList.add('selectable-card');
+        
+        // Add checkbox at the top-left of card
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'ready-card-checkbox';
+        
+        const cardId = card.dataset.requestId || card.dataset.cardId || `${Date.now()}-${Math.random()}`;
+        if (!card.dataset.cardId) {
+            card.dataset.cardId = cardId;
+        }
+        checkbox.dataset.cardId = card.dataset.cardId;
+        
+        checkbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                selectedReadyCards.add(card.dataset.cardId);
+                card.classList.add('selected');
+            } else {
+                selectedReadyCards.delete(card.dataset.cardId);
+                card.classList.remove('selected');
+            }
+            updateReadyMultipleButton();
+        });
+        
+        card.addEventListener('click', (e) => {
+            // Don't toggle if clicking checkbox or buttons
+            if (e.target.closest('.ready-card-checkbox') || e.target.closest('.btn-action')) {
+                return;
+            }
+            if (readyMultipleMode) {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+        
+        card.appendChild(checkbox);
+    });
+}
+
+// Disable ready card selection mode
+function disableReadyCardSelection() {
+    const allCards = document.querySelectorAll('.request-card');
+    allCards.forEach(card => {
+        const checkbox = card.querySelector('.ready-card-checkbox');
+        if (checkbox) {
+            checkbox.remove();
+        }
+        card.classList.remove('selected', 'selectable-card');
+    });
+}
+
+// Update Ready Multiple button text (like print multiple)
+function updateReadyMultipleButton() {
+    const btnText = document.getElementById('readyMultipleBtnText');
+    const count = selectedReadyCards.size;
+    
+    if (readyMultipleMode) {
+        if (count > 0) {
+            btnText.textContent = `Ready to Receive (${count})`;
+        } else {
+            btnText.textContent = 'Ready to Receive';
+        }
+    } else {
+        btnText.textContent = 'Select Multiple';
+    }
+}
+
+// Mark Selected Cards as Ready to Receive
+async function markSelectedAsReady() {
+    if (selectedReadyCards.size === 0) {
+        showStatusModal('error', 'No Selection', 'Please select at least one card to mark as ready.');
+        return;
+    }
+    
+    const cards = document.querySelectorAll('#checked-tab .request-card.selected');
+    const requestsToMark = [];
+    
+    cards.forEach(card => {
+        const requestId = card.dataset.requestId || card.getAttribute('data-id') || card.dataset.cardId;
+        const documentType = card.dataset.documentType || card.getAttribute('data-type') || 'barangay-id';
+        if (requestId) {
+            requestsToMark.push({ id: requestId, type: documentType, card: card });
+        }
+    });
+    
+    if (requestsToMark.length === 0) {
+        showStatusModal('error', 'Error', 'No valid requests found to mark as ready.');
+        return;
+    }
+    
+    // Show confirmation dialog
+    const confirmResult = await Swal.fire({
+        icon: 'question',
+        title: 'Confirm Ready to Receive',
+        html: `Are you sure you want to mark <strong>${requestsToMark.length}</strong> selected request(s) as Ready to Receive?<br><br>This action cannot be undone.`,
+        showCancelButton: true,
+        confirmButtonText: 'Confirm',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#87CEEB',
+        cancelButtonColor: '#6c757d',
+        width: '450px',
+        padding: '1.5rem',
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        customClass: {
+            popup: 'swal2-small-popup swal2-confirm-dialog',
+            title: 'swal2-small-title',
+            content: 'swal2-small-content'
+        }
+    });
+    
+    // If user cancelled, don't proceed
+    if (!confirmResult.isConfirmed) {
+        return;
+    }
+    
+    // Show loading
+    showStatusModal('info', 'Marking as Ready', `Marking ${requestsToMark.length} request(s) as Ready to Receive...`);
+    
+    // Mark each request sequentially
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = 0; i < requestsToMark.length; i++) {
+        const request = requestsToMark[i];
+        try {
+            // Determine table name from request type
+            const docType = request.type.toLowerCase().replace(/\s+/g, '-');
+            const tableMap = {
+                'barangay-id': 'barangay_id',
+                'barangay_id': 'barangay_id',
+                'certification': 'certification',
+                'coe': 'coe',
+                'certificate-of-employment': 'coe',
+                'certificate_of_employment': 'coe',
+                'clearance': 'clearance',
+                'indigency': 'indigency'
+            };
+            const tableName = tableMap[docType] || 'barangay_id';
+            
+            await updateRequestStatus(request.id, 'Finished', tableName);
+            successCount++;
+            
+            // Small delay between updates
+            if (i < requestsToMark.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        } catch (error) {
+            console.error(`Error marking request ${request.id} as ready:`, error);
+            failCount++;
+        }
+    }
+    
+    // Clear selection and exit mode
+    selectedReadyCards.clear();
+    toggleReadyMultipleMode();
+    
+    // Reload processing requests
+    loadProcessingRequests();
+    
+    // Show result
+    if (failCount === 0) {
+        showStatusModal('success', 'Ready to Receive', `Successfully marked ${successCount} request(s) as Ready to Receive.`, null, true, 2000);
+    } else {
+        showStatusModal('warning', 'Partial Success', `Marked ${successCount} request(s) as ready. ${failCount} request(s) failed.`, null, true, 3000);
+    }
 }
 
 // Helper function to print request by ID (direct download without modal)
@@ -294,14 +551,21 @@ async function downloadCertificationDirectly(requestId) {
     }
     
     const data = await response.json();
-    if (data.success && data.download_url) {
-        const downloadLink = document.createElement('a');
-        downloadLink.href = data.download_url;
-        downloadLink.download = data.filename || 'certification.docx';
-        downloadLink.style.display = 'none';
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+    const primaryUrl = data.download_url || data.downloadUrl;
+    const secondaryUrl = data.download_url_2 || data.downloadUrl2;
+
+    if (data.success && primaryUrl) {
+        // Download main certification document
+        const primaryFilename = data.filename || (primaryUrl.split('/').pop() || 'certification.docx');
+        triggerFileDownload(primaryUrl, primaryFilename);
+
+        // If a second document (e.g., JOBSEEKER_OATH) is provided, download it next
+        if (secondaryUrl) {
+            const secondaryFilename = data.filename_2 || data.filename2 || (secondaryUrl.split('/').pop() || 'document.docx');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            triggerFileDownload(secondaryUrl, secondaryFilename);
+        }
+
         await new Promise(resolve => setTimeout(resolve, 300));
     } else {
         throw new Error(data.message || 'Failed to generate certification');
@@ -372,11 +636,7 @@ async function downloadIndigencyDirectly(requestId) {
         body: formData
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const data = await parseJsonFromResponse(response);
     if (data.success && data.downloadUrl) {
         const downloadLink = document.createElement('a');
         downloadLink.href = data.downloadUrl;
@@ -431,6 +691,20 @@ function switchRequestTab(tabName) {
             // Exit print multiple mode if switching to a tab that doesn't support it
             if (printMultipleMode) {
                 togglePrintMultipleMode();
+            }
+        }
+    }
+    
+    // Show/hide Ready Multiple button based on active tab
+    const readyMultipleBtn = document.getElementById('readyMultipleBtn');
+    if (readyMultipleBtn) {
+        if (tabName === 'checked') {
+            readyMultipleBtn.style.display = 'inline-block';
+        } else {
+            readyMultipleBtn.style.display = 'none';
+            // Exit ready multiple mode if switching to a tab that doesn't support it
+            if (readyMultipleMode) {
+                toggleReadyMultipleMode();
             }
         }
     }
@@ -706,21 +980,22 @@ function createReleasedCard(request) {
         </div>
     `;
     
-    // Attach view handler
+    // Attach view handler - Show process form preview (like Process button) in view-only mode
     const viewBtn = card.querySelector('.view-btn');
     if (viewBtn) {
         viewBtn.addEventListener('click', () => {
-            // Determine the handler based on document type
-            if (request.documentType === 'BARANGAY_ID' || request.type === 'barangay_id') {
-                populateAndShowBarangayIdModal(request);
+            // Determine the handler based on document type - use process form preview (view-only for finished)
+            if (request.documentType === 'BARANGAY_ID' || request.type === 'barangay_id' || request.type === 'barangay-id') {
+                // Use view-only version for finished requests
+                populateAndShowBarangayIdProcessFormViewOnly(request);
             } else if (request.documentType === 'CERTIFICATION' || request.type === 'certification') {
-                populateAndShowCertificationModal(request);
+                populateAndShowCertificationProcessForm(request, true); // view-only
             } else if (request.documentType === 'COE' || request.type === 'coe') {
-                populateAndShowCoeModal(request);
+                populateAndShowCoeProcessForm(request, true); // view-only
             } else if (request.documentType === 'CLEARANCE' || request.type === 'clearance') {
-                populateAndShowClearanceModal(request);
+                populateAndShowClearanceProcessForm(request, true); // view-only
             } else if (request.documentType === 'INDIGENCY' || request.type === 'indigency') {
-                populateAndShowIndigencyModal(request);
+                populateAndShowIndigencyProcessForm(request, true); // view-only
             }
         });
     }
@@ -1007,7 +1282,21 @@ async function generateCertificationDocumentDirectly(requestId) {
     const result = await response.json();
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
-        showStatusModal('success', 'Document Generated', 'Certification document has been generated successfully!', result.download_url);
+        const primaryUrl = result.download_url || result.downloadUrl;
+        const secondaryUrl = result.download_url_2 || result.downloadUrl2;
+
+        if (primaryUrl) {
+            const primaryFilename = result.filename || (primaryUrl.split('/').pop() || 'certification.docx');
+            triggerFileDownload(primaryUrl, primaryFilename);
+        }
+
+        if (secondaryUrl) {
+            const secondaryFilename = result.filename_2 || result.filename2 || (secondaryUrl.split('/').pop() || 'document.docx');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            triggerFileDownload(secondaryUrl, secondaryFilename);
+        }
+
+        showStatusModal('success', 'Document Generated', 'Certification document has been generated successfully!');
     } else {
         throw new Error(result.message || 'Failed to generate certification');
     }
@@ -1065,11 +1354,7 @@ async function generateIndigencyDocumentDirectly(requestId) {
         body: formData
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
+    const result = await parseJsonFromResponse(response);
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
         showStatusModal('success', 'Document Generated', 'Indigency document has been generated successfully!', result.downloadUrl);
@@ -1174,7 +1459,7 @@ function showLogoutConfirmationModal() {
         if (window.performLogout) {
             window.performLogout();
         } else {
-            window.location.href = 'index.html';
+            window.location.href = 'index.php';
         }
     };
     
@@ -1328,6 +1613,8 @@ async function fetchNextBidNumber(bidInput) {
 
 // Function to populate and show the process form modal
 function populateAndShowBarangayIdProcessForm(requestData) {
+    console.log('Populating Barangay ID Process Form with data:', requestData);
+    
     // Set the request ID in the modal dataset
     const modal = document.getElementById('barangayIdProcessModal');
     modal.dataset.requestId = requestData.id;
@@ -1367,11 +1654,22 @@ function populateAndShowBarangayIdProcessForm(requestData) {
 
 // Function to populate the Barangay ID process form
 function populateBarangayIdProcessForm(requestData) {
+    console.log('Populating process form fields with:', {
+        givenname: requestData.givenname,
+        middlename: requestData.middlename,
+        surname: requestData.surname,
+        birthday: requestData.birthday,
+        address: requestData.address,
+        gender: requestData.gender,
+        civilStatus: requestData.civilStatus,
+        validId: requestData.validId
+    });
+    
     // BID number will be auto-generated or manually entered by user
     
     // Personal Information - Front Side
     const fullName = [requestData.givenname, requestData.middlename, requestData.surname].filter(Boolean).join(' ').toUpperCase();
-    document.getElementById('processFullName').textContent = fullName || 'NO NAME PROVIDED';
+    document.getElementById('processFullName').value = fullName || 'NO NAME PROVIDED';
     
     // Format birthday to match PowerPoint format (MMM DD, YYYY)
     let birthday = 'NOT PROVIDED';
@@ -1387,9 +1685,9 @@ function populateBarangayIdProcessForm(requestData) {
             birthday = requestData.birthday.toUpperCase();
         }
     }
-    document.getElementById('processBirthday').textContent = birthday;
+    document.getElementById('processBirthday').value = birthday;
     
-    document.getElementById('processAddress').textContent = (requestData.address || 'NO ADDRESS PROVIDED').toUpperCase();
+    document.getElementById('processAddress').value = (requestData.address || 'NO ADDRESS PROVIDED').toUpperCase();
     // Set BID field - use existing BID value if available, otherwise auto-generate next BID
     const bidInput = document.getElementById('processBidNumber');
     if (requestData.bid && requestData.bid.match(/^\d{4}-\d+$/)) {
@@ -1451,18 +1749,21 @@ function populateBarangayIdProcessForm(requestData) {
     });
     
     // Back Side Information
-    document.getElementById('processGender').textContent = (requestData.gender || 'NOT SPECIFIED').toUpperCase();
+    // Fetch gender from database
+    const gender = requestData.gender || 'NOT SPECIFIED';
+    document.getElementById('processGender').value = gender.toUpperCase();
+    console.log('Gender set to:', gender);
     
     // Format height: remove decimals and add "cm"
     const heightValue = requestData.height;
     if (heightValue && heightValue !== 'NOT SPECIFIED' && !isNaN(parseFloat(heightValue))) {
         const heightInt = Math.round(parseFloat(heightValue));
-        document.getElementById('processHeight').textContent = heightInt + ' CM';
+        document.getElementById('processHeight').value = heightInt + ' CM';
     } else {
-        document.getElementById('processHeight').textContent = 'NOT SPECIFIED';
+        document.getElementById('processHeight').value = 'NOT SPECIFIED';
     }
     
-    document.getElementById('processNationality').textContent = (requestData.nationality || 'FILIPINO').toUpperCase();
+    document.getElementById('processNationality').value = (requestData.nationality || 'FILIPINO').toUpperCase();
     
     // Date issued (current date) - matches PowerPoint format
     const currentDate = new Date();
@@ -1471,25 +1772,32 @@ function populateBarangayIdProcessForm(requestData) {
         month: 'long', 
         day: 'numeric' 
     }).toUpperCase();
-    document.getElementById('processDateIssued').textContent = dateIssued;
+    document.getElementById('processDateIssued').value = dateIssued;
     
-    document.getElementById('processCivilStatus').textContent = (requestData.civilStatus || 'NOT SPECIFIED').toUpperCase();
-    document.getElementById('processContactNumber').textContent = (requestData.emergencyContactNumber || 'NOT PROVIDED').toUpperCase();
+    // Fetch civil_status from database
+    const civilStatus = requestData.civilStatus || requestData.civil_status || 'NOT SPECIFIED';
+    document.getElementById('processCivilStatus').value = civilStatus.toUpperCase();
+    console.log('Civil Status set to:', civilStatus);
+    
+    // Store valid_id for reference (if needed)
+    const validId = requestData.validId || requestData.valid_id || '';
+    console.log('Valid ID type:', validId);
+    document.getElementById('processContactNumber').value = (requestData.emergencyContactNumber || 'NOT PROVIDED').toUpperCase();
     
     // Format weight: remove decimals and add "kg"
     const weightValue = requestData.weight;
     if (weightValue && weightValue !== 'NOT SPECIFIED' && !isNaN(parseFloat(weightValue))) {
         const weightInt = Math.round(parseFloat(weightValue));
-        document.getElementById('processWeight').textContent = weightInt + ' KG';
+        document.getElementById('processWeight').value = weightInt + ' KG';
     } else {
-        document.getElementById('processWeight').textContent = 'NOT SPECIFIED';
+        document.getElementById('processWeight').value = 'NOT SPECIFIED';
     }
     
     // Emergency contact - matches PowerPoint format
     const emergencyContact = requestData.emergencyContactName ? 
         `${requestData.emergencyContactName} - ${requestData.emergencyContactNumber || 'NO NUMBER'}` : 
         'NOT PROVIDED';
-    document.getElementById('processEmergencyContact').textContent = emergencyContact.toUpperCase();
+    document.getElementById('processEmergencyContact').value = emergencyContact.toUpperCase();
     
     // Expiration date (1 year from now) - matches PowerPoint format
     const expDate = new Date();
@@ -1499,7 +1807,7 @@ function populateBarangayIdProcessForm(requestData) {
         month: 'long', 
         day: 'numeric' 
     }).toUpperCase();
-    document.getElementById('processExpDate').textContent = expDateFormatted;
+    document.getElementById('processExpDate').value = expDateFormatted;
     
     // Store the request ID for later use
     document.getElementById('barangayIdProcessForm').setAttribute('data-request-id', requestData.id);
@@ -1879,8 +2187,242 @@ function generateBarangayIdDocument() {
     });
 }
 
+// Function to detect cursive text areas using Google Vision API
+async function detectSignatureArea(imageData) {
+    try {
+        const response = await fetch('php/detectSignature.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ imageData: imageData })
+        });
+        
+        if (!response.ok) {
+            console.warn('Signature detection API failed, using fallback');
+            throw new Error('Failed to detect signature area');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.signatures && Array.isArray(data.signatures)) {
+            console.log('Cursive text areas detected:', data.signatures);
+            return {
+                signatures: data.signatures,
+                fallback: data.fallback || false
+            };
+        }
+        
+        throw new Error('Signature detection failed');
+    } catch (error) {
+        console.warn('Error detecting signature, using fallback:', error);
+        // Use fallback coordinates when detection fails to ensure signatures are blurred
+        return {
+            signatures: [
+                {x: 3, y: 78, width: 40, height: 12},
+                {x: 55, y: 78, width: 40, height: 12}
+            ],
+            fallback: true
+        };
+    }
+}
+
+// Function to blur ONLY detected cursive text areas using Google Vision API
+async function blurSensitiveIdInfo(imageData) {
+    return new Promise(async (resolve, reject) => {
+        if (!imageData || imageData === '' || imageData === 'image_too_large') {
+            resolve(imageData);
+            return;
+        }
+
+        const img = new Image();
+        if (!imageData.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+        }
+        
+        img.onload = async function() {
+            try {
+                if (img.width === 0 || img.height === 0) {
+                    console.warn('Image has zero dimensions');
+                    resolve(imageData);
+                    return;
+                }
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    console.error('Could not get canvas context');
+                    resolve(imageData);
+                    return;
+                }
+                
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw the original image
+                ctx.drawImage(img, 0, 0);
+                
+                // Detect cursive text areas using Google Vision API
+                const signatureData = await detectSignatureArea(imageData);
+                
+                // Apply blur to ALL detected cursive text areas - EXACT coordinates only
+                if (signatureData.signatures && Array.isArray(signatureData.signatures) && signatureData.signatures.length > 0) {
+                    signatureData.signatures.forEach((sig, index) => {
+                        // Convert percentage coordinates to pixel coordinates
+                        // NO PADDING - Use exact coordinates to blur only the cursive text
+                        let signatureBlurX = Math.floor((sig.x / 100) * canvas.width);
+                        let signatureBlurY = Math.floor((sig.y / 100) * canvas.height);
+                        let signatureBlurWidth = Math.floor((sig.width / 100) * canvas.width);
+                        let signatureBlurHeight = Math.floor((sig.height / 100) * canvas.height);
+                        
+                        // Ensure coordinates stay within canvas bounds
+                        if (signatureBlurX < 0) {
+                            signatureBlurWidth += signatureBlurX;
+                            signatureBlurX = 0;
+                        }
+                        if (signatureBlurY < 0) {
+                            signatureBlurHeight += signatureBlurY;
+                            signatureBlurY = 0;
+                        }
+                        if (signatureBlurX + signatureBlurWidth > canvas.width) {
+                            signatureBlurWidth = canvas.width - signatureBlurX;
+                        }
+                        if (signatureBlurY + signatureBlurHeight > canvas.height) {
+                            signatureBlurHeight = canvas.height - signatureBlurY;
+                        }
+                        
+                        console.log(`Applying blur to cursive text ${index + 1}:`, {
+                            x: signatureBlurX,
+                            y: signatureBlurY,
+                            width: signatureBlurWidth,
+                            height: signatureBlurHeight,
+                            canvasWidth: canvas.width,
+                            canvasHeight: canvas.height
+                        });
+                        
+                        // Apply blur to this EXACT cursive text area only
+                        if (signatureBlurHeight > 0 && signatureBlurY >= 0 && signatureBlurWidth > 0 && 
+                            signatureBlurX >= 0 && signatureBlurX + signatureBlurWidth <= canvas.width &&
+                            signatureBlurY + signatureBlurHeight <= canvas.height) {
+                            // Use strong blur radius but only on exact area
+                            blurRegion(ctx, signatureBlurX, signatureBlurY, signatureBlurWidth, signatureBlurHeight, 25);
+                            console.log(`Blur applied successfully to cursive text ${index + 1}`);
+                        } else {
+                            console.warn(`Invalid blur coordinates for cursive text ${index + 1}, skipping`);
+                        }
+                    });
+                }
+                
+                // Convert canvas to data URL
+                const blurredDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                resolve(blurredDataUrl);
+            } catch (error) {
+                console.error('Error blurring image:', error);
+                resolve(imageData);
+            }
+        };
+        
+        img.onerror = function() {
+            console.error('Error loading image for blurring');
+            resolve(imageData);
+        };
+        
+        img.src = imageData;
+    });
+}
+
+// Helper function to apply mosaic/pixelated blur effect
+function blurRegion(ctx, x, y, width, height, blurRadius) {
+    // Safety checks
+    if (!ctx || width <= 0 || height <= 0 || blurRadius <= 0) {
+        return;
+    }
+    
+    // Ensure coordinates are within canvas bounds
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+    
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x + width > canvasWidth) width = canvasWidth - x;
+    if (y + height > canvasHeight) height = canvasHeight - y;
+    
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    
+    try {
+        // Get image data for the region
+        const imageData = ctx.getImageData(x, y, width, height);
+        const data = imageData.data;
+        
+        // Mosaic/pixelation size - larger value = more pixelated (stronger blur)
+        const pixelSize = Math.max(15, Math.min(30, Math.floor(blurRadius / 1.2)));
+        
+        // Apply mosaic/pixelation effect with multiple passes for stronger blur
+        const passes = 3; // Apply 3 times for very strong effect
+        
+        for (let pass = 0; pass < passes; pass++) {
+            // Apply mosaic/pixelation effect
+            for (let py = 0; py < height; py += pixelSize) {
+                for (let px = 0; px < width; px += pixelSize) {
+                    // Calculate average color for this pixel block
+                    let r = 0, g = 0, b = 0, a = 0;
+                    let count = 0;
+                    
+                    const blockHeight = Math.min(pixelSize, height - py);
+                    const blockWidth = Math.min(pixelSize, width - px);
+                    
+                    // Sample pixels in this block
+                    for (let by = 0; by < blockHeight; by++) {
+                        for (let bx = 0; bx < blockWidth; bx++) {
+                            const idx = ((py + by) * width + (px + bx)) * 4;
+                            r += data[idx];
+                            g += data[idx + 1];
+                            b += data[idx + 2];
+                            a += data[idx + 3];
+                            count++;
+                        }
+                    }
+                    
+                    // Calculate average
+                    const avgR = Math.round(r / count);
+                    const avgG = Math.round(g / count);
+                    const avgB = Math.round(b / count);
+                    const avgA = Math.round(a / count);
+                    
+                    // Fill the entire block with the average color (creates mosaic effect)
+                    for (let by = 0; by < blockHeight; by++) {
+                        for (let bx = 0; bx < blockWidth; bx++) {
+                            const idx = ((py + by) * width + (px + bx)) * 4;
+                            data[idx] = avgR;
+                            data[idx + 1] = avgG;
+                            data[idx + 2] = avgB;
+                            data[idx + 3] = avgA;
+                        }
+                    }
+                }
+            }
+            
+            // Put pixelated data back to canvas after each pass
+            ctx.putImageData(imageData, x, y);
+            
+            // Get updated image data for next pass
+            if (pass < passes - 1) {
+                const updatedImageData = ctx.getImageData(x, y, width, height);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = updatedImageData.data[i];
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error in blurRegion:', error);
+    }
+}
+
 // Function to handle ID image in process form
-function handleProcessIdImage(imageData, containerId) {
+async function handleProcessIdImage(imageData, containerId) {
     const container = document.getElementById(containerId);
     if (!container) {
         console.log('Process ID Image container not found:', containerId);
@@ -1888,23 +2430,26 @@ function handleProcessIdImage(imageData, containerId) {
     }
 
     if (imageData && imageData !== '' && imageData !== 'image_too_large') {
+        // Apply blur to detected cursive text
+        const blurredImageData = await blurSensitiveIdInfo(imageData);
+        
         const img = document.createElement('img');
-        img.src = imageData;
+        img.src = blurredImageData;
         img.style.maxWidth = '100%';
         img.style.maxHeight = '200px';
-        img.style.border = '1px solid #ddd';
+        img.style.border = '1px solid #333';
         img.style.borderRadius = '4px';
         
         img.onerror = function() {
-            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">Image failed to load</div>';
+            container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">Image failed to load</div>';
         };
         
         container.innerHTML = '';
         container.appendChild(img);
     } else if (imageData === 'image_too_large') {
-        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">Image too large to display</div>';
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">Image too large to display</div>';
     } else {
-        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">No ID Image Available</div>';
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">No ID Image Available</div>';
     }
 }
 
@@ -2020,14 +2565,16 @@ async function processClearanceRequest(requestId, rowData = null) {
     try {
         console.log('Processing Clearance request with ID:', requestId);
         
-        let requestData = rowData;
+        // Always fetch fresh data from backend to ensure we have all fields
+        let requestData = await fetchClearanceRequestData(requestId);
         
-        // If no row data provided, fetch it
-        if (!requestData) {
-            requestData = await fetchClearanceRequestData(requestId);
+        // If fetch failed, try using rowData as fallback
+        if (!requestData && rowData) {
+            requestData = rowData;
         }
         
         if (requestData) {
+            console.log('Request data for clearance:', requestData);
             // Populate and show the form modal with the data
             populateAndShowClearanceProcessForm(requestData);
         } else {
@@ -2111,10 +2658,16 @@ async function fetchClearanceRequestData(requestId) {
 }
 
 // Function to populate and show clearance process form
-function populateAndShowClearanceProcessForm(requestData) {
+function populateAndShowClearanceProcessForm(requestData, viewOnly = false) {
     // Set the request ID in the modal dataset
     const modal = document.getElementById('clearanceProcessModal');
     modal.dataset.requestId = requestData.id;
+    
+    // Hide generate button if view-only
+    const generateBtn = modal.querySelector('.btn-primary, .primary-btn');
+    if (generateBtn) {
+        generateBtn.style.display = viewOnly ? 'none' : 'inline-flex';
+    }
     
     // Populate the form with the request data
     populateClearanceProcessForm(requestData);
@@ -2125,16 +2678,21 @@ function populateAndShowClearanceProcessForm(requestData) {
 
 // Function to populate clearance process form
 function populateClearanceProcessForm(requestData) {
+    console.log('Populating clearance form with data:', requestData);
+    
     // Personal Information
     const firstName = (requestData.first_name || 'NO FIRST NAME').toUpperCase();
     const middleName = (requestData.middle_name || '').toUpperCase();
     const lastName = (requestData.last_name || 'NO LAST NAME').toUpperCase();
     const address = (requestData.address || 'NO ADDRESS PROVIDED').toUpperCase();
     const birthDate = formatDateToCaps(requestData.birth_date || '');
-    const birthPlace = (requestData.birth_place || 'NOT SPECIFIED').toUpperCase();
+    // Fetch birth_place from database
+    const birthPlace = (requestData.birth_place || requestData.birthPlace || 'NOT SPECIFIED').toUpperCase();
+    // Fetch gender from database
     const gender = (requestData.gender || 'NOT SPECIFIED').toUpperCase();
     const citizenship = (requestData.citizenship || 'NOT SPECIFIED').toUpperCase();
-    const civilStatus = (requestData.civil_status || 'NOT SPECIFIED').toUpperCase();
+    // Fetch civil_status from database
+    const civilStatus = (requestData.civil_status || requestData.civilStatus || 'NOT SPECIFIED').toUpperCase();
     
     // Current date for certificate
     const currentDate = new Date();
@@ -2146,17 +2704,36 @@ function populateClearanceProcessForm(requestData) {
     // Get purpose from request data
     const purpose = (requestData.purpose || '').toUpperCase();
     
+    // Store valid_id for future use (if needed)
+    const validId = (requestData.valid_id || requestData.validId || '').toUpperCase();
+    console.log('Valid ID type:', validId);
+    
     // Populate form fields
-    document.getElementById('clearProcessFirstName').textContent = firstName;
-    document.getElementById('clearProcessMiddleName').textContent = middleName;
-    document.getElementById('clearProcessLastName').textContent = lastName;
-    document.getElementById('clearProcessAddress').textContent = address;
-    document.getElementById('clearProcessBirthDate').textContent = birthDate;
-    document.getElementById('clearProcessBirthPlace').textContent = birthPlace;
-    document.getElementById('clearProcessGender').textContent = gender;
-    document.getElementById('clearProcessCitizenship').textContent = citizenship;
-    document.getElementById('clearProcessCivilStatus').textContent = civilStatus;
-    document.getElementById('clearProcessDateIssued').textContent = dateIssued;
+    document.getElementById('clearProcessFirstName').value = firstName;
+    document.getElementById('clearProcessMiddleName').value = middleName;
+    document.getElementById('clearProcessLastName').value = lastName;
+    document.getElementById('clearProcessAddress').value = address;
+    document.getElementById('clearProcessBirthDate').value = birthDate;
+    // Ensure birth_place is populated from database
+    const birthPlaceField = document.getElementById('clearProcessBirthPlace');
+    if (birthPlaceField) {
+        birthPlaceField.value = birthPlace;
+        console.log('Birth Place set to:', birthPlace);
+    }
+    // Ensure gender is populated from database
+    const genderField = document.getElementById('clearProcessGender');
+    if (genderField) {
+        genderField.value = gender;
+        console.log('Gender set to:', gender);
+    }
+    document.getElementById('clearProcessCitizenship').value = citizenship;
+    // Ensure civil_status is populated from database
+    const civilStatusField = document.getElementById('clearProcessCivilStatus');
+    if (civilStatusField) {
+        civilStatusField.value = civilStatus;
+        console.log('Civil Status set to:', civilStatus);
+    }
+    document.getElementById('clearProcessDateIssued').value = dateIssued;
     
     // Show or hide expiration field based on purpose
     const expirationInput = document.getElementById('clearanceExpirationInput');
@@ -2186,7 +2763,7 @@ function populateClearanceProcessForm(requestData) {
     // Set purpose
     const purposeElement = document.getElementById('clearProcessPurpose');
     if (purposeElement) {
-        purposeElement.textContent = purpose || 'LOCAL EMPLOYMENT';
+        purposeElement.value = purpose || 'LOCAL EMPLOYMENT';
     }
 }
 
@@ -2332,10 +2909,22 @@ async function fetchCertificationRequestData(requestId) {
 }
 
 // Function to populate and show certification process form
-function populateAndShowCertificationProcessForm(requestData) {
+function populateAndShowCertificationProcessForm(requestData, viewOnly = false) {
     // Set the request ID in the modal dataset
     const modal = document.getElementById('certificationProcessModal');
     modal.dataset.requestId = requestData.id;
+    // Store raw purpose so we can customize labels/messages later (e.g., jobseeker = 2 forms)
+    if (requestData.purpose) {
+        modal.dataset.purposeRaw = requestData.purpose;
+    } else {
+        delete modal.dataset.purposeRaw;
+    }
+    
+    // Hide generate button if view-only
+    const generateBtn = modal.querySelector('.primary-btn, .btn-primary');
+    if (generateBtn) {
+        generateBtn.style.display = viewOnly ? 'none' : 'inline-flex';
+    }
     
     // Populate the form with the request data
     populateCertificationProcessForm(requestData);
@@ -2361,13 +2950,13 @@ function populateCertificationProcessForm(requestData) {
     const dateIssued = formatDateToCaps(currentDate.toISOString().split('T')[0]);
     
     // Populate form fields
-    document.getElementById('certProcessPurpose').textContent = purpose.toUpperCase().replace(/-/g, ' ');
-    document.getElementById('certProcessName').textContent = fullName;
-    document.getElementById('certProcessGender').textContent = gender;
-    document.getElementById('certProcessCitizenship').textContent = citizenship;
-    document.getElementById('certProcessCivilStatus').textContent = civilStatus;
-    document.getElementById('certProcessAddress').textContent = address;
-    document.getElementById('certProcessDateIssued').textContent = dateIssued;
+    document.getElementById('certProcessPurpose').value = purpose.toUpperCase().replace(/-/g, ' ');
+    document.getElementById('certProcessName').value = fullName;
+    document.getElementById('certProcessGender').value = gender;
+    document.getElementById('certProcessCitizenship').value = citizenship;
+    document.getElementById('certProcessCivilStatus').value = civilStatus;
+    document.getElementById('certProcessAddress').value = address;
+    document.getElementById('certProcessDateIssued').value = dateIssued;
     
     // Show/hide purpose-specific fields
     document.getElementById('certProcessProofFields').style.display = 'none';
@@ -2379,7 +2968,7 @@ function populateCertificationProcessForm(requestData) {
         document.getElementById('certProcessProofFields').style.display = 'block';
         const startYear = requestData.start_year || requestData.startYear || requestData.startyear || '';
         console.log('Proof of Residency - start_year value:', startYear);
-        document.getElementById('certProcessStartYear').textContent = startYear || 'NOT PROVIDED';
+        document.getElementById('certProcessStartYear').value = startYear || 'NOT PROVIDED';
     } else if (purpose === 'pag-ibig loan' || purpose === 'pag-ibig-loan') {
         document.getElementById('certProcessPagIbigFields').style.display = 'block';
         const jobPosition = requestData.job_position || requestData.jobPosition || requestData.jobposition || requestData.Job_Position || '';
@@ -2388,14 +2977,14 @@ function populateCertificationProcessForm(requestData) {
         
         console.log('Pag-IBIG Loan data:', { jobPosition, startOfWork, monthlyIncome });
         
-        document.getElementById('certProcessJobPosition').textContent = jobPosition.toUpperCase() || 'NOT PROVIDED';
-        document.getElementById('certProcessStartOfWork').textContent = startOfWork.toUpperCase() || 'NOT PROVIDED';
-        document.getElementById('certProcessMonthlyIncome').textContent = monthlyIncome !== '0' ? 'PHP ' + monthlyIncome : 'NOT PROVIDED';
+        document.getElementById('certProcessJobPosition').value = jobPosition.toUpperCase() || 'NOT PROVIDED';
+        document.getElementById('certProcessStartOfWork').value = startOfWork.toUpperCase() || 'NOT PROVIDED';
+        document.getElementById('certProcessMonthlyIncome').value = monthlyIncome !== '0' ? 'PHP ' + monthlyIncome : 'NOT PROVIDED';
     } else if (purpose === 'certification-for-dead' || purpose === 'certification_for_dead') {
         document.getElementById('certProcessDeadFields').style.display = 'block';
         const monthYear = requestData.month_year || requestData.monthYear || requestData.monthyear || '';
         console.log('Certification for Dead - month_year value:', monthYear);
-        document.getElementById('certProcessMonthYear').textContent = monthYear || 'NOT PROVIDED';
+        document.getElementById('certProcessMonthYear').value = monthYear || 'NOT PROVIDED';
     } else if (purpose === 'certification-for-bail') {
         document.getElementById('certProcessBailFields').style.display = 'block';
         // Trial court will be entered by user
@@ -2470,9 +3059,16 @@ async function doneCertificationProcess() {
     const trialCourtInput = document.getElementById('certProcessTrialCourt');
     const trialCourt = trialCourtInput ? trialCourtInput.value : '';
     
+    // Determine if this is a jobseeker certification (2 forms)
+    const rawPurpose = modal.dataset.purposeRaw || '';
+    const normalizedPurpose = rawPurpose.toLowerCase();
+    const generatingMessage = normalizedPurpose === 'jobseeker'
+        ? '2 forms generating please wait...'
+        : 'Generating certification document...';
+
     try {
         // Show loading modal
-        showStatusModal('info', 'Processing Request', 'Generating certification document...');
+        showStatusModal('info', 'Processing Request', generatingMessage);
         
         // Generate certification document first
         const response = await fetch('php/generateCertificationDocument.php', {
@@ -2497,18 +3093,36 @@ async function doneCertificationProcess() {
             throw new Error(result.message || 'Failed to generate certification document');
         }
         
-        // Get download URL from response
-        const downloadUrl = result.download_url || result.downloadUrl;
+        // Get primary and secondary download URLs from response (for jobseeker: CERT + OATH)
+        const primaryUrl = result.download_url || result.downloadUrl;
+        const secondaryUrl = result.download_url_2 || result.downloadUrl2;
+        const primaryFilename = result.filename || (primaryUrl ? (primaryUrl.split('/').pop() || 'certification.docx') : null);
+        const secondaryFilename = result.filename_2 || result.filename2 || (secondaryUrl ? (secondaryUrl.split('/').pop() || 'document.docx') : null);
     
-    // Update status to Processing with process_at timestamp
+        // Update status to Processing with process_at timestamp
         await updateRequestStatus(requestId, 'Processing', 'certification');
         
         // Close the process form modal
         modal.classList.remove('show');
         modal.setAttribute('aria-hidden', 'true');
         
-        // Show success modal with auto-close and auto-download
-        showStatusModal('success', 'Request Processed', 'Request has been processed.', downloadUrl, true, 2000);
+        // Show success modal with auto-close
+        // Downloads (including second JOBSEEKER document) are handled separately below
+        showStatusModal('success', 'Request Processed', 'Request has been processed.', null, true, 2000);
+        
+        // After a short delay (to let the modal appear), trigger downloads
+        if (primaryUrl) {
+            setTimeout(() => {
+                triggerFileDownload(primaryUrl, primaryFilename || undefined);
+                
+                // If a second document is provided (e.g., JOBSEEKER_OATH), download it right after the first
+                if (secondaryUrl) {
+                    setTimeout(() => {
+                        triggerFileDownload(secondaryUrl, secondaryFilename || undefined);
+                    }, 500);
+                }
+            }, 500);
+        }
         
         // Refresh the requests to update status
         loadAllDocumentRequests();
@@ -2538,6 +3152,13 @@ async function generateCertificationFromForm() {
     const trialCourtInput = document.getElementById('certProcessTrialCourt');
     const trialCourt = trialCourtInput ? trialCourtInput.value : '';
     
+    // Determine if this is a jobseeker certification (2 forms)
+    const rawPurpose = modal.dataset.purposeRaw || '';
+    const normalizedPurpose = rawPurpose.toLowerCase();
+    const generatingMessage = normalizedPurpose === 'jobseeker'
+        ? '2 forms generating please wait...'
+        : 'Generating certification document...';
+
     try {
         // Show loading modal
         showStatusModal('info', 'Processing Request', 'Updating status to Processing...');
@@ -2546,7 +3167,7 @@ async function generateCertificationFromForm() {
         await updateRequestStatus(requestId, 'Processing', 'certification');
         
         // Show loading modal for generation
-        showStatusModal('info', 'Processing Request', 'Generating certification document...');
+        showStatusModal('info', 'Processing Request', generatingMessage);
         
         // Generate certification document
         const response = await fetch('php/generateCertificationDocument.php', {
@@ -2842,10 +3463,16 @@ async function updateBarangayIdRequestStatus(requestId, status) {
 }
 
 // Function to populate and show the COE process form modal
-function populateAndShowCoeProcessForm(requestData) {
+function populateAndShowCoeProcessForm(requestData, viewOnly = false) {
     // Set the request ID in the modal dataset
     const modal = document.getElementById('coeProcessModal');
     modal.dataset.requestId = requestData.id;
+    
+    // Hide generate button if view-only
+    const generateBtn = modal.querySelector('.btn-primary, .primary-btn');
+    if (generateBtn) {
+        generateBtn.style.display = viewOnly ? 'none' : 'inline-flex';
+    }
     
     // Populate the form with the request data
     populateCoeProcessForm(requestData);
@@ -2869,15 +3496,15 @@ function populateCoeProcessForm(requestData) {
     const middleNameElement = document.getElementById('coeProcessMiddleName');
     const lastNameElement = document.getElementById('coeProcessLastName');
     
-    if (firstNameElement) firstNameElement.textContent = firstName;
-    if (middleNameElement) middleNameElement.textContent = middleName;
-    if (lastNameElement) lastNameElement.textContent = lastName;
+    if (firstNameElement) firstNameElement.value = firstName;
+    if (middleNameElement) middleNameElement.value = middleName;
+    if (lastNameElement) lastNameElement.value = lastName;
     
     // Address (proper case)
     const addressElement = document.getElementById('coeProcessAddress');
     if (addressElement) {
         const address = requestData.address ? requestData.address.toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : 'No Address Provided';
-        addressElement.textContent = address;
+        addressElement.value = address;
     }
     
     // Employment Type (proper case with dash instead of underscore)
@@ -2886,7 +3513,7 @@ function populateCoeProcessForm(requestData) {
         const employmentType = requestData.employmentType ? 
             requestData.employmentType.toLowerCase().replace(/_/g, '-').replace(/\b\w/g, l => l.toUpperCase()) : 
             'Not Specified';
-        employmentTypeElement.textContent = employmentType;
+        employmentTypeElement.value = employmentType;
     }
     
     // Position (proper case)
@@ -2895,14 +3522,14 @@ function populateCoeProcessForm(requestData) {
         const position = requestData.position ? 
             requestData.position.toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : 
             'Not Specified';
-        positionElement.textContent = position;
+        positionElement.value = position;
     }
     
     // Date Started (proper case)
     const dateStartedElement = document.getElementById('coeProcessDateStarted');
     if (dateStartedElement) {
         const dateStarted = requestData.dateStarted ? formatDisplayDate(requestData.dateStarted) : 'Not Specified';
-        dateStartedElement.textContent = dateStarted;
+        dateStartedElement.value = dateStarted;
     }
     
     // Monthly Salary (formatted with peso sign and amount in words in parentheses)
@@ -2911,12 +3538,12 @@ function populateCoeProcessForm(requestData) {
         const salary = parseFloat(requestData.monthlySalary) || 0;
         const amountInWords = convertNumberToWords(salary);
         const formattedSalary = `₱ ${salary.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${amountInWords} Pesos)`;
-        monthlySalaryElement.textContent = formattedSalary.toUpperCase();
+        monthlySalaryElement.value = formattedSalary.toUpperCase();
     }
     
     // Amount in Words - removed duplicate, already included in monthly salary field
     
-    // Current date for certificate with superscript ordinal suffix
+    // Current date for certificate with ordinal suffix (simplified for input field)
     const currentDate = new Date();
     const day = currentDate.getDate();
     const month = currentDate.toLocaleDateString('en-US', { month: 'long' });
@@ -2932,11 +3559,11 @@ function populateCoeProcessForm(requestData) {
         }
     }
     
-    const certificateDate = `${day}<sup>${suffix}</sup> day of ${month} ${year}`;
+    const certificateDate = `${day}${suffix} day of ${month} ${year}`;
     
     const dateIssuedElement = document.getElementById('coeProcessDateIssued');
     if (dateIssuedElement) {
-        dateIssuedElement.innerHTML = certificateDate;
+        dateIssuedElement.value = certificateDate;
     }
     
     // Store the request ID for later use
@@ -2993,17 +3620,17 @@ function populateIndigencyProcessForm(requestData) {
     const middleNameElement2 = document.getElementById('indigProcessMiddleName2');
     const lastNameElement2 = document.getElementById('indigProcessLastName2');
     
-    if (firstNameElement) firstNameElement.textContent = firstName;
-    if (middleNameElement) middleNameElement.textContent = middleName;
-    if (lastNameElement) lastNameElement.textContent = lastName;
-    if (firstNameElement2) firstNameElement2.textContent = firstName;
-    if (middleNameElement2) middleNameElement2.textContent = middleName;
-    if (lastNameElement2) lastNameElement2.textContent = lastName;
+    if (firstNameElement) firstNameElement.value = firstName;
+    if (middleNameElement) middleNameElement.value = middleName;
+    if (lastNameElement) lastNameElement.value = lastName;
+    if (firstNameElement2) firstNameElement2.value = firstName;
+    if (middleNameElement2) middleNameElement2.value = middleName;
+    if (lastNameElement2) lastNameElement2.value = lastName;
     
     // Address
     const addressElement = document.getElementById('indigProcessAddress');
     if (addressElement) {
-        addressElement.textContent = (requestData.address || 'NO ADDRESS PROVIDED').toUpperCase();
+        addressElement.value = (requestData.address || 'NO ADDRESS PROVIDED').toUpperCase();
     }
     
     // Purpose
@@ -3012,10 +3639,10 @@ function populateIndigencyProcessForm(requestData) {
     const purposeValue = (requestData.purpose || 'NOT SPECIFIED').toUpperCase();
     
     if (purposeElement) {
-        purposeElement.textContent = purposeValue;
+        purposeElement.value = purposeValue;
     }
     if (purposeElement2) {
-        purposeElement2.textContent = purposeValue;
+        purposeElement2.value = purposeValue;
     }
     
     // Current date for certificate - format based on selected language
@@ -3043,8 +3670,15 @@ function populateIndigencyProcessForm(requestData) {
     
     const dateElement = document.getElementById('indigProcessCertificateDate');
     if (dateElement) {
-        dateElement.textContent = certificateDate;
+        dateElement.value = certificateDate;
     }
+    
+    // Also update fullName fields if they exist (for English version)
+    const fullNameElement = document.getElementById('indigProcessFullName');
+    const fullNameElement2 = document.getElementById('indigProcessFullName2');
+    const fullName = `${firstName} ${middleName} ${lastName}`.trim();
+    if (fullNameElement) fullNameElement.value = fullName;
+    if (fullNameElement2) fullNameElement2.value = fullName;
     
     // Store the request ID for later use
     document.getElementById('indigencyProcessForm').setAttribute('data-request-id', requestData.id);
@@ -3070,10 +3704,16 @@ function showCoeProcessModal() {
 }
 
 // Function to populate and show the Indigency process form modal
-function populateAndShowIndigencyProcessForm(requestData) {
+function populateAndShowIndigencyProcessForm(requestData, viewOnly = false) {
     // Set the request ID in the modal dataset
     const modal = document.getElementById('indigencyProcessModal');
     modal.dataset.requestId = requestData.id;
+    
+    // Hide generate button if view-only
+    const generateBtn = modal.querySelector('.btn-primary, .primary-btn');
+    if (generateBtn) {
+        generateBtn.style.display = viewOnly ? 'none' : 'inline-flex';
+    }
     
     // Populate the form with the request data
     populateIndigencyProcessForm(requestData);
@@ -3217,13 +3857,13 @@ function updateIndigencyDocumentPreview(language) {
         certificateText.innerHTML = `
             <p>PARA SA KINAUUKULAN:</p>
             
-            <p>Ito ay pagpapatunay na si <strong><span id="indigProcessFirstName">{{first_name}}</span> <span id="indigProcessMiddleName">{{middle_name}}</span> <span id="indigProcessLastName">{{last_name}}</span></strong>, 
-            lehitimong naninirahan sa Sityo <span id="indigProcessAddress">{{address}}</span> n ay nabibilang sa isang mahirap na pamilya at walang sapat na kakayahan upang suportahan ang kanilang pangangailangan pang <span id="indigProcessPurpose">{{purpose}}</span>.</p>
+            <p>Ito ay pagpapatunay na si <strong><input type="text" id="indigProcessFirstName" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName" class="form-input inline-input" value="{{last_name}}"></strong>, 
+            lehitimong naninirahan sa Sityo <input type="text" id="indigProcessAddress" class="form-input inline-input" value="{{address}}"> n ay nabibilang sa isang mahirap na pamilya at walang sapat na kakayahan upang suportahan ang kanilang pangangailangan pang <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="{{purpose}}">.</p>
             
-            <p>Dahil dito sa kahilingan ni <strong><span id="indigProcessFirstName2">{{first_name}}</span> <span id="indigProcessMiddleName2">{{middle_name}}</span> <span id="indigProcessLastName2">{{last_name}}</span></strong> 
-            ay ipinagkakaloob ko ang <strong>PAGPAPATUNAY</strong> na ito upang magamit sa <span id="indigProcessPurpose2">{{purpose}}</span>.</p>
+            <p>Dahil dito sa kahilingan ni <strong><input type="text" id="indigProcessFirstName2" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName2" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName2" class="form-input inline-input" value="{{last_name}}"></strong> 
+            ay ipinagkakaloob ko ang <strong>PAGPAPATUNAY</strong> na ito upang magamit sa <input type="text" id="indigProcessPurpose2" class="form-input inline-input" value="{{purpose}}">.</p>
             
-            <p>Inisyu ito noong <span id="indigProcessCertificateDate">{{date_issued}}</span> 
+            <p>Inisyu ito noong <input type="text" id="indigProcessCertificateDate" class="form-input inline-input" value="{{date_issued}}"> 
             sa Bigte, Norzagaray, Bulacan.</p>
         `;
     } else {
@@ -3231,14 +3871,14 @@ function updateIndigencyDocumentPreview(language) {
         certificateText.innerHTML = `
             <p>TO WHOM IT MAY CONCERN:</p>
             
-            <p>THIS IS TO CERTIFY that <strong><span id="indigProcessFirstName">{{first_name}}</span> <span id="indigProcessMiddleName">{{middle_name}}</span> <span id="indigProcessLastName">{{last_name}}</span></strong>, 
-            of legal age, residents of Sitio <span id="indigProcessAddress">{{address}}</span> 
+            <p>THIS IS TO CERTIFY that <strong><input type="text" id="indigProcessFirstName" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName" class="form-input inline-input" value="{{last_name}}"></strong>, 
+            of legal age, residents of Sitio <input type="text" id="indigProcessAddress" class="form-input inline-input" value="{{address}}"> 
             belongs to one of many indigent families of this barangay. The income of this family is barely enough to meet day to day needs.</p>
             
-            <p>This certification is being issued upon the request of <strong><span id="indigProcessFirstName2">{{first_name}}</span> <span id="indigProcessMiddleName2">{{middle_name}}</span> <span id="indigProcessLastName2">{{last_name}}</span></strong> 
-            to apply for <span id="indigProcessPurpose">{{purpose}}</span>.</p>
+            <p>This certification is being issued upon the request of <strong><input type="text" id="indigProcessFirstName2" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName2" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName2" class="form-input inline-input" value="{{last_name}}"></strong> 
+            to apply for <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="{{purpose}}">.</p>
             
-            <p>Issued this <span id="indigProcessCertificateDate">{{date_issued}}</span> 
+            <p>Issued this <input type="text" id="indigProcessCertificateDate" class="form-input inline-input" value="{{date_issued}}"> 
             at Bigte, Norzagaray, Bulacan.</p>
         `;
     }
@@ -3311,15 +3951,7 @@ async function doneIndigencyProcess() {
             body: formData
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-            throw new Error(result.message || result.error || 'Failed to generate indigency document');
-        }
+        const result = await parseJsonFromResponse(response);
         
         // Get download URL from response
         const downloadUrl = result.downloadUrl;
@@ -3516,7 +4148,7 @@ async function generateIndigencyFromForm() {
             body: formData
         });
         
-        const result = await response.json();
+        const result = await parseJsonFromResponse(response);
         
         if (result.success) {
             // Close the loading modal
@@ -3782,32 +4414,72 @@ function populateBarangayIdForm(requestData) {
     document.getElementById('purposeSection').style.display = 'none';
     document.getElementById('emergencySection').style.display = 'block';
     document.getElementById('residencySection').style.display = 'block';
-    document.getElementById('censusSection').style.display = 'block';
+    if (document.getElementById('censusSection')) {
+        document.getElementById('censusSection').style.display = 'block';
+    }
     
     // Personal Information
-    const nameParts = requestData.name.split(' ');
-    document.getElementById('detailFirstName').value = nameParts[0] || '';
-    document.getElementById('detailMiddleName').value = nameParts[1] || '';
-    document.getElementById('detailLastName').value = nameParts[2] || nameParts[1] || '';
+    const nameParts = requestData.name ? requestData.name.split(' ') : [];
+    document.getElementById('detailFirstName').value = nameParts[0] || requestData.firstName || '';
+    document.getElementById('detailMiddleName').value = nameParts[1] || requestData.middleName || '';
+    document.getElementById('detailLastName').value = nameParts[2] || nameParts[1] || requestData.lastName || '';
     document.getElementById('detailBirthDate').value = requestData.birthDate || 'Not specified';
+    document.getElementById('detailBirthPlace').value = requestData.birthPlace || 'Not specified';
     document.getElementById('detailAddress').value = requestData.address || 'Not specified';
     
     
-    // Civil Status
-    const civilStatus = requestData.civilStatus || 'Single';
-    document.getElementById(`civil${civilStatus}`).checked = true;
+    // Civil Status - handle case-insensitive matching
+    const civilStatus = (requestData.civilStatus || requestData.civil_status || 'Single').toString();
+    // Capitalize first letter for matching
+    const civilStatusFormatted = civilStatus.charAt(0).toUpperCase() + civilStatus.slice(1).toLowerCase();
+    console.log('Setting Civil Status:', civilStatusFormatted);
     
-    // Gender
-    const gender = requestData.gender || 'Male';
-    document.getElementById(`gender${gender}`).checked = true;
+    // Uncheck all civil status radio buttons first
+    ['Single', 'Married', 'Widow'].forEach(status => {
+        const el = document.getElementById(`civil${status}`);
+        if (el) el.checked = false;
+    });
+    
+    // Check the matching one
+    const civilElement = document.getElementById(`civil${civilStatusFormatted}`);
+    if (civilElement) {
+        civilElement.checked = true;
+        console.log('Civil Status radio button checked:', civilStatusFormatted);
+    } else {
+        console.warn('Civil Status radio button not found for:', civilStatusFormatted);
+    }
+    
+    // Gender - handle case-insensitive matching
+    const gender = (requestData.gender || 'Male').toString();
+    // Capitalize first letter for matching
+    const genderFormatted = gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+    console.log('Setting Gender:', genderFormatted);
+    
+    // Uncheck all gender radio buttons first
+    ['Male', 'Female'].forEach(g => {
+        const el = document.getElementById(`gender${g}`);
+        if (el) el.checked = false;
+    });
+    
+    // Check the matching one
+    const genderElement = document.getElementById(`gender${genderFormatted}`);
+    if (genderElement) {
+        genderElement.checked = true;
+        console.log('Gender radio button checked:', genderFormatted);
+    } else {
+        console.warn('Gender radio button not found for:', genderFormatted);
+    }
     
     // Nationality
-    document.getElementById('detailNationality').value = requestData.nationality || 'Filipino';
+    const nationalityElement = document.getElementById('detailNationality');
+    if (nationalityElement) {
+        nationalityElement.value = requestData.nationality || 'Filipino';
+    }
     
     // Emergency Contact
     const emergencyParts = (requestData.emergencyContact || '').split(' - ');
-    document.getElementById('detailGuardianName').value = emergencyParts[0] || 'Not specified';
-    document.getElementById('detailEmergencyContact').value = emergencyParts[1] || requestData.contact || 'Not specified';
+    document.getElementById('detailGuardianName').value = emergencyParts[0] || requestData.emergencyContactName || 'Not specified';
+    document.getElementById('detailEmergencyContact').value = emergencyParts[1] || requestData.contact || requestData.emergencyContactNumber || 'Not specified';
     
     // Residency
     document.getElementById('detailResidency').value = requestData.residency || 'Not specified';
@@ -3826,7 +4498,7 @@ function populateBarangayIdForm(requestData) {
         showStatusModal('info', 'Print Started', `Printing document for request ${requestId}...`);
         // In a real application, this would trigger the actual print functionality
         setTimeout(() => {
-            showStatusModal('success', 'Print Complete', `Document for request ${requestId} has been sent to printer.`);
+            showStatusModal('success', 'Print Complete', `Document for request ${requestId} has been sent to printer.`, null, true, 2000);
         }, 2000);
     } else {
         showStatusModal('error', 'Error', 'Request details not found.');
@@ -3892,16 +4564,56 @@ async function updateRequestStatus(requestId, newStatus, tableName = 'barangay_i
     }
 }
 
+// Utility function to trigger a file download
+function triggerFileDownload(url, filename = null) {
+    if (!url) return;
+    
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    if (filename) {
+        downloadLink.download = filename;
+    } else {
+        downloadLink.download = url.split('/').pop() || 'document.docx';
+    }
+    downloadLink.style.display = 'none';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
 // Status Modal Functions
+/** Parse JSON from fetch; avoids opaque "Unexpected token '<'" when PHP outputs HTML warnings. */
+async function parseJsonFromResponse(response) {
+    const text = await response.text();
+    const trimmed = text.trim();
+    if (!trimmed) {
+        throw new Error('Empty response (HTTP ' + response.status + ')');
+    }
+    let data;
+    try {
+        data = JSON.parse(trimmed);
+    } catch (e) {
+        const plain = trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 200);
+        throw new Error(plain || 'Server returned invalid JSON (check PHP error log)');
+    }
+    if (data && data.success === false) {
+        throw new Error(data.error || data.message || 'Request failed');
+    }
+    if (!response.ok) {
+        throw new Error((data && (data.error || data.message)) || ('HTTP ' + response.status));
+    }
+    return data;
+}
+
 function showStatusModal(type, title, message, downloadUrl = null, autoClose = false, autoCloseDelay = 2000) {
     // Use SweetAlert2 instead of custom modal
     let iconType = 'success';
-    let iconColor = '#28a745';
+    let iconColor = '#87CEEB';
     
     switch(type) {
         case 'success': 
             iconType = 'success';
-            iconColor = '#28a745';
+            iconColor = '#87CEEB';
             break;
         case 'error': 
             iconType = 'error';
@@ -3931,7 +4643,7 @@ function showStatusModal(type, title, message, downloadUrl = null, autoClose = f
         timer: autoClose ? autoCloseDelay : undefined,
         timerProgressBar: autoClose,
         customClass: {
-            popup: 'swal2-small-popup',
+            popup: 'swal2-small-popup' + (autoClose ? '' : ' swal2-confirm-dialog'),
             title: 'swal2-small-title',
             content: 'swal2-small-content'
         }
@@ -3942,15 +4654,9 @@ function showStatusModal(type, title, message, downloadUrl = null, autoClose = f
             // Auto-download after closing
             swalConfig.didClose = () => {
                 // Auto-download the document
-                const downloadLink = document.createElement('a');
-                downloadLink.href = downloadUrl;
-                downloadLink.download = downloadUrl.split('/').pop() || 'document.docx';
-                downloadLink.style.display = 'none';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-        };
-    } else {
+                triggerFileDownload(downloadUrl);
+            };
+        } else {
             swalConfig.preConfirm = () => {
                 window.open(downloadUrl, '_blank');
             };
@@ -4042,15 +4748,20 @@ function showCertificationGeneratedModal(result) {
         },
         didClose: () => {
             // Auto-download when modal closes
-            const downloadUrl = result.download_url || result.downloadUrl;
-            if (downloadUrl) {
-                const downloadLink = document.createElement('a');
-                downloadLink.href = downloadUrl;
-                downloadLink.download = result.filename || 'certification.pdf';
-                downloadLink.style.display = 'none';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
+            const primaryUrl = result.download_url || result.downloadUrl;
+            const secondaryUrl = result.download_url_2 || result.downloadUrl2;
+
+            if (primaryUrl) {
+                const primaryFilename = result.filename || (primaryUrl.split('/').pop() || 'certification.docx');
+                triggerFileDownload(primaryUrl, primaryFilename);
+            }
+
+            // For jobseeker, backend returns a second URL (OATH); download it right after the first
+            if (secondaryUrl) {
+                const secondaryFilename = result.filename_2 || result.filename2 || (secondaryUrl.split('/').pop() || 'document.docx');
+                setTimeout(() => {
+                    triggerFileDownload(secondaryUrl, secondaryFilename);
+                }, 500);
             }
         }
     });
@@ -4183,7 +4894,7 @@ function printCoeDocument() {
     showStatusModal('info', 'Print Started', 'Printing Certificate of Employment for Hon. Rosemarie M. Capal...');
     // In a real application, this would trigger the actual print functionality
     setTimeout(() => {
-        showStatusModal('success', 'Print Complete', 'Certificate of Employment has been sent to printer.');
+        showStatusModal('success', 'Print Complete', 'Certificate of Employment has been sent to printer.', null, true, 2000);
     }, 2000);
     closeCoeDetailsModal();
 }
@@ -4217,7 +4928,7 @@ function printClearanceDocument() {
     showStatusModal('info', 'Print Started', 'Printing Clearance document for Juan Santos Dela Cruz...');
     // In a real application, this would trigger the actual print functionality
     setTimeout(() => {
-        showStatusModal('success', 'Print Complete', 'Clearance document has been sent to printer.');
+        showStatusModal('success', 'Print Complete', 'Clearance document has been sent to printer.', null, true, 2000);
     }, 2000);
     closeClearanceDetailsModal();
 }
@@ -4251,7 +4962,7 @@ function printIndigencyDocument() {
     showStatusModal('info', 'Print Started', 'Printing Indigency document for Maria Santos Garcia...');
     // In a real application, this would trigger the actual print functionality
     setTimeout(() => {
-        showStatusModal('success', 'Print Complete', 'Indigency document has been sent to printer.');
+        showStatusModal('success', 'Print Complete', 'Indigency document has been sent to printer.', null, true, 2000);
     }, 2000);
     closeIndigencyDetailsModal();
 }
@@ -4313,6 +5024,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		// Load all document requests from backend API
 		loadAllDocumentRequests();
 });
+
 
 // Fetch and render all document forms from backend
 async function loadAllDocumentRequests() {
@@ -4648,8 +5360,36 @@ function renderBarangayIdCards(forms) {
 }
 
 function populateAndShowBarangayIdModal(row) {
-	// Use the process modal format for viewing (same as process button)
-	populateAndShowBarangayIdProcessFormViewOnly(row);
+	// Use the details modal format for viewing (same as other document types)
+	// Map row data to format expected by populateBarangayIdForm
+	const mappedData = {
+		type: 'BARANGAY ID',
+		firstName: row.givenname || '',
+		middleName: row.middlename || '',
+		lastName: row.surname || '',
+		name: `${row.givenname || ''} ${row.middlename || ''} ${row.surname || ''}`.trim(),
+		birthDate: formatDisplayDate(row.birthday),
+		birthPlace: row.birthplace || row.birthPlace || row.birth_place || 'Not specified',
+		address: row.address || '',
+		civilStatus: row.civilStatus || row.civil_status || 'Single',
+		gender: row.gender || 'Male',
+		nationality: row.citizenship || row.nationality || 'Filipino',
+		validId: row.validId || row.valid_id || '',
+		emergencyContact: row.emergency_contact || row.emergencyContact || '',
+		emergencyContactName: row.emergency_contact_name || row.emergencyContactName || '',
+		contact: row.contact || row.phone || row.emergencyContactNumber || '',
+		emergencyContactNumber: row.emergency_contact_number || row.emergencyContactNumber || '',
+		residency: row.residency || row.residency_years || row.residencyDuration || ''
+	};
+	
+	console.log('Barangay ID Modal Data:', mappedData);
+	
+	populateBarangayIdForm(mappedData);
+	
+	// Fetch and display ID image
+	fetchAndDisplayIdImage('barangay_id', row.id, 'idImagePlaceholder');
+	
+	showRequestDetailsModal();
 }
 
 // Function to show Barangay ID process form in view-only mode (for view button)
@@ -5411,7 +6151,7 @@ function populateAndShowIndigencyModal(row) {
     showIndigencyDetailsModal();
 }
 
-function handleIdImage(imageData, containerId) {
+async function handleIdImage(imageData, containerId) {
 	const container = document.getElementById(containerId);
 	if (!container) {
 		console.log('ID Image container not found:', containerId);
@@ -5422,18 +6162,28 @@ function handleIdImage(imageData, containerId) {
 	console.log('Image data preview:', imageData ? imageData.substring(0, 100) + '...' : 'null');
 
 	if (imageData && imageData !== '' && imageData !== 'image_too_large') {
+		// Apply blur to detected cursive text before displaying
+		const blurredImageData = await blurSensitiveIdInfo(imageData);
+		
 		// If image data exists, create and display the image
 		const img = document.createElement('img');
-		img.src = imageData; // Already includes data:image/jpeg;base64, prefix
+		img.src = blurredImageData;
 		img.style.maxWidth = '100%';
 		img.style.maxHeight = '200px';
 		img.style.width = 'auto';
 		img.style.height = 'auto';
 		img.style.objectFit = 'contain';
-		img.style.border = '1px solid #ddd';
+		img.style.border = '1px solid #333';
 		img.style.borderRadius = '4px';
 		img.style.display = 'block';
 		img.style.margin = '0 auto';
+		img.style.cursor = 'pointer';
+		img.title = 'Click to view full size';
+		
+		// Add click handler to show image in modal (also blurred)
+		img.onclick = function() {
+			viewIdImage(blurredImageData, 'ID Image');
+		};
 		
 		// Add error handling for image load
 		img.onload = function() {
@@ -5441,7 +6191,7 @@ function handleIdImage(imageData, containerId) {
 		};
 		img.onerror = function() {
 			console.log('Image failed to load for:', containerId);
-			container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">Image failed to load</div>';
+			container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">Image failed to load</div>';
 		};
 		
 		// Clear container and add image
@@ -5450,11 +6200,11 @@ function handleIdImage(imageData, containerId) {
 	} else if (imageData === 'image_too_large') {
 		// If image is too large, show message
 		console.log('Image too large for:', containerId);
-		container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">Image too large to display</div>';
+		container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">Image too large to display</div>';
 	} else {
 		// If no image data, show placeholder
 		console.log('No image data for:', containerId);
-		container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666; border: 2px dashed #ddd; border-radius: 4px;">No ID Image Available</div>';
+		container.innerHTML = '<div style="padding: 20px; text-align: center; color: #333; border: 2px dashed #333; border-radius: 4px;">No ID Image Available</div>';
 	}
 }
 
@@ -5538,6 +6288,59 @@ function formatTime(iso) {
 		return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: true });
 	} catch {
 		return '';
+	}
+}
+
+// Function to view ID image in modal
+async function viewIdImage(imageUrl, title) {
+	const modal = document.getElementById('imageModal');
+	const modalTitle = document.getElementById('imageModalTitle');
+	const modalImg = document.getElementById('imageModalImg');
+	const modalNoImage = document.getElementById('imageModalNoImage');
+	
+	if (!modal || !modalTitle || !modalImg || !modalNoImage) {
+		console.error('Image modal elements not found');
+		return;
+	}
+	
+	modalTitle.textContent = title || 'ID Image';
+	
+	if (imageUrl && imageUrl.trim() !== '' && imageUrl !== 'image_too_large') {
+		// Apply blur to detected cursive text
+		const blurredImageUrl = await blurSensitiveIdInfo(imageUrl);
+		
+		modalImg.src = blurredImageUrl;
+		modalImg.style.display = 'block';
+		modalNoImage.style.display = 'none';
+		
+		// Handle image load error
+		modalImg.onerror = function() {
+			modalImg.style.display = 'none';
+			modalNoImage.style.display = 'block';
+		};
+	} else {
+		modalImg.style.display = 'none';
+		modalNoImage.style.display = 'block';
+	}
+	
+	modal.classList.add('show');
+	modal.setAttribute('aria-hidden', 'false');
+	
+	// Close on Escape key
+	document.addEventListener('keydown', function escapeHandler(e) {
+		if (e.key === 'Escape' && modal.classList.contains('show')) {
+			closeImageModal();
+			document.removeEventListener('keydown', escapeHandler);
+		}
+	});
+}
+
+// Function to close image modal
+function closeImageModal() {
+	const modal = document.getElementById('imageModal');
+	if (modal) {
+		modal.classList.remove('show');
+		modal.setAttribute('aria-hidden', 'true');
 	}
 }
 
@@ -5697,7 +6500,7 @@ function applyAccessControlToCards() {
 				body.view-only-mode .request-card {
 					position: relative;
 					opacity: 0.8;
-					border: 2px dashed #ccc !important;
+					border: 2px dashed #000 !important;
 				}
 				
 				body.view-only-mode .request-card::after {

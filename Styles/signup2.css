@@ -73,11 +73,30 @@
     .form{
      display:flex;
      flex-direction:column;
-     gap:14px;
+     gap:12px;
      max-width:520px;
      flex:1;
      align-items:center;
      margin:0 auto;
+    }
+
+    .form-actions{
+     display:flex;
+     flex-direction:row;
+     gap:10px;
+     width:100%;
+     max-width:400px;
+     align-items:stretch;
+     justify-content:center;
+     margin-top:4px;
+    }
+
+    .form-actions .backButton,
+    .form-actions .verify-button{
+     flex:1;
+     max-width:none;
+     margin:0;
+     min-width:0;
     }
     
     .form-content{
@@ -141,11 +160,11 @@
     .backButton{
      width:100%;
      max-width:300px;
-     padding:11px 18px;
+     padding:11px 14px;
      border-radius:14px;
      border:1px solid transparent;
      font-weight:700;
-     font-size:16px;
+     font-size:15px;
      cursor:pointer;
      transition:background .2s,color .2s,border-color .2s;
      text-decoration:none;
@@ -158,8 +177,6 @@
     }
     
     .backButton:hover{background:#03e167}
-    
-    .form .backButton{margin-top:auto}
     
     
     /* OTP Verification Styles */
@@ -176,7 +193,7 @@
         letter-spacing: 10px;
         border: 2px solid #ddd;
         border-radius: 10px;
-        margin: 20px 0;
+        margin: 12px 0 6px;
         font-weight: bold;
         transition: border-color 0.3s;
     }
@@ -211,10 +228,10 @@
     .verify-button {
         background: #13e772;
         color: #000000;
-        padding: 15px 25px;
+        padding: 11px 14px;
         border: none;
         border-radius: 14px;
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
         cursor: pointer;
         width: 100%;
@@ -229,25 +246,106 @@
     .verify-button:hover {
         background: #03e167;
     }
-    
-    .btn-resend {
-        background: #6c757d;
-        color: white;
-        padding: 15px 25px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
+
+    .resend-below-input {
         width: 100%;
-        max-width: 300px;
+        max-width: 400px;
+        text-align: center;
+        min-height: 1.75rem;
+        margin: 0 0 8px;
+    }
+
+    .resend-countdown {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #64748b;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .resend-countdown[hidden] {
+        display: none !important;
+    }
+
+    .resend-text-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: background-color 0.3s;
-        margin: 5px 0;
+        gap: 0.5rem;
+        padding: 0.65rem 1.4rem;
+        min-height: 2.75rem;
+        font: inherit;
+        font-size: 0.9375rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #fff;
+        background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        cursor: pointer;
+        text-decoration: none;
+        box-shadow:
+            0 4px 14px rgba(37, 99, 235, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
     }
-    
-    .btn-resend:hover {
-        background: #545b62;
+
+    .resend-text-btn__icon {
+        display: flex;
+        flex-shrink: 0;
+        opacity: 0.95;
+    }
+
+    .resend-text-btn__label {
+        line-height: 1.2;
+    }
+
+    .resend-text-btn:hover:not(:disabled) {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+        box-shadow:
+            0 6px 20px rgba(37, 99, 235, 0.48),
+            inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+
+    .resend-text-btn:active:not(:disabled) {
+        transform: translateY(0);
+        filter: brightness(0.98);
+    }
+
+    .resend-text-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        filter: saturate(0.85);
+        transform: none;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .resend-text-btn[hidden] {
+        display: none !important;
+    }
+
+    /* SweetAlert2 — signup2 resend success */
+    .signup2-swal-popup {
+        border-radius: 16px !important;
+        padding: 0.5rem 0 1rem !important;
+    }
+
+    .signup2-swal-popup .swal2-title {
+        font-size: 1.35rem !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+    }
+
+    .signup2-swal-popup .swal2-html-container {
+        font-size: 1rem !important;
+        color: #475569 !important;
+    }
+
+    .signup2-swal-confirm {
+        font-weight: 700 !important;
+        padding: 0.55rem 1.75rem !important;
+        border-radius: 10px !important;
     }
     
     .timer-warning {
@@ -289,6 +387,7 @@
      .title{font-size:24px}
      .otp-buttons{flex-direction:column;}
      .otp-input{font-size:1.2rem;letter-spacing:5px;}
+     .form-actions{flex-direction:column;gap:8px;}
     }
     
     

@@ -868,6 +868,9 @@ try {
     error_log("generateBarangayIdDocument: Template readable: " . (is_readable($templatePath) ? 'YES' : 'NO'));
     $fullOutputPath = $outputDir . $filename;
     
+    // Include PDF conversion function
+    require_once __DIR__ . '/convertDocxToPdf.php';
+    
     // Create output directory if it doesn't exist
     if (!is_dir($outputDir)) {
         mkdir($outputDir, 0755, true);
@@ -916,6 +919,10 @@ try {
         }
         
         error_log("generateBarangayIdDocument: File verification successful - Size: " . $fileSize . " bytes");
+        
+        // Keep DOCX file (no PDF conversion)
+        $finalFilename = $filename;
+        $finalDownloadUrl = 'uploads/generated_documents/barangay_id/' . $filename;
         
         // Update the request status to Processing, set process_at datetime, and save BID if not already in database (using PHP timezone)
         $currentTime = date('Y-m-d H:i:s');
@@ -980,7 +987,7 @@ try {
         // Don't update to Finished here - status will be updated when Ready to Receive is clicked
         $connection->close();
         
-        error_log("Barangay ID Document generated successfully: " . $filename);
+        error_log("Barangay ID Document generated successfully: " . $finalFilename);
         error_log("About to send JSON response...");
         
         // Clear any unexpected output and send JSON response
@@ -1001,8 +1008,8 @@ try {
         $response = [
             'success' => true,
             'message' => 'Barangay ID generated successfully',
-            'filename' => $filename,
-            'downloadUrl' => 'uploads/generated_documents/barangay_id/' . $filename,
+            'filename' => $finalFilename,
+            'downloadUrl' => $finalDownloadUrl,
             'data' => $responseData
         ];
         

@@ -1,17 +1,28 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Staff Dashboard PHP Backend
 // This file handles read-only data retrieval for staff dashboard
 
-session_start();
+rich_session_start();
 
 // Check if user is logged in as staff
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'staff') {
-    header('Location: index.html');
+    header('Location: index.php');
     exit();
 }
 
 // Database connection
-require_once 'config/database.php';
+require_once __DIR__ . '/config.php';
+
+// Get database connection
+try {
+    $conn = getDatabaseConnection();
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Database connection failed']);
+    exit();
+}
 
 // Function to get document requests (read-only)
 function getDocumentRequests() {

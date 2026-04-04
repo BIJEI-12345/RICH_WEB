@@ -83,6 +83,7 @@ body {
 
 .main-content-container {
     width: 90%;
+    max-width: 1800px;
     /*background: linear-gradient(135deg, rgba(44, 90, 160, 0.9) 0%, rgba(30, 58, 95, 0.9) 100%);*/
     background: linear-gradient(135deg, rgba(161, 162, 164, 0.5) 0%, rgba(219, 227, 153, 0.5) 100%);
     min-height: 90vh;
@@ -90,8 +91,8 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    margin-left: 5%;
-    margin-right: 5%;
+    margin-left: auto;
+    margin-right: auto;
     border-radius: 2%;
 }
 /* Page Container */
@@ -109,21 +110,37 @@ body {
 .header {
     background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
     color: white;
-    padding: 1rem 0;
+    padding: 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;
     z-index: 1000;
+    display: flex;
+    align-items: stretch;
+}
+
+.logo-container {
+    background-color: white;
+    padding: 0.5rem 9rem 0.5rem 1rem;
+    border-radius: 0;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: inset 0 2px 10px rgb(89 93 101),
+                inset 0 1px 0 rgb(0 98 245 / 70%);
+    display: flex;
+    align-items: center;
+    margin: 0;
+    align-self: stretch;
 }
 
 .header-content {
     max-width: 1200px;
-    margin-left: 1.5rem;
+    margin-left: 0;
     margin-right: auto;
     padding: 0 2rem;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
+    flex: 1;
 }
 
 .logo-section {
@@ -135,7 +152,7 @@ body {
 .back-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;
-    color: white;
+    color: #000000;
     padding: 0.5rem;
     border-radius: 8px;
     cursor: pointer;
@@ -146,6 +163,8 @@ body {
     font-size: 1rem;
     width: 40px;
     height: 40px;
+    margin-right: 0.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 1.15);
 }
 
 .back-btn:hover {
@@ -164,6 +183,12 @@ body {
     font-size: 1.5rem;
     font-weight: 600;
     color: white;
+}
+
+.logo-header-img {
+    height: 50px;
+    width: auto;
+    object-fit: contain;
 }
 
 .header-actions {
@@ -232,13 +257,15 @@ body {
     padding: 12px 14px;
     background: #f7f9fc;
     color: #0f172a;
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.25rem;
 }
 
 .notif-count {
     background: #e5edff;
     color: #2c5aa0;
-    font-size: 0.85rem;
+    font-size: 1.05rem;
+    font-weight: 700;
     padding: 2px 8px;
     border-radius: 999px;
 }
@@ -247,11 +274,11 @@ body {
 .notif-list::-webkit-scrollbar { width: 8px; }
 .notif-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 8px; }
 
-.notif-item { display: flex; gap: 12px; padding: 14px; align-items: flex-start; }
+.notif-item { display: flex; gap: 12px; padding: 16px; align-items: flex-start; }
 .notif-item + .notif-item { border-top: 1px solid #f1f5f9; }
 
-.notif-icon { width: 28px; height: 28px; border-radius: 6px; background: #f1f5f9; color: #64748b; display:flex; align-items:center; justify-content:center; }
-.notif-icon i { font-size: 14px; }
+.notif-icon { width: 36px; height: 36px; border-radius: 6px; background: #f1f5f9; color: #64748b; display:flex; align-items:center; justify-content:center; }
+.notif-icon i { font-size: 18px; }
 
 .notif-body {
  display:flex;
@@ -260,13 +287,15 @@ body {
 }
 
 .notif-title {
- font-size: 0.75rem;
+ font-size: 1.05rem;
+ font-weight: 700;
  color: #0f172a;
 }
 
 .notif-title a {
  color: #e91e63;
  text-decoration: none;
+ font-weight: 700;
 }
 
 .notif-title a:hover {
@@ -274,7 +303,8 @@ text-decoration: underline;
 }
 
 .notif-time {
- font-size: 0.8rem;
+ font-size: 1rem;
+ font-weight: 600;
  color: #64748b;
 }
 
@@ -291,8 +321,8 @@ text-decoration: underline;
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.9rem;
+    font-weight: 700;
     padding: 0.15rem 0.5rem;
     border-radius: 12px;
     width: fit-content;
@@ -311,7 +341,7 @@ text-decoration: underline;
 }
 
 .notif-verification i {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
 }
 
 /* Footer button fixed at bottom of dropdown */
@@ -326,13 +356,14 @@ justify-content:flex-end;
 }
 
 .btn-view-more {
- padding: 5px 7px;
+ padding: 7px 12px;
  border-radius: 10px;
  border: 1px solid #515151;
  color: #515151;
  background: #ffffff;
  cursor: pointer;
- font-weight: 600;
+ font-weight: 700;
+ font-size: 1.05rem;
  display:inline-flex;
  align-items:center;
  justify-content:center;
@@ -362,6 +393,10 @@ border-color: #cbd5e1;
     border-radius: 25px;
     transition: background-color 0.3s ease;
     margin-left: 1rem;
+}
+
+.header-actions {
+    position: relative;
 }
 
 .admin-profile:hover {
@@ -413,9 +448,9 @@ border-color: #cbd5e1;
 /* Admin Profile Dropdown */
 .admin-dropdown {
     position: absolute;
-    top: 56px;
-    right: calc(2rem + 120px);
-    width: 200px;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 240px;
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
@@ -438,23 +473,27 @@ border-color: #cbd5e1;
 .dropdown-profile-section {
     display: flex;
     align-items: center;
-    padding: 16px;
+    padding: 18px;
     gap: 12px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .dropdown-profile-initials {
-    width: 50px;
-    height: 50px;
+    width: 55px;
+    height: 55px;
+    min-width: 55px;
+    min-height: 55px;
     border-radius: 50%;
     background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-weight: 600;
-    font-size: 18px;
+    font-weight: 700;
+    font-size: 20px;
     border: 2px solid #e2e8f0;
+    flex-shrink: 0;
+    aspect-ratio: 1 / 1;
 }
 
 .dropdown-profile-img {
@@ -467,10 +506,12 @@ border-color: #cbd5e1;
 
 .edit-profile-text {
     color: #334155;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 1.1rem;
+    font-weight: 700;
     cursor: pointer;
     transition: color 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .edit-profile-text:hover {
@@ -479,7 +520,7 @@ border-color: #cbd5e1;
 
 .logout-btn {
     width: 100%;
-    padding: 12px 16px;
+    padding: 14px 18px;
     border: none;
     background: #f8fafc;
     color: #334155;
@@ -488,7 +529,9 @@ border-color: #cbd5e1;
     gap: 8px;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    font-weight: 500;
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-transform: uppercase;
 }
 
 .logout-btn:hover {
@@ -496,7 +539,7 @@ border-color: #cbd5e1;
 }
 
 .logout-btn i {
-    font-size: 14px;
+    font-size: 18px;
 }
 
 /* Barangay Portal Card Section */
@@ -730,6 +773,14 @@ border-color: #cbd5e1;
     background: linear-gradient(135deg, #1e3a5f, #2c5aa0);
 }
 
+.archive-btn .btn-icon {
+    background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+}
+
+.audit-trail-btn .btn-icon {
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
 .btn-icon i {
     font-size: 1.5rem;
     color: white;
@@ -739,13 +790,14 @@ border-color: #cbd5e1;
     font-size: 1.3rem;
     color: #2c5aa0;
     margin-bottom: 0.5rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .btn-content p {
-    color: #666;
+    color: #000000;
     font-size: 0.95rem;
     line-height: 1.4;
+    font-weight: 500;
 }
 
 /* Fixed Slide Sizing */
@@ -863,7 +915,560 @@ border-color: #cbd5e1;
     font-size: 18px;
 }
 
-/* Responsive Design */
+/* Responsive Design - Desktop Sizes */
+
+/* Large Desktops (1920px and above) */
+@media (min-width: 1920px) {
+    .page-container {
+        max-width: 1920px;
+        margin: 0 auto;
+    }
+    
+    .header-content {
+        max-width: 1800px;
+        margin: 0 auto;
+        padding: 0 3rem;
+    }
+    
+    .brgyAdmin-card-section {
+        max-width: 1800px;
+        margin: 0 auto;
+        padding: 3rem;
+    }
+    
+    .main-content-container {
+        width: 95%;
+        max-width: 1800px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .main-content {
+        max-width: 1800px;
+        padding: 3rem;
+    }
+    
+    .category-buttons {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2.5rem;
+    }
+    
+    .category-btn {
+        padding: 2.5rem;
+    }
+    
+    .welcome-section h2 {
+        font-size: 3rem;
+    }
+    
+    .welcome-section p {
+        font-size: 1.3rem;
+    }
+    
+    .brgyAdmin-card-content h2 {
+        font-size: 2.5rem;
+    }
+    
+    .brgyAdmin-text p {
+        font-size: 1.3rem;
+    }
+    
+    
+    .notification-dropdown {
+        right: 3rem;
+        width: 380px;
+    }
+    
+    .announce-slider {
+        padding-bottom: 64px;
+    }
+    
+    .compose-button {
+        right: 24px;
+        bottom: 16px;
+        padding: 11px 22px;
+        font-size: 1.05rem;
+    }
+    
+    /* Notification & Profile Dropdown Text - Large Desktop */
+    .notif-header {
+        font-size: 1.4rem;
+        padding: 14px 16px;
+    }
+    
+    .notif-count {
+        font-size: 1.15rem;
+    }
+    
+    .notif-title {
+        font-size: 1.15rem;
+    }
+    
+    .notif-time {
+        font-size: 1.1rem;
+    }
+    
+    .notif-verification {
+        font-size: 1rem;
+    }
+    
+    .notif-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .notif-icon i {
+        font-size: 20px;
+    }
+    
+    .btn-view-more {
+        font-size: 1.15rem;
+        padding: 8px 14px;
+    }
+    
+    .edit-profile-text {
+        font-size: 1.2rem;
+    }
+    
+    .logout-btn {
+        font-size: 1.2rem;
+        padding: 16px 20px;
+    }
+    
+    .logout-btn i {
+        font-size: 20px;
+    }
+    
+    .dropdown-profile-initials {
+        width: 60px;
+        height: 60px;
+        font-size: 22px;
+    }
+}
+
+/* Standard Desktops (1440px - 1919px) */
+@media (min-width: 1440px) and (max-width: 1919px) {
+    .header-content {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 0 2.5rem;
+    }
+    
+    .brgyAdmin-card-section {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2.5rem;
+    }
+    
+    .main-content-container {
+        width: 93%;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .main-content {
+        max-width: 1400px;
+        padding: 2.5rem;
+    }
+    
+    .category-buttons {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+    }
+    
+    .category-btn {
+        padding: 2rem;
+    }
+    
+    .welcome-section h2 {
+        font-size: 2.5rem;
+    }
+    
+    .welcome-section p {
+        font-size: 1.2rem;
+    }
+    
+    
+    .notification-dropdown {
+        right: 2.5rem;
+        width: 360px;
+    }
+    
+    .announce-slider {
+        padding-bottom: 60px;
+    }
+    
+    .compose-button {
+        right: 22px;
+        bottom: 15px;
+        padding: 10px 20px;
+        font-size: 1rem;
+    }
+    
+    /* Notification & Profile Dropdown Text - Standard Desktop */
+    .notif-header {
+        font-size: 1.3rem;
+        padding: 13px 15px;
+    }
+    
+    .notif-count {
+        font-size: 1.1rem;
+    }
+    
+    .notif-title {
+        font-size: 1.1rem;
+    }
+    
+    .notif-time {
+        font-size: 1.05rem;
+    }
+    
+    .notif-verification {
+        font-size: 0.95rem;
+    }
+    
+    .notif-icon {
+        width: 38px;
+        height: 38px;
+    }
+    
+    .notif-icon i {
+        font-size: 19px;
+    }
+    
+    .btn-view-more {
+        font-size: 1.1rem;
+        padding: 7px 13px;
+    }
+    
+    .edit-profile-text {
+        font-size: 1.15rem;
+    }
+    
+    .logout-btn {
+        font-size: 1.15rem;
+        padding: 15px 19px;
+    }
+    
+    .logout-btn i {
+        font-size: 19px;
+    }
+    
+    .dropdown-profile-initials {
+        width: 58px;
+        height: 58px;
+        font-size: 21px;
+    }
+}
+
+/* Small Desktops/Laptops (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
+    }
+    
+    .brgyAdmin-card-section {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .main-content-container {
+        width: 92%;
+        max-width: 1200px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .main-content {
+        max-width: 1200px;
+        padding: 2rem;
+    }
+    
+    .category-buttons {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.8rem;
+    }
+    
+    .category-btn {
+        padding: 1.8rem;
+    }
+    
+    .btn-icon {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .btn-icon i {
+        font-size: 1.4rem;
+    }
+    
+    .btn-content h4 {
+        font-size: 1.2rem;
+    }
+    
+    .btn-content p {
+        font-size: 0.9rem;
+    }
+    
+    .welcome-section h2 {
+        font-size: 2.2rem;
+    }
+    
+    .welcome-section p {
+        font-size: 1.1rem;
+    }
+    
+    .brgyAdmin-card-content h2 {
+        font-size: 2rem;
+    }
+    
+    .brgyAdmin-text p {
+        font-size: 1.1rem;
+    }
+    
+    .notification-dropdown {
+        right: 2rem;
+        width: 340px;
+    }
+    
+    .announce-slider {
+        padding-bottom: 58px;
+    }
+    
+    .compose-button {
+        right: 18px;
+        bottom: 13px;
+        padding: 9px 18px;
+        font-size: 0.95rem;
+    }
+    
+    /* Notification & Profile Dropdown Text - Small Desktop */
+    .notif-header {
+        font-size: 1.2rem;
+        padding: 12px 14px;
+    }
+    
+    .notif-count {
+        font-size: 1.05rem;
+    }
+    
+    .notif-title {
+        font-size: 1.05rem;
+    }
+    
+    .notif-time {
+        font-size: 1rem;
+    }
+    
+    .notif-verification {
+        font-size: 0.9rem;
+    }
+    
+    .notif-icon {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .notif-icon i {
+        font-size: 18px;
+    }
+    
+    .btn-view-more {
+        font-size: 1.05rem;
+        padding: 7px 12px;
+    }
+    
+    .edit-profile-text {
+        font-size: 1.1rem;
+    }
+    
+    .logout-btn {
+        font-size: 1.1rem;
+        padding: 14px 18px;
+    }
+    
+    .logout-btn i {
+        font-size: 18px;
+    }
+    
+    .dropdown-profile-initials {
+        width: 55px;
+        height: 55px;
+        font-size: 20px;
+    }
+}
+
+/* Tablets in Landscape (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .header-content {
+        padding: 0 1.5rem;
+    }
+    
+    .logo-img {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .barangay-name {
+        font-size: 1.3rem;
+    }
+    
+    .admin-name {
+        font-size: 13px;
+    }
+    
+    .admin-position {
+        font-size: 11px;
+    }
+    
+    .brgyAdmin-card-section {
+        padding: 1.5rem;
+    }
+    
+    .brgyAdmin-card {
+        min-height: 180px;
+    }
+    
+    .brgyAdmin-card-content {
+        padding: 2rem;
+        gap: 1.5rem;
+    }
+    
+    .brgyAdmin-icon {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .brgyAdmin-initials {
+        font-size: 24px;
+    }
+    
+    .brgyAdmin-card-content h2 {
+        font-size: 1.8rem;
+    }
+    
+    .brgyAdmin-text p {
+        font-size: 1rem;
+    }
+    
+    .main-content-container {
+        width: 90%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .main-content {
+        padding: 1.5rem;
+    }
+    
+    .category-buttons {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .category-btn {
+        padding: 1.5rem;
+    }
+    
+    .btn-icon {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .btn-icon i {
+        font-size: 1.3rem;
+    }
+    
+    .btn-content h4 {
+        font-size: 1.15rem;
+    }
+    
+    .btn-content p {
+        font-size: 0.9rem;
+    }
+    
+    .welcome-section h2 {
+        font-size: 2rem;
+    }
+    
+    .welcome-section p {
+        font-size: 1rem;
+    }
+    
+    .category-section h3 {
+        font-size: 1.6rem;
+    }
+    
+    .announce-section h3 {
+        font-size: 1.6rem;
+    }
+    
+    .notification-dropdown {
+        width: 320px;
+        right: 1.5rem;
+    }
+    
+    /* Notification & Profile Dropdown Text - Tablet */
+    .notif-header {
+        font-size: 1.15rem;
+        padding: 12px 14px;
+    }
+    
+    .notif-count {
+        font-size: 1rem;
+    }
+    
+    .notif-title {
+        font-size: 1rem;
+    }
+    
+    .notif-time {
+        font-size: 0.95rem;
+    }
+    
+    .notif-verification {
+        font-size: 0.85rem;
+    }
+    
+    .notif-icon {
+        width: 34px;
+        height: 34px;
+    }
+    
+    .notif-icon i {
+        font-size: 17px;
+    }
+    
+    .btn-view-more {
+        font-size: 1rem;
+        padding: 6px 11px;
+    }
+    
+    .edit-profile-text {
+        font-size: 1.05rem;
+    }
+    
+    .logout-btn {
+        font-size: 1.05rem;
+        padding: 13px 17px;
+    }
+    
+    .logout-btn i {
+        font-size: 17px;
+    }
+    
+    .dropdown-profile-initials {
+        width: 52px;
+        height: 52px;
+        font-size: 19px;
+    }
+}
+
+/* Mobile Devices */
 @media (max-width: 768px) {
     .header-content {
         padding: 0 1rem;
@@ -917,8 +1522,64 @@ border-color: #cbd5e1;
         font-size: 2rem;
     }
     
+    
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+    
+    /* Notification & Profile Dropdown Text - Mobile */
+    .notif-header {
+        font-size: 1.1rem;
+        padding: 11px 13px;
+    }
+    
+    .notif-count {
+        font-size: 0.95rem;
+    }
+    
+    .notif-title {
+        font-size: 0.95rem;
+    }
+    
+    .notif-time {
+        font-size: 0.9rem;
+    }
+    
+    .notif-verification {
+        font-size: 0.8rem;
+    }
+    
+    .notif-icon {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .notif-icon i {
+        font-size: 16px;
+    }
+    
+    .btn-view-more {
+        font-size: 0.95rem;
+        padding: 6px 10px;
+    }
+    
+    .edit-profile-text {
+        font-size: 1rem;
+    }
+    
+    .logout-btn {
+        font-size: 1rem;
+        padding: 12px 16px;
+    }
+    
+    .logout-btn i {
+        font-size: 16px;
+    }
+    
+    .dropdown-profile-initials {
+        width: 50px;
+        height: 50px;
+        font-size: 18px;
     }
 }
 
@@ -980,6 +1641,7 @@ border-color: #cbd5e1;
     align-items: center;
     text-align: center;
     padding-top: 30px;
+    padding-bottom: 56px;
     padding-left: 10px;
     padding-right: 10px;
     border-radius: 10px;
@@ -1010,13 +1672,14 @@ border-color: #cbd5e1;
 .compose-button {
     position: absolute;
     right: 20px;
-    bottom: 8px;
-    padding: 3px 12px;
+    bottom: 14px;
+    padding: 10px 20px;
     border-radius: 8px;
     border: none;
     background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
     color: #ffffff;
     font-weight: 600;
+    font-size: 1rem;
     cursor: pointer;
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     z-index: 2;
@@ -1480,17 +2143,116 @@ border-color: #cbd5e1;
     background: #dc2626;
 }
 
-/* Warning Status Styles */
+/* Warning Status Styles (logout confirm — match header blue) */
 .status-modal.warning .status-icon i {
-    color: #f59e0b;
+    color: #2c5aa0;
 }
 
 .status-modal.warning .ok-btn {
-    background: #f59e0b;
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+    box-shadow: 0 2px 8px rgba(30, 58, 95, 0.25);
 }
 
 .status-modal.warning .ok-btn:hover {
-    background: #d97706;
+    background: linear-gradient(135deg, #3a6bb8 0%, #254a7a 100%);
+    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.35);
+}
+
+.status-modal.warning .cancel-status-btn {
+    border-color: #2c5aa0;
+    color: #1e3a5f;
+    background: #fff;
+}
+
+.status-modal.warning .cancel-status-btn:hover {
+    background: rgba(44, 90, 160, 0.08);
+    border-color: #1e3a5f;
+    color: #1e3a5f;
+}
+
+/* Responsive adjustments for modals and sliders across all sizes */
+@media (min-width: 1920px) {
+    .compose-dialog {
+        max-width: 600px;
+        padding: 2rem;
+    }
+    
+    .edit-profile-dialog {
+        max-width: 500px;
+    }
+    
+    .status-dialog {
+        max-width: 450px;
+    }
+    
+    .slide {
+        min-width: 350px;
+        max-width: 380px;
+    }
+}
+
+@media (min-width: 1440px) and (max-width: 1919px) {
+    .compose-dialog {
+        max-width: 550px;
+        padding: 1.75rem;
+    }
+    
+    .edit-profile-dialog {
+        max-width: 480px;
+    }
+    
+    .status-dialog {
+        max-width: 420px;
+    }
+    
+    .slide {
+        min-width: 320px;
+        max-width: 350px;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+    .compose-dialog {
+        max-width: 520px;
+        padding: 1.5rem;
+    }
+    
+    .edit-profile-dialog {
+        max-width: 450px;
+    }
+    
+    .status-dialog {
+        max-width: 400px;
+    }
+    
+    .slide {
+        min-width: 300px;
+        max-width: 320px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .compose-dialog {
+        max-width: 500px;
+        padding: 1.25rem;
+    }
+    
+    .edit-profile-dialog {
+        max-width: 420px;
+    }
+    
+    .status-dialog {
+        max-width: 380px;
+    }
+    
+    .slide {
+        min-width: 280px;
+        max-width: 300px;
+    }
+    
+    .notification-dropdown {
+        width: 280px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1538,5 +2300,41 @@ border-color: #cbd5e1;
     
     .status-actions {
         padding: 0 20px 20px;
+    }
+    
+    .compose-dialog {
+        margin: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+    
+    .notification-dropdown {
+        width: calc(100% - 2rem);
+        right: 1rem;
+    }
+    
+    .admin-dropdown {
+        width: 240px;
+        max-width: calc(100vw - 2rem);
+    }
+    
+    /* Notification & Profile Dropdown Text - Mobile (Modal Section) */
+    .notif-header {
+        font-size: 1.05rem;
+    }
+    
+    .notif-title {
+        font-size: 0.9rem;
+    }
+    
+    .notif-time {
+        font-size: 0.85rem;
+    }
+    
+    .edit-profile-text {
+        font-size: 0.95rem;
+    }
+    
+    .logout-btn {
+        font-size: 0.95rem;
     }
 }

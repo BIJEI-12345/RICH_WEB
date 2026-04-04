@@ -68,6 +68,15 @@ function setupPrintButtons() {
             printTableWrapper(containers[3], title);
         }
     });
+
+    // Setup print button for Jobseeker Report table
+    document.getElementById('printJobseekerTable')?.addEventListener('click', () => {
+        const containers = document.querySelectorAll('.analytics-table-container');
+        if (containers.length > 4) {
+            const title = containers[4].querySelector('.table-header h5')?.textContent || 'Jobseeker Report';
+            printTableWrapper(containers[4], title);
+        }
+    });
 }
 
 function printTableWrapper(container, tableTitle) {
@@ -301,8 +310,16 @@ function initializeRangeControls() {
     const yearSelect = document.getElementById('analyticsYearSelect');
     const yearButton = document.getElementById('showYearView');
 
+    if (!monthSelect || !yearSelect) {
+        console.error('Analytics select elements not found');
+        return;
+    }
+
     // Populate year selector with available years
     populateYearSelector();
+    
+    // Populate month selector with all 12 months
+    populateMonthSelector();
 
     const applyRangeSelection = (rangeData, label) => {
         currentRangeLabel = label;
@@ -313,6 +330,7 @@ function initializeRangeControls() {
     const toggleYearView = () => {
         isYearView = !isYearView;
         if (isYearView) {
+            // Year view: hide month selector, show year selector
             monthSelect.style.display = 'none';
             yearSelect.style.display = 'block';
             yearButton.textContent = 'Month view';
@@ -322,27 +340,29 @@ function initializeRangeControls() {
             yearSelect.value = currentYear;
             applyRangeSelection(getYearRange(currentYear), `${currentYear}`);
         } else {
+            // Month view: show month selector, hide year selector
             monthSelect.style.display = 'block';
             yearSelect.style.display = 'none';
             yearButton.textContent = 'Year view';
             yearButton.innerHTML = '<i class="fas fa-calendar-alt"></i> Year view';
-            const selection = monthSelect.value || 'this-month';
-            if (selection === 'last-month') {
-                applyRangeSelection(getMonthRange('last-month'), 'Last month');
-            } else {
-                applyRangeSelection(getMonthRange('this-month'), 'This month');
+            // Get selected month, use current year automatically
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            if (monthSelect.value === '' || !monthSelect.value) {
+                monthSelect.value = currentMonth;
             }
+            const selectedMonth = parseInt(monthSelect.value);
+            const monthRange = getMonthRange(selectedMonth, currentYear);
+            applyRangeSelection(monthRange, monthRange.monthLabel);
         }
     };
 
     monthSelect?.addEventListener('change', () => {
-        if (!isYearView) {
-            const selection = monthSelect.value;
-            if (selection === 'last-month') {
-                applyRangeSelection(getMonthRange('last-month'), 'Last month');
-            } else {
-                applyRangeSelection(getMonthRange('this-month'), 'This month');
-            }
+        if (!isYearView && monthSelect.value !== '') {
+            const selectedMonth = parseInt(monthSelect.value);
+            const currentYear = new Date().getFullYear();
+            const monthRange = getMonthRange(selectedMonth, currentYear);
+            applyRangeSelection(monthRange, monthRange.monthLabel);
         }
     });
 
@@ -355,12 +375,48 @@ function initializeRangeControls() {
 
     yearButton?.addEventListener('click', toggleYearView);
 
-    const defaultSelection = monthSelect?.value || 'this-month';
-    if (defaultSelection === 'last-month') {
-        applyRangeSelection(getMonthRange('last-month'), 'Last month');
-    } else {
-        applyRangeSelection(getMonthRange('this-month'), 'This month');
+    // Set default to current month (month view is default)
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    if (monthSelect.value === '' || !monthSelect.value) {
+        monthSelect.value = currentMonth;
     }
+    const defaultMonthRange = getMonthRange(currentMonth, currentYear);
+    applyRangeSelection(defaultMonthRange, defaultMonthRange.monthLabel);
+}
+
+function populateMonthSelector() {
+    const monthSelect = document.getElementById('analyticsMonthSelect');
+    if (!monthSelect) {
+        console.error('analyticsMonthSelect element not found');
+        return;
+    }
+
+    const months = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Clear existing options
+    monthSelect.innerHTML = '';
+
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select month';
+    monthSelect.appendChild(defaultOption);
+
+    // Populate with all 12 months (no year needed, uses current year automatically)
+    months.forEach((monthName, index) => {
+        const option = document.createElement('option');
+        option.value = index; // 0-11 for months
+        option.textContent = monthName;
+        // Select current month by default
+        if (index === new Date().getMonth()) {
+            option.selected = true;
+        }
+        monthSelect.appendChild(option);
+    });
 }
 
 function populateYearSelector() {
@@ -384,21 +440,25 @@ function populateYearSelector() {
     }
 }
 
-function getMonthRange(target = 'this-month') {
+function getMonthRange(monthIndex = null, year = null) {
     const now = new Date();
-    let start = new Date(now.getFullYear(), now.getMonth(), 1);
-    let end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    if (target === 'last-month') {
-        const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        start = new Date(prev.getFullYear(), prev.getMonth(), 1);
-        end = new Date(prev.getFullYear(), prev.getMonth() + 1, 0);
-    }
+    const targetMonth = monthIndex !== null ? parseInt(monthIndex) : now.getMonth();
+    const targetYear = year !== null ? parseInt(year) : now.getFullYear();
+    
+    const start = new Date(targetYear, targetMonth, 1);
+    const end = new Date(targetYear, targetMonth + 1, 0);
+    
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    
     return {
         start: formatQueryDate(start),
         end: formatQueryDate(end),
-        period: 'month'
+        period: 'month',
+        monthLabel: `${monthNames[targetMonth]} ${targetYear}`
     };
 }
 
@@ -426,6 +486,7 @@ function populateAnalytics(data, period = 'month') {
     renderEmergencyAlertsTable(data, period);
     renderDocumentRequestsTable(data, period);
     renderActiveUsersTable(data);
+    renderJobseekerReportTable(data);
     
     // Populate Document Requests Breakdown
     const docMonthList = document.getElementById('analyticsDocMonth');
@@ -436,17 +497,7 @@ function populateAnalytics(data, period = 'month') {
     // Update month label based on current period
     if (docMonthLabel && data.documents?.monthLabel) {
         const monthLabel = data.documents.monthLabel;
-        if (period === 'year') {
-            docMonthLabel.textContent = monthLabel;
-        } else {
-            // Check if it's last month or this month
-            const currentMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
-            if (monthLabel === currentMonth) {
-                docMonthLabel.textContent = `This month (${monthLabel})`;
-            } else {
-                docMonthLabel.textContent = `Last month (${monthLabel})`;
-            }
-        }
+        docMonthLabel.textContent = monthLabel;
     }
     
     // Update year label
@@ -638,17 +689,14 @@ function setAnalyticsScopeLabel(rangeLabel) {
 
 function setLoadingState(isLoading) {
     const select = document.getElementById('analyticsMonthSelect');
+    const yearSelect = document.getElementById('analyticsYearSelect');
     const yearButton = document.getElementById('showYearView');
-    const indicator = document.getElementById('analyticsLoadingIndicator');
 
-    [select, yearButton].forEach(elem => {
+    [select, yearSelect, yearButton].forEach(elem => {
         if (elem) {
             elem.disabled = !!isLoading;
         }
     });
-    if (indicator) {
-        indicator.classList.toggle('active', !!isLoading);
-    }
 }
 
 function formatAnalyticsDate(value) {
@@ -1074,6 +1122,74 @@ function renderActiveUsersTable(data) {
                 <td><span class="status-badge status-${status.toLowerCase()}">${status}</span></td>
             </tr>
         `;
+    }).join('');
+
+    tableBody.innerHTML = rows;
+}
+
+function renderJobseekerReportTable(data) {
+    const tableBody = document.getElementById('jobseekerReportTableBody');
+    const tableHead = document.getElementById('jobseekerReportTableHead');
+    
+    if (!tableBody || !tableHead) return;
+
+    const reports = data.jobseekerReports || [];
+
+    if (reports.length === 0) {
+        tableHead.innerHTML = '<tr><th class="table-loading">No data available</th></tr>';
+        tableBody.innerHTML = '<tr><td colspan="100" class="table-loading">No jobseeker reports found</td></tr>';
+        return;
+    }
+
+    // Define column order: No., Last Name, First Name, Middle Name, Age, Month, Day, Year, Sex, Elementary, High School, College, Course, Out of School
+    const columnOrder = [
+        { key: 'no', label: 'NO.' },
+        { key: 'last_name', label: 'LAST NAME' },
+        { key: 'first_name', label: 'FIRST NAME' },
+        { key: 'middle_name', label: 'MIDDLE NAME' },
+        { key: 'age', label: 'AGE' },
+        { key: 'birth_month', label: 'MONTH' },
+        { key: 'birth_day', label: 'DAY' },
+        { key: 'birth_year', label: 'YEAR' },
+        { key: 'sex', label: 'SEX' },
+        { key: 'elementary_check', label: 'ELEMENTARY', isCheckmark: true },
+        { key: 'high_school_check', label: 'HIGH SCHOOL', isCheckmark: true },
+        { key: 'college_check', label: 'COLLEGE', isCheckmark: true },
+        { key: 'course', label: 'COURSE' },
+        { key: 'out_of_school_youth', label: 'OUT OF SCHOOL YOUTH', isCheckmark: true }
+    ];
+
+    // Create table header
+    const headerRow = columnOrder.map(col => {
+        const singleLineHeader = col.label.replace(/ /g, '&nbsp;');
+        return `<th>${singleLineHeader}</th>`;
+    }).join('');
+
+    tableHead.innerHTML = `<tr>${headerRow}</tr>`;
+
+    // Create table rows
+    const rows = reports.map(report => {
+        const cells = columnOrder.map(col => {
+            let value = report[col.key] ?? '';
+            
+            // Handle checkmark columns
+            if (col.isCheckmark) {
+                const checkValue = parseInt(value) || 0;
+                // Show checkmark (✓) if value is 1, otherwise blank
+                return `<td style="text-align: center;">${checkValue === 1 ? '✓' : ''}</td>`;
+            }
+            
+            // Format birthdate components
+            if (col.key === 'birth_month' && value) {
+                const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                const monthNum = parseInt(value);
+                value = monthNum >= 1 && monthNum <= 12 ? monthNames[monthNum] : value;
+            }
+            
+            return `<td>${value || '—'}</td>`;
+        }).join('');
+        
+        return `<tr>${cells}</tr>`;
     }).join('');
 
     tableBody.innerHTML = rows;

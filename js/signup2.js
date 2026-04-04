@@ -12,6 +12,21 @@
   }
 })();
 
+var resendCooldownSeconds = 0;
+var resendCooldownTimer = null;
+
+function formatResendTime(totalSeconds) {
+    var sec = Math.max(0, parseInt(totalSeconds, 10) || 0);
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function setResendButtonLabel(text) {
+    var label = document.getElementById('resendOtpBtnLabel');
+    if (label) label.textContent = text;
+}
+
 // OTP Verification functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Auto-focus on OTP input and load user data
@@ -19,6 +34,14 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load user data from session
     loadUserData();
+
+    var resendBtn = document.getElementById('resendOtpBtn');
+    if (resendBtn) {
+        resendBtn.addEventListener('click', function () {
+            if (resendCooldownSeconds > 0) return;
+            resendOTP();
+        });
+    }
     
     // Auto-submit when 6 digits are entered
     document.getElementById('otpCode').addEventListener('input', function(e) {
@@ -68,6 +91,10 @@ function loadUserData() {
         if (data.success) {
             document.getElementById('userEmail').textContent = data.email;
             document.getElementById('userName').textContent = data.name;
+            var wait = parseInt(data.resend_available_in_seconds, 10);
+            if (!isNaN(wait) && wait > 0) {
+                startResendCooldown(wait);
+            }
         } else {
             document.getElementById('userEmail').textContent = 'Session expired';
             document.getElementById('userName').textContent = 'Please register again';
@@ -109,7 +136,7 @@ function verifyOTP(otpCode) {
         if (data.success) {
             showSuccess(data.message);
             setTimeout(() => {
-                window.location.href = 'index.html';
+                window.location.href = 'index.php';
             }, 2000);
         } else {
             showError(data.message || 'Invalid verification code');
@@ -121,26 +148,114 @@ function verifyOTP(otpCode) {
     });
 }
 
+function startResendCooldown(seconds) {
+    var n = parseInt(seconds, 10);
+    if (!n || n <= 0) {
+        return;
+    }
+    resendCooldownSeconds = n;
+    var btn = document.getElementById('resendOtpBtn');
+    var hint = document.getElementById('resendCooldown');
+    if (resendCooldownTimer) clearInterval(resendCooldownTimer);
+
+    function setCooldownUi(sec) {
+        var line = 'Resend in ' + formatResendTime(sec);
+        if (btn) {
+            btn.disabled = true;
+            btn.hidden = true;
+            setResendButtonLabel('Resend OTP');
+            btn.setAttribute('aria-label', 'Resend verification code to your email');
+        }
+        if (hint) {
+            hint.removeAttribute('hidden');
+            hint.textContent = line;
+        }
+    }
+
+    function clearCooldownUi() {
+        if (btn) {
+            btn.disabled = false;
+            btn.hidden = false;
+            setResendButtonLabel('Resend OTP');
+            btn.setAttribute('aria-label', 'Resend verification code to your email');
+        }
+        if (hint) {
+            hint.setAttribute('hidden', '');
+            hint.textContent = '';
+        }
+    }
+
+    function tick() {
+        if (resendCooldownSeconds <= 0) {
+            clearCooldownUi();
+            clearInterval(resendCooldownTimer);
+            resendCooldownTimer = null;
+            return;
+        }
+        setCooldownUi(resendCooldownSeconds);
+        resendCooldownSeconds--;
+    }
+    tick();
+    resendCooldownTimer = setInterval(tick, 1000);
+}
+
 function resendOTP() {
-    // Send request to resend OTP
+    var btn = document.getElementById('resendOtpBtn');
+    if (btn) btn.disabled = true;
+
     fetch('php/resend_signup_otp.php', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
-        }
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({})
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function (response) {
+        return response.text().then(function (raw) {
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                console.error('Resend response was not JSON:', raw.slice(0, 400));
+                throw new Error('Invalid server response');
+            }
+        });
+    })
+    .then(function (data) {
         if (data.success) {
-            showSuccess('New verification code sent to your email!');
+            var successMsg = data.message || 'New OTP code has been sent to your email.';
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Code sent',
+                    text: 'New OTP code has been sent to your email.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#2563eb',
+                    customClass: {
+                        popup: 'signup2-swal-popup',
+                        confirmButton: 'signup2-swal-confirm'
+                    }
+                });
+            } else {
+                showSuccess(successMsg);
+            }
             document.getElementById('otpCode').value = '';
             document.getElementById('otpCode').focus();
+            startResendCooldown(60);
         } else {
+            var retry = parseInt(data.retry_after_seconds, 10);
             showError(data.message || 'Failed to resend code');
+            if (retry > 0) {
+                startResendCooldown(retry);
+            } else if (btn) {
+                btn.disabled = false;
+            }
         }
     })
-    .catch(error => {
+    .catch(function (error) {
         console.error('Error:', error);
         showError('Network error. Please try again.');
+        if (btn) btn.disabled = false;
     });
 }

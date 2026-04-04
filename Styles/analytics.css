@@ -139,42 +139,6 @@
     white-space: nowrap;
 }
 
-.loading-indicator {
-    font-size: 0.85rem;
-    color: #0f172a;
-    padding: 0.25rem 0.9rem;
-    border-radius: 25px;
-    border: 1px solid transparent;
-    display: none;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.loading-indicator::before {
-    content: '';
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    border-top-color: currentColor;
-    border-left-color: currentColor;
-    animation: spin 0.7s linear infinite;
-}
-
-.loading-indicator.active {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    background: rgba(59, 130, 246, 0.16);
-    border-color: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
 
 .analytics-meta {
     font-size: 0.9rem;
@@ -1042,6 +1006,24 @@
     .analytics-comparison-table thead,
     .analytics-users-table thead {
         display: table-header-group;
+    }
+    
+    /* Yellow-green header for jobseeker report table when printing */
+    #jobseekerReportTable thead,
+    #jobseekerReportTableHead {
+        background: #9ACD32 !important; /* yellowgreen */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color-adjust: exact;
+    }
+    
+    #jobseekerReportTable thead th,
+    #jobseekerReportTableHead th {
+        background: #9ACD32 !important; /* yellowgreen */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color-adjust: exact;
+        color: #000 !important;
     }
     
     .analytics-comparison-table tfoot,

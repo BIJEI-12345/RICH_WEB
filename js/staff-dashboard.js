@@ -172,7 +172,7 @@ function showLogoutConfirmationModal() {
         if (window.performLogout) {
             window.performLogout();
         } else {
-            window.location.href = 'index.html';
+            window.location.href = 'index.php';
         }
     };
     

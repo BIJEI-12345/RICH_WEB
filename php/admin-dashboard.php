@@ -1,14 +1,11 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Disable error reporting to prevent HTML output
 error_reporting(0);
 ini_set('display_errors', 0);
 
-//Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = 3306; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Database configuration - Use config.php
+require_once __DIR__ . '/config.php';
 
 // ===========================================
 // ADMIN SESSION ESTABLISHMENT SECTION
@@ -19,9 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     
     if (isset($input['action']) && $input['action'] === 'establish_session') {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        rich_session_start();
         
         header('Content-Type: application/json');
         header('Access-Control-Allow-Origin: *');
@@ -41,12 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         try {
-            $connection = new mysqli($host, $user, $pass, $db, $port);
-            if ($connection->connect_error) {
-                error_log("Database connection error: " . $connection->connect_error);
-                echo json_encode(['success' => false, 'message' => 'Database connection failed']);
-                exit;
-            }
+            $connection = getDatabaseConnection();
             
             $emailEsc = $connection->real_escape_string($email);
             $sql = "SELECT email, name, position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
@@ -54,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if ($res && $row = $res->fetch_assoc()) {
                 // Allow all valid positions to establish session
-                $validPositions = ['Admin', 'Document Request Category', 'Concerns & Reporting', 'Emergency Category'];
+                $validPositions = ['Admin', 'Document Request Category', 'Concerns & Reporting', 'Emergency Category', 'Mother Leader'];
                 if (in_array($row['position'], $validPositions)) {
                     // Establish session for user
                     $_SESSION['user_id'] = $row['email'];
@@ -91,9 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Check if this is a request for admin data
 if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
     // Start session first before any output
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    rich_session_start();
     
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');
@@ -105,18 +93,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
         exit; 
     }
     
-    $connection = new mysqli($host, $user, $pass, $db, $port);
-    if ($connection->connect_error) {
-        error_log("Database connection error: " . $connection->connect_error);
+    try {
+        $connection = getDatabaseConnection();
+    } catch (Exception $e) {
+        error_log("Database connection error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => "Database connection failed."]); 
         exit;
     }
     
     // Start session first
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    rich_session_start();
     
     // Get email from query parameter or from active PHP session
     $email = $_GET['email'] ?? '';
@@ -135,7 +122,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
     }
     
     // Check session expiration based on last activity
-    $sessionTimeout = 7200; // 2 hours in seconds
+    $sessionTimeout = 3600; // 1 hour in seconds
     $sessionValid = false;
     
     if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
@@ -257,12 +244,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_admin_profile') {
     }
     
     try {
-        $pdo = new PDO("mysql:host=$host;port=$port;dbname=$db", $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_TIMEOUT => 10,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ]);
-    } catch(PDOException $e) {
+        $pdo = getPDODatabaseConnection();
+    } catch(Exception $e) {
         error_log("Database connection error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => "Database connection failed."]); 
@@ -331,12 +314,8 @@ header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
 try {
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$db", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 10,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]);
-} catch(PDOException $e) {
+    $pdo = getPDODatabaseConnection();
+} catch(Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     echo json_encode(['ok' => false, 'error' => 'Database connection failed']);
     exit;

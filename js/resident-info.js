@@ -2,6 +2,15 @@ function goBack() {
     window.location.href = 'admin-dashboard.html';
 }
 
+function goToCensus() {
+    window.location.href = 'census.html';
+}
+
+function goToUsers() {
+    // Already on users page, just reload or do nothing
+    window.location.reload();
+}
+
 // Management Functions
 function showAddResidentModal() {
     const modal = document.getElementById('addResidentModal');
@@ -362,7 +371,247 @@ function viewResident(index) {
     showIdImagePopup(resident);
 }
 
-function showIdImagePopup(resident) {
+// Function to detect cursive text areas using Google Vision API
+async function detectSignatureArea(imageData) {
+    try {
+        const response = await fetch('php/detectSignature.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ imageData: imageData })
+        });
+        
+        if (!response.ok) {
+            console.warn('Signature detection API failed, using fallback');
+            throw new Error('Failed to detect signature area');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.signatures && Array.isArray(data.signatures)) {
+            console.log('Cursive text areas detected:', data.signatures);
+            return {
+                signatures: data.signatures,
+                fallback: data.fallback || false
+            };
+        }
+        
+        throw new Error('Signature detection failed');
+    } catch (error) {
+        console.warn('Error detecting signature, using fallback:', error);
+        // Use fallback coordinates when detection fails to ensure signatures are blurred
+        return {
+            signatures: [
+                {x: 3, y: 78, width: 40, height: 12},
+                {x: 55, y: 78, width: 40, height: 12}
+            ],
+            fallback: true
+        };
+    }
+}
+
+// Function to blur ONLY detected cursive text areas using Google Vision API
+async function blurSensitiveIdInfo(imageData) {
+    return new Promise(async (resolve, reject) => {
+        if (!imageData || imageData === '' || imageData === 'image_too_large') {
+            resolve(imageData);
+            return;
+        }
+
+        const img = new Image();
+        if (!imageData.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+        }
+        
+        img.onload = async function() {
+            try {
+                if (img.width === 0 || img.height === 0) {
+                    console.warn('Image has zero dimensions');
+                    resolve(imageData);
+                    return;
+                }
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                    console.error('Could not get canvas context');
+                    resolve(imageData);
+                    return;
+                }
+                
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw the original image
+                ctx.drawImage(img, 0, 0);
+                
+                // Detect cursive text areas using Google Vision API
+                const signatureData = await detectSignatureArea(imageData);
+                
+                // Apply blur to ALL detected cursive text areas - EXACT coordinates only
+                if (signatureData.signatures && Array.isArray(signatureData.signatures) && signatureData.signatures.length > 0) {
+                    signatureData.signatures.forEach((sig, index) => {
+                        // Convert percentage coordinates to pixel coordinates
+                        // NO PADDING - Use exact coordinates to blur only the cursive text
+                        let signatureBlurX = Math.floor((sig.x / 100) * canvas.width);
+                        let signatureBlurY = Math.floor((sig.y / 100) * canvas.height);
+                        let signatureBlurWidth = Math.floor((sig.width / 100) * canvas.width);
+                        let signatureBlurHeight = Math.floor((sig.height / 100) * canvas.height);
+                        
+                        // Ensure coordinates stay within canvas bounds
+                        if (signatureBlurX < 0) {
+                            signatureBlurWidth += signatureBlurX;
+                            signatureBlurX = 0;
+                        }
+                        if (signatureBlurY < 0) {
+                            signatureBlurHeight += signatureBlurY;
+                            signatureBlurY = 0;
+                        }
+                        if (signatureBlurX + signatureBlurWidth > canvas.width) {
+                            signatureBlurWidth = canvas.width - signatureBlurX;
+                        }
+                        if (signatureBlurY + signatureBlurHeight > canvas.height) {
+                            signatureBlurHeight = canvas.height - signatureBlurY;
+                        }
+                        
+                        console.log(`Applying blur to signature area ${index + 1}:`, {
+                            x: signatureBlurX,
+                            y: signatureBlurY,
+                            width: signatureBlurWidth,
+                            height: signatureBlurHeight,
+                            canvasWidth: canvas.width,
+                            canvasHeight: canvas.height,
+                            originalPercent: {
+                                x: sig.x,
+                                y: sig.y,
+                                width: sig.width,
+                                height: sig.height
+                            }
+                        });
+                        
+                        // Apply blur to this EXACT cursive text area only
+                        if (signatureBlurHeight > 0 && signatureBlurY >= 0 && signatureBlurWidth > 0 && 
+                            signatureBlurX >= 0 && signatureBlurX + signatureBlurWidth <= canvas.width &&
+                            signatureBlurY + signatureBlurHeight <= canvas.height) {
+                            // Use strong blur radius but only on exact area
+                            blurRegion(ctx, signatureBlurX, signatureBlurY, signatureBlurWidth, signatureBlurHeight, 25);
+                            console.log(`Blur applied successfully to cursive text ${index + 1}`);
+                        } else {
+                            console.warn(`Invalid blur coordinates for cursive text ${index + 1}, skipping`);
+                        }
+                    });
+                }
+                
+                // Convert canvas to data URL
+                const blurredDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                resolve(blurredDataUrl);
+            } catch (error) {
+                console.error('Error blurring image:', error);
+                resolve(imageData);
+            }
+        };
+        
+        img.onerror = function() {
+            console.error('Error loading image for blurring');
+            resolve(imageData);
+        };
+        
+        img.src = imageData;
+    });
+}
+
+// Helper function to apply mosaic/pixelated blur effect
+function blurRegion(ctx, x, y, width, height, blurRadius) {
+    // Safety checks
+    if (!ctx || width <= 0 || height <= 0 || blurRadius <= 0) {
+        return;
+    }
+    
+    // Ensure coordinates are within canvas bounds
+    const canvasWidth = ctx.canvas.width;
+    const canvasHeight = ctx.canvas.height;
+    
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x + width > canvasWidth) width = canvasWidth - x;
+    if (y + height > canvasHeight) height = canvasHeight - y;
+    
+    if (width <= 0 || height <= 0) {
+        return;
+    }
+    
+    try {
+        // Get image data for the region
+        const imageData = ctx.getImageData(x, y, width, height);
+        const data = imageData.data;
+        
+        // Mosaic/pixelation size - larger value = more pixelated (stronger blur)
+        const pixelSize = Math.max(15, Math.min(30, Math.floor(blurRadius / 1.2)));
+        
+        // Apply mosaic/pixelation effect with multiple passes for stronger blur
+        const passes = 3; // Apply 3 times for very strong effect
+        
+        for (let pass = 0; pass < passes; pass++) {
+            // Apply mosaic/pixelation effect
+            for (let py = 0; py < height; py += pixelSize) {
+                for (let px = 0; px < width; px += pixelSize) {
+                    // Calculate average color for this pixel block
+                    let r = 0, g = 0, b = 0, a = 0;
+                    let count = 0;
+                    
+                    const blockHeight = Math.min(pixelSize, height - py);
+                    const blockWidth = Math.min(pixelSize, width - px);
+                    
+                    // Sample pixels in this block
+                    for (let by = 0; by < blockHeight; by++) {
+                        for (let bx = 0; bx < blockWidth; bx++) {
+                            const idx = ((py + by) * width + (px + bx)) * 4;
+                            r += data[idx];
+                            g += data[idx + 1];
+                            b += data[idx + 2];
+                            a += data[idx + 3];
+                            count++;
+                        }
+                    }
+                    
+                    // Calculate average
+                    const avgR = Math.round(r / count);
+                    const avgG = Math.round(g / count);
+                    const avgB = Math.round(b / count);
+                    const avgA = Math.round(a / count);
+                    
+                    // Fill the entire block with the average color (creates mosaic effect)
+                    for (let by = 0; by < blockHeight; by++) {
+                        for (let bx = 0; bx < blockWidth; bx++) {
+                            const idx = ((py + by) * width + (px + bx)) * 4;
+                            data[idx] = avgR;
+                            data[idx + 1] = avgG;
+                            data[idx + 2] = avgB;
+                            data[idx + 3] = avgA;
+                        }
+                    }
+                }
+            }
+            
+            // Put pixelated data back to canvas after each pass
+            ctx.putImageData(imageData, x, y);
+            
+            // Get updated image data for next pass
+            if (pass < passes - 1) {
+                const updatedImageData = ctx.getImageData(x, y, width, height);
+                for (let i = 0; i < data.length; i++) {
+                    data[i] = updatedImageData.data[i];
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error in blurRegion:', error);
+    }
+}
+
+async function showIdImagePopup(resident) {
     // Create popup overlay
     const overlay = document.createElement('div');
     overlay.className = 'id-image-overlay';
@@ -427,17 +676,33 @@ function showIdImagePopup(resident) {
     `;
     
     if (resident.id_image && resident.id_image.trim() !== '') {
-        // Show the ID image
-        const img = document.createElement('img');
-        img.src = resident.id_image;
-        img.style.cssText = `
-            max-width: 100%;
-            max-height: 100%;
-            border-radius: 5px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        `;
-        img.alt = 'ID Image';
-        imageContainer.appendChild(img);
+        // Apply blur to detected cursive text before displaying
+        blurSensitiveIdInfo(resident.id_image).then(blurredImageData => {
+            // Show the ID image
+            const img = document.createElement('img');
+            img.src = blurredImageData;
+            img.style.cssText = `
+                max-width: 100%;
+                max-height: 100%;
+                border-radius: 5px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            `;
+            img.alt = 'ID Image';
+            imageContainer.appendChild(img);
+        }).catch(error => {
+            console.error('Error blurring ID image:', error);
+            // Fallback: show original image if blur fails
+            const img = document.createElement('img');
+            img.src = resident.id_image;
+            img.style.cssText = `
+                max-width: 100%;
+                max-height: 100%;
+                border-radius: 5px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            `;
+            img.alt = 'ID Image';
+            imageContainer.appendChild(img);
+        });
     } else {
         // Show no image message
         const noImageDiv = document.createElement('div');
@@ -806,6 +1071,18 @@ function closeStatusModal() {
 
 // Load residents from database
 async function loadResidents() {
+    const tbody = document.getElementById('residents-body');
+    
+    // Show loading state
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="11" style="text-align: center; padding: 2rem;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #2c5aa0;"></i>
+                <p style="margin-top: 1rem; color: #666;">Loading resident data...</p>
+            </td>
+        </tr>
+    `;
+    
     try {
         const response = await fetch('php/resident-info.php', {
             method: 'GET',
@@ -814,18 +1091,51 @@ async function loadResidents() {
             }
         });
         
-        const data = await response.json();
+        // Check if response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Get response text first to check if it's valid JSON
+        const responseText = await response.text();
+        
+        // Try to parse as JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            console.error('Response text:', responseText);
+            throw new Error('Invalid JSON response from server');
+        }
         
         if (data.success) {
-            residentsData = data.residents;
+            residentsData = data.residents || [];
             displayResidents(residentsData);
         } else {
             console.error('Error loading residents:', data.error);
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; padding: 2rem; color: #d32f2f;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                        <p>Failed to load residents data: ${data.error || 'Unknown error'}</p>
+                    </td>
+                </tr>
+            `;
             showStatusModal('error', 'Error', 'Failed to load residents data.');
         }
     } catch (error) {
         console.error('Error fetching residents:', error);
-        showStatusModal('error', 'Error', 'Failed to connect to server.');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="11" style="text-align: center; padding: 2rem; color: #d32f2f;">
+                    <i class="fas fa-exclamation-circle" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                    <p>Failed to connect to server. Please try again.</p>
+                    <p style="font-size: 0.85rem; margin-top: 0.5rem; color: #999;">${error.message || 'Connection error'}</p>
+                </td>
+            </tr>
+        `;
+        showStatusModal('error', 'Error', 'Failed to connect to server. Please check your connection and try again.');
     }
 }
 
@@ -835,8 +1145,19 @@ function displayResidents(residents) {
     tbody.innerHTML = '';
     
     if (residents.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 2rem;">No residents found</td></tr>';
+        // Add empty class to stretch the container
+        const tableContainer = document.querySelector('.table-container');
+        if (tableContainer) {
+            tableContainer.classList.add('empty');
+        }
+        tbody.innerHTML = '<tr style="height: 100%;"><td colspan="11" style="text-align: center; padding: 4rem 2rem; color: #666; vertical-align: middle; height: 100%;"><i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block; color: #ccc;"></i><p style="font-size: 1.1rem;">No residents found</p></td></tr>';
         return;
+    }
+    
+    // Remove empty class when there's data
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+        tableContainer.classList.remove('empty');
     }
     
     residents.forEach((resident, index) => {

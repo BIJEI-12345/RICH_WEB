@@ -1,11 +1,10 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 // Disable error reporting to prevent HTML output
 error_reporting(0);
 ini_set('display_errors', 0);
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+rich_session_start();
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
@@ -16,15 +15,13 @@ header('Pragma: no-cache');
 header('Expires: 0');
 
 // Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = 3306; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
 
-$connection = new mysqli($host, $user, $pass, $db, $port);
-if ($connection->connect_error) {
-    error_log("Database connection error: " . $connection->connect_error);
+try {
+    $connection = getDatabaseConnection();
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(["error" => "Database connection failed."]); 
     exit;

@@ -1,0 +1,179 @@
+/* Archive Page Specific Styles */
+
+/* Concern, Emergency, Document Request, Census — wrap so all four stay visible */
+.resident-management-container .action-buttons {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+    justify-content: center;
+}
+
+/* Archive buttons styling - All buttons are blue, white when selected */
+.archive-concern-btn,
+.archive-emergency-btn,
+.archive-docu-btn,
+.archive-census-btn,
+.archive-resident-btn {
+    background: #2c5aa0;
+    color: white;
+    border: none;
+}
+
+.archive-concern-btn.selected,
+.archive-emergency-btn.selected,
+.archive-docu-btn.selected,
+.archive-census-btn.selected,
+.archive-resident-btn.selected {
+    background: white;
+    color: #2c5aa0;
+    border: 2px solid #2c5aa0;
+    box-shadow: 0 3px 10px rgba(16, 16, 16, 2.3);
+}
+
+/* Document Type Tabs */
+.document-type-tabs {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.doc-type-tab {
+    background: white;
+    color: #87CEEB;
+    border: 2px solid #87CEEB;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.doc-type-tab:hover {
+    background: #e6f4ff;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(135, 206, 235, 0.2);
+}
+
+.doc-type-tab.active {
+    background: #87CEEB;
+    color: white;
+    border-color: #87CEEB;
+    box-shadow: 0 3px 10px rgba(135, 206, 235, 0.3);
+}
+
+.doc-type-tab.active:hover {
+    background: #6ba3d8;
+    box-shadow: 0 5px 15px rgba(135, 206, 235, 0.4);
+}
+
+/* Table Container - Scrollable */
+.table-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    background: white;
+}
+
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Ensure table header stays fixed when scrolling */
+.table-container .residents-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+}
+
+.table-container .residents-table thead th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+/* Census archive: one row per record, full horizontal scroll (override .residents-table width:100%) */
+#archiveTable.archive-table--census.residents-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+    font-size: 0.8rem;
+}
+
+#archiveTable.archive-table--census th,
+#archiveTable.archive-table--census td {
+    padding: 0.5rem 0.7rem;
+    vertical-align: middle;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    line-height: 1.25;
+    max-width: none;
+}
+
+#archiveTable.archive-table--census th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Do not inherit multi-line address rules from resident-info.css */
+#archiveTable.archive-table--census td.address-cell {
+    white-space: nowrap;
+    max-width: none;
+    max-height: none;
+    line-height: 1.25;
+    overflow: visible;
+    word-wrap: normal;
+    overflow-wrap: normal;
+}
+
+.archive-actions-cell {
+    white-space: nowrap;
+}
+
+.archive-census-return-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    background: #1e6b2b;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.archive-census-return-btn:hover {
+    background: #145a22;
+}

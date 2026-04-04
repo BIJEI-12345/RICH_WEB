@@ -1,5 +1,10 @@
 // Admin Dashboard JavaScript Functions
 
+// Navigation helpers
+function navigateToAuditTrail() {
+    window.location.href = 'audit-trail.html';
+}
+
 // Function to format datetime from ISO to mm/dd/yyyy hh:mm AM/PM
 function formatDateTime(isoDateTime) {
     if (!isoDateTime) return '';
@@ -126,6 +131,15 @@ function navigateToResidentInfo() {
     }
     // Navigate to resident information page
     window.location.href = 'resident-info.html';
+}
+
+function navigateToArchive() {
+    // Mark as navigating away to prevent logout tracking
+    if (window.isNavigatingAway !== undefined) {
+        window.isNavigatingAway = true;
+    }
+    // Navigate to archive page
+    window.location.href = 'archive.html';
 }
 
 function navigateToAnalytics() {
@@ -323,7 +337,7 @@ function showLogoutConfirmationModal() {
         if (window.performLogout) {
             window.performLogout();
         } else {
-            window.location.href = 'index.html';
+            window.location.href = 'index.php';
         }
     };
     
@@ -374,6 +388,14 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAdminData();
 });
 
+function hideAdminDashboardLoading() {
+    var el = document.getElementById('adminDashboardLoading');
+    if (el) {
+        el.classList.add('hidden');
+        el.setAttribute('aria-busy', 'false');
+    }
+}
+
 // Function to load admin data
 function loadAdminData() {
     console.log('Loading admin data using PHP session...');
@@ -417,7 +439,7 @@ function loadAdminData() {
                 if (data && data.error && data.error.includes('session expired')) {
                     // Only redirect if we're sure the session is expired
                     setTimeout(() => {
-                        window.location.href = 'index.html';
+                        window.location.href = 'index.php';
                     }, 1000);
                 }
             }
@@ -428,6 +450,9 @@ function loadAdminData() {
             if (error.name !== 'AbortError' && error.name !== 'TypeError') {
                 console.error('Error loading admin data:', error);
             }
+        })
+        .finally(function () {
+            hideAdminDashboardLoading();
         });
 }
 
@@ -458,9 +483,10 @@ function updateAdminProfile(data) {
         }
     }
     
-    // Hide/Show User Management and Analytics based on position (Admin only)
+    // Hide/Show User Management, Analytics, and Archive based on position (Admin only)
     const userManagementBtn = document.querySelector('.user-management-access');
     const analyticsBtn = document.querySelector('.analytics-access');
+    const archiveBtn = document.querySelector('.archive-access');
     
     if (userManagementBtn) {
         userManagementBtn.style.display = (data.position === 'Admin') ? '' : 'none';
@@ -470,6 +496,50 @@ function updateAdminProfile(data) {
         analyticsBtn.style.display = (data.position === 'Admin') ? '' : 'none';
     }
     
+    if (archiveBtn) {
+        archiveBtn.style.display = (data.position === 'Admin') ? '' : 'none';
+    }
+
+    const auditTrailBtn = document.querySelector('.audit-trail-access');
+    if (auditTrailBtn) {
+        auditTrailBtn.style.display = (data.position === 'Admin') ? '' : 'none';
+    }
+
+    // Mother Leader: Resident Information only (Census is under Resident Information)
+    if (data.position === 'Mother Leader') {
+        document.querySelectorAll('.category-buttons .category-btn').forEach((btn) => {
+            if (btn.classList.contains('resident-info-btn')) {
+                btn.style.display = '';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+        const welcomeP = document.querySelector('.welcome-section p');
+        if (welcomeP) {
+            welcomeP.textContent = 'Use Resident Information to manage census and resident records.';
+        }
+        const catHeading = document.querySelector('.category-section h3');
+        if (catHeading) {
+            catHeading.textContent = 'Your category';
+        }
+        const composeBtn = document.querySelector('.compose-button');
+        if (composeBtn) {
+            composeBtn.disabled = true;
+            composeBtn.style.pointerEvents = 'none';
+            composeBtn.style.opacity = '0.5';
+            composeBtn.setAttribute('aria-disabled', 'true');
+        }
+    }
+    const normalizedPosition = (data.position || '').trim().toLowerCase();
+    if (normalizedPosition === 'emergency' || normalizedPosition === 'emergency category') {
+        const composeBtn = document.querySelector('.compose-button');
+        if (composeBtn) {
+            composeBtn.disabled = true;
+            composeBtn.style.pointerEvents = 'none';
+            composeBtn.style.opacity = '0.5';
+            composeBtn.setAttribute('aria-disabled', 'true');
+        }
+    }
     // Admin session is now established, userSession.js will handle permissions
     
     // Update profile images or initials
@@ -1153,11 +1223,15 @@ function resetImagePreview() {
     const badge = document.querySelector('.notification-badge');
     const viewMoreBtn = document.getElementById('viewMoreBtn');
     const notifCount = document.getElementById('notifCount');
+    let isLoadingNotifications = false;
 
     if (!bell || !dropdown) return;
 
     // Load notifications from server
     async function loadNotifications() {
+        if (isLoadingNotifications) return;
+        isLoadingNotifications = true;
+
         try {
             const response = await fetch('php/get_notifications.php', {
                 method: 'GET',
@@ -1183,6 +1257,8 @@ function resetImagePreview() {
             console.error('Error loading notifications:', error);
             renderNotifications([]);
             updateNotificationCount(0);
+        } finally {
+            isLoadingNotifications = false;
         }
     }
 
@@ -1290,8 +1366,9 @@ function resetImagePreview() {
     // Load notifications on page load
     loadNotifications();
     
-    // Refresh notifications every 30 seconds
-    setInterval(loadNotifications, 30000);
+    // Refresh notifications every 1 second (near real-time)
+    // NOTE: If this is too heavy in production, increase to 2000–5000 ms.
+    setInterval(loadNotifications, 1000);
 })();
 
 // ---- Admin Profile Dropdown ----

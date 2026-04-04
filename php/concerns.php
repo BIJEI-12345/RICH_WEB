@@ -27,13 +27,16 @@ function canEdit($module) {
     if ($module === 'reqDocu') {
         return $position === 'document request category';
     }
-    if ($module === 'concerns' || $module === 'emergency') {
-        return ($position === 'concerns & reporting' || $position === 'emergency' || $position === 'emergency category');
+    if ($module === 'concerns') {
+        return $position === 'concerns & reporting';
+    }
+    if ($module === 'emergency') {
+        return ($position === 'emergency' || $position === 'emergency category');
     }
     return false;
 }
 
-// Function to analyze statement and determine risk level using Google Generative AI
+// Function to analyze statement and determine risk level using Groq AI
 function analyzeRiskLevel($statement) {
     if (empty($statement) || strlen(trim($statement)) < 5) {
         return 'low'; // Default to low for empty or very short statements
@@ -157,14 +160,14 @@ function analyzeRiskLevel($statement) {
     }
     
     // Check if API key is defined
-    if (!defined('GOOGLE_AI_API_KEY')) {
-        error_log("GOOGLE_AI_API_KEY not defined");
+    if (!defined('GROQ_API_KEY')) {
+        error_log("GROQ_API_KEY not defined");
         return 'low'; // Default to low if API key not available
     }
     
-    $apiKey = GOOGLE_AI_API_KEY;
-    // Google Generative AI (Gemini) API endpoint
-    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' . $apiKey;
+    $apiKey = GROQ_API_KEY;
+    // Groq AI API endpoint
+    $apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
     
     // Create prompt for reasonable and appropriate risk assessment for barangay concerns
     $prompt = "You are analyzing a barangay (community) resident concern statement. Classify the risk level as LOW, MEDIUM, or HIGH based on actual severity and urgency.\n\n";
@@ -217,19 +220,15 @@ function analyzeRiskLevel($statement) {
     $prompt .= "Respond with ONLY one word: low, medium, or high";
     
     $requestData = [
-        'contents' => [
+        'model' => 'llama-3.1-8b-instant',
+        'messages' => [
             [
-                'parts' => [
-                    ['text' => $prompt]
-                ]
+                'role' => 'user',
+                'content' => $prompt
             ]
         ],
-        'generationConfig' => [
-            'temperature' => 0.2, // Lower temperature for more consistent responses
-            'maxOutputTokens' => 10, // Just need one word
-            'topP' => 0.7,
-            'topK' => 20
-        ]
+        'temperature' => 0.2,
+        'max_tokens' => 10
     ];
     
     $ch = curl_init($apiUrl);
@@ -237,7 +236,8 @@ function analyzeRiskLevel($statement) {
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestData));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json'
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiKey
     ]);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10); // 10 second timeout
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
@@ -250,15 +250,15 @@ function analyzeRiskLevel($statement) {
     
     // If API call fails, default to 'low'
     if ($response === false || !empty($curlError) || $httpCode !== 200) {
-        error_log("Google AI API error: HTTP $httpCode, Error: $curlError, Response: " . substr($response, 0, 200));
+        error_log("Groq AI API error: HTTP $httpCode, Error: $curlError, Response: " . substr($response, 0, 200));
         return 'low'; // Default to low on error
     }
     
     $result = json_decode($response, true);
     
-    // Extract the response text
-    if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
-        $aiResponse = trim(strtolower($result['candidates'][0]['content']['parts'][0]['text']));
+    // Extract the response text from Groq API format
+    if (isset($result['choices'][0]['message']['content'])) {
+        $aiResponse = trim(strtolower($result['choices'][0]['message']['content']));
         
         // Extract risk level from response (check for 'high' first, then 'medium', then 'low')
         if (preg_match('/\bhigh\b/', $aiResponse)) {
@@ -271,8 +271,231 @@ function analyzeRiskLevel($statement) {
     }
     
     // Default to 'low' if we can't parse the response
-    error_log("Could not parse Google AI response. Raw response: " . substr(json_encode($result), 0, 500));
+    error_log("Could not parse Groq AI response. Raw response: " . substr(json_encode($result), 0, 500));
     return 'low';
+}
+
+// Function to find similar concerns using Groq AI
+function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
+    if (!defined('GROQ_API_KEY')) {
+        error_log("GROQ_API_KEY not defined for similarity analysis");
+        return [];
+    }
+    
+    $apiKey = GROQ_API_KEY;
+    $apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
+    
+    // Prepare the base concern data (statement, location, image)
+    $baseStatement = $baseConcern['statement'] ?? '';
+    $baseLocation = $baseConcern['location'] ?? '';
+    $baseImage = !empty($baseConcern['concern_image']) ? 'Has image' : 'No image';
+    $baseConcernId = $baseConcern['concern_id'] ?? '';
+    
+    if (empty($baseStatement)) {
+        return [];
+    }
+    
+    // Prepare list of other concerns for comparison (exclude base concern by comparing statement+location)
+    $otherConcerns = [];
+    foreach ($allConcerns as $concern) {
+        $concernId = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
+        // Skip if it's the same concern (same statement and location)
+        if ($concernId === $baseConcernId) {
+            continue;
+        }
+        
+        $otherConcerns[] = [
+            'id' => $concernId,
+            'statement' => $concern['statement'] ?? '',
+            'location' => $concern['location'] ?? '',
+            'image' => !empty($concern['concern_image']) ? 'Has image' : 'No image'
+        ];
+    }
+    
+    if (empty($otherConcerns)) {
+        return [];
+    }
+    
+    // Create prompt for Groq AI to find EXACTLY similar concerns based on statement, location, and image
+    $prompt = "You are analyzing barangay (community) concerns to find EXACTLY similar ones using GROQ AI.\n\n";
+    $prompt .= "BASE CONCERN:\n";
+    $prompt .= "Statement: \"" . addslashes($baseStatement) . "\"\n";
+    $prompt .= "Location: \"" . addslashes($baseLocation) . "\"\n";
+    $prompt .= "Image: " . $baseImage . "\n\n";
+    
+    $prompt .= "OTHER CONCERNS TO COMPARE:\n";
+    foreach ($otherConcerns as $idx => $concern) {
+        $prompt .= ($idx + 1) . ". ID: " . $concern['id'] . "\n";
+        $prompt .= "   Statement: \"" . addslashes($concern['statement']) . "\"\n";
+        $prompt .= "   Location: \"" . addslashes($concern['location']) . "\"\n";
+        $prompt .= "   Image: " . $concern['image'] . "\n\n";
+    }
+    
+    $prompt .= "IMPORTANT: Find ONLY concerns that are EXACTLY similar to the BASE CONCERN using GROQ AI analysis.\n\n";
+    $prompt .= "MATCHING RULES (based on Statement, Location, and Image):\n";
+    $prompt .= "1. The concern type/issue (Statement) MUST be EXACTLY THE SAME:\n";
+    $prompt .= "   - If BASE is about 'kanal' (drainage), only match other 'kanal' concerns\n";
+    $prompt .= "   - If BASE is about 'street lights', only match other 'street lights' concerns\n";
+    $prompt .= "   - If BASE is about 'water leak', only match other 'water leak' concerns\n";
+    $prompt .= "   - DO NOT match different concern types (e.g., kanal vs street lights)\n\n";
+    $prompt .= "2. The location/address MUST be EXACTLY THE SAME:\n";
+    $prompt .= "   - Location must match word-for-word\n";
+    $prompt .= "   - 'Bigte Circle' matches 'Bigte Circle' but NOT 'Old Bario'\n";
+    $prompt .= "   - 'Old Bario' matches 'Old Bario' but NOT 'Bigte Circle'\n\n";
+    $prompt .= "3. Image status can be considered (if both have images or both don't have images, it's a plus)\n\n";
+    $prompt .= "4. BOTH Statement AND Location must match EXACTLY:\n";
+    $prompt .= "   - Same concern type (Statement) AND same location = MATCH\n";
+    $prompt .= "   - Different concern type OR different location = NO MATCH\n\n";
+    $prompt .= "Examples:\n";
+    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → Match: 'kanal' at 'Bigte Circle' ONLY\n";
+    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → NO Match: 'street lights' at 'Bigte Circle' (different concern type)\n";
+    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → NO Match: 'kanal' at 'Old Bario' (different location)\n\n";
+    $prompt .= "Analyze using GROQ AI and respond with ONLY a comma-separated list of concern IDs that match EXACTLY (e.g., CON-001,CON-002).\n";
+    $prompt .= "If no concerns match EXACTLY, respond with: NONE";
+    
+    $requestData = [
+        'model' => 'llama-3.1-8b-instant',
+        'messages' => [
+            [
+                'role' => 'user',
+                'content' => $prompt
+            ]
+        ],
+        'temperature' => 0.3,
+        'max_tokens' => 200
+    ];
+    
+    $ch = curl_init($apiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiKey
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 15 second timeout for similarity analysis
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    // If API call fails, return empty array
+    if ($response === false || !empty($curlError) || $httpCode !== 200) {
+        error_log("Groq AI similarity API error: HTTP $httpCode, Error: $curlError");
+        return [];
+    }
+    
+    $result = json_decode($response, true);
+    
+    // Extract the response text from Groq API format
+    if (isset($result['choices'][0]['message']['content'])) {
+        $aiResponse = trim($result['choices'][0]['message']['content']);
+        
+        // Check if AI said "NONE"
+        if (stripos($aiResponse, 'none') !== false && stripos($aiResponse, 'CON-') === false) {
+            return [];
+        }
+        
+        // Extract concern IDs from response (format: CON-001,CON-002,CON-005)
+        preg_match_all('/CON-\d+/', $aiResponse, $matches);
+        $similarIds = $matches[0] ?? [];
+        
+        // Post-process: Double-check that returned concerns are EXACTLY similar
+        // (same concern type AND same location)
+        $exactMatches = [];
+        foreach ($similarIds as $concernId) {
+            // Find the concern in allConcerns
+            $matchedConcern = null;
+            foreach ($allConcerns as $concern) {
+                $concernIdFromData = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
+                if ($concernIdFromData === $concernId) {
+                    $matchedConcern = $concern;
+                    break;
+                }
+            }
+            
+            if (!$matchedConcern) {
+                continue; // Skip if concern not found
+            }
+            
+            $matchedStatement = strtolower(trim($matchedConcern['statement'] ?? ''));
+            $matchedLocation = strtolower(trim($matchedConcern['location'] ?? ''));
+            $baseStatementLower = strtolower(trim($baseStatement));
+            $baseLocationLower = strtolower(trim($baseLocation));
+            
+            // Check if location matches exactly
+            $locationMatch = ($matchedLocation === $baseLocationLower);
+            
+            // Check if concern type is similar (extract key words)
+            // Simple check: if both contain same key words like "kanal", "street light", "tubig", etc.
+            $baseKeywords = [];
+            $matchedKeywords = [];
+            
+            // Extract key concern words - expanded list with more variations
+            $concernKeywords = [
+                'kanal', 'drainage', 'drain', 'bara', 'barado', 'blocked', 'baradong', 'malaking bara', 'maliit na bara',
+                'street light', 'streetlight', 'ilaw', 'sira ang ilaw', 'broken light', 'walang ilaw', 'wala ng ilaw',
+                'tubig', 'water', 'leak', 'tumutulo', 'leaking', 'walang tubig', 'wala ng tubig',
+                'lubak', 'pothole', 'kalsada', 'road', 'sira ang kalsada', 'damaged road', 'sirang kalsada',
+                'basura', 'garbage', 'trash', 'nakolekta', 'hindi nakolekta',
+                'baha', 'flood', 'flooding',
+                'ingay', 'noise', 'trapiko', 'traffic',
+                'vandalism', 'graffiti', 'nasira', 'damaged',
+                'sidewalk', 'walkway', 'sira ang sidewalk'
+            ];
+            
+            foreach ($concernKeywords as $keyword) {
+                if (stripos($baseStatementLower, $keyword) !== false) {
+                    $baseKeywords[] = $keyword;
+                }
+                if (stripos($matchedStatement, $keyword) !== false) {
+                    $matchedKeywords[] = $keyword;
+                }
+            }
+            
+            // Check if they share at least one key concern word (same concern type)
+            $hasCommonKeyword = !empty(array_intersect($baseKeywords, $matchedKeywords));
+            
+            // If no keywords found, check word similarity (for concerns not in keyword list)
+            if (!$hasCommonKeyword) {
+                if (!empty($baseKeywords) && empty($matchedKeywords)) {
+                    // If base has keywords but matched doesn't, they're different types
+                    $hasCommonKeyword = false;
+                } elseif (empty($baseKeywords) && empty($matchedKeywords)) {
+                    // If neither has keywords, check word overlap (at least 2 common words)
+                    $stopWords = ['ang', 'sa', 'na', 'ng', 'at', 'may', 'walang', 'wala', 'po', 'sir', 'the', 'a', 'an', 'is', 'are', 'was', 'were'];
+                    $baseWords = array_filter(explode(' ', $baseStatementLower), function($w) use ($stopWords) {
+                        $w = trim($w);
+                        return strlen($w) >= 3 && !in_array($w, $stopWords);
+                    });
+                    $matchedWords = array_filter(explode(' ', $matchedStatement), function($w) use ($stopWords) {
+                        $w = trim($w);
+                        return strlen($w) >= 3 && !in_array($w, $stopWords);
+                    });
+                    $commonWords = array_intersect($baseWords, $matchedWords);
+                    $hasCommonKeyword = count($commonWords) >= 2; // At least 2 common meaningful words
+                }
+            }
+            
+            // Only include if BOTH location matches AND concern type matches
+            // Trust Groq AI's judgment - if AI says it's similar and location matches, include it
+            if ($locationMatch && $hasCommonKeyword) {
+                $exactMatches[] = $concernId;
+            } else {
+                // Log why it was filtered out for debugging
+                error_log("Filtered out concern $concernId: locationMatch=" . ($locationMatch ? 'true' : 'false') . ", hasCommonKeyword=" . ($hasCommonKeyword ? 'true' : 'false'));
+            }
+        }
+        
+        // Return array of exactly similar concern IDs
+        return $exactMatches;
+    }
+    
+    error_log("Could not parse Groq AI similarity response. Raw response: " . substr(json_encode($result), 0, 500));
+    return [];
 }
 
 // Database configuration
@@ -433,7 +656,7 @@ try {
                 
                 if ($needsAnalysis && !empty($statement) && strlen(trim($statement)) >= 5) {
                     try {
-                        // Analyze statement using Google AI API (with keyword pre-checks)
+                        // Analyze statement using Groq AI API (with keyword pre-checks)
                         $detectedRiskLevel = analyzeRiskLevel($statement);
                         
                         // Update risk level in database
@@ -503,7 +726,22 @@ try {
                 }
             }
             
-            echo json_encode(['success' => true, 'data' => $concerns]);
+            $countsQuery = "SELECT 
+                COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS cnt_new,
+                COALESCE(SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END), 0) AS cnt_processing,
+                COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) AS cnt_resolved,
+                COUNT(*) AS cnt_total
+                FROM concerns";
+            $countsRes = $connection->query($countsQuery);
+            $countsRow = $countsRes ? $countsRes->fetch_assoc() : null;
+            $countsPayload = [
+                'new' => (int)($countsRow['cnt_new'] ?? 0),
+                'processing' => (int)($countsRow['cnt_processing'] ?? 0),
+                'resolved' => (int)($countsRow['cnt_resolved'] ?? 0),
+                'total' => (int)($countsRow['cnt_total'] ?? 0),
+            ];
+            
+            echo json_encode(['success' => true, 'data' => $concerns, 'counts' => $countsPayload]);
             break;
             
         case 'PUT':
@@ -608,6 +846,60 @@ try {
                 }
             } else {
                 echo json_encode(['success' => false, 'message' => 'Missing concern ID']);
+            }
+            break;
+            
+        case 'POST':
+            // Handle finding similar concerns using AI
+            $rawInput = file_get_contents('php://input');
+            $input = json_decode($rawInput, true);
+            $action = $input['action'] ?? null;
+            
+            if ($action === 'find_similar') {
+                $concernId = $input['concern_id'] ?? null;
+                
+                if (!$concernId) {
+                    echo json_encode(['success' => false, 'message' => 'Missing concern ID']);
+                    break;
+                }
+                
+                // Extract the ID from concern_id (e.g., CON-001 -> 1)
+                $id = intval(str_replace('CON-', '', $concernId));
+                
+                // Get the base concern
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id = ?";
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param('i', $id);
+                $stmt->execute();
+                $baseConcern = $stmt->get_result()->fetch_assoc();
+                
+                if (!$baseConcern) {
+                    echo json_encode(['success' => false, 'message' => 'Concern not found']);
+                    break;
+                }
+                
+                // Add concern_id to base concern
+                $baseConcern['concern_id'] = 'CON-' . str_pad($baseConcern['id'], 3, '0', STR_PAD_LEFT);
+                
+                // Get all concerns for comparison
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 100";
+                $result = $connection->query($sql);
+                $allConcerns = $result->fetch_all(MYSQLI_ASSOC);
+                
+                // Add concern_id to all concerns
+                foreach ($allConcerns as &$concern) {
+                    $concern['concern_id'] = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
+                }
+                
+                // Use AI to find similar concerns
+                $similarIds = findSimilarConcernsWithAI($baseConcern, $allConcerns);
+                
+                echo json_encode([
+                    'success' => true,
+                    'similar_ids' => $similarIds
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Invalid action']);
             }
             break;
             

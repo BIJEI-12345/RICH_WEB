@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/init_session.php';
+rich_session_start();
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
@@ -12,19 +13,20 @@ header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 header('Cache-Control: post-check=0, pre-check=0', false);
 
 // Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = 3306; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
 
-$connection = new mysqli($host, $user, $pass, $db, $port);
-if ($connection->connect_error) {
-  error_log("Database connection error: " . $connection->connect_error);
-  http_response_code(500);
-  echo json_encode(["error" => "Database connection failed."]); 
-  exit;
+try {
+    $connection = getDatabaseConnection();
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(["error" => "Database connection failed."]); 
+    exit;
 }
+
+// Include audit trail helper
+require_once __DIR__ . '/audit_trail_helper.php';
 
 // ✅ User action handler (accept, deactivate, activate, deny)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -33,23 +35,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $action = $input['action'] ?? '';
 
   if ($userId > 0 && in_array($action, ['approve', 'deactivate', 'activate', 'reject'])) {
+    // Get user information before making changes
+    $userStmt = $connection->prepare("SELECT id, email, name, position, action FROM brgy_users WHERE id = ?");
+    $userStmt->bind_param("i", $userId);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    $userData = $userResult->fetch_assoc();
+    $userStmt->close();
+    
+    if (!$userData) {
+        echo json_encode(["success" => false, "message" => "User not found."]);
+        exit;
+    }
+    
+    // Get current user (admin) information
+    $changedByUserId = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+    $changedByName = isset($_SESSION['user_name']) ? $_SESSION['user_name'] : 'System';
+    $changedByEmail = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+    
     $newAction = '';
     $message = '';
+    $auditActionType = '';
     
     switch($action) {
       case 'approve':
         $newAction = 'accepted';
         $message = 'User accepted successfully.';
+        $auditActionType = 'approved';
         break;
       case 'deactivate':
         $newAction = 'deactivated';
         $message = 'User deactivated successfully.';
+        $auditActionType = 'deactivated';
         break;
       case 'activate':
         $newAction = 'accepted';
         $message = 'User activated successfully.';
+        $auditActionType = 'activated';
         break;
       case 'reject':
+        // Log audit trail before deletion
+        logCategoryAuditTrail(
+            $userData['id'],
+            $userData['email'],
+            $userData['name'],
+            'rejected',
+            $userData['position'],
+            null,
+            $changedByUserId,
+            $changedByEmail,
+            $changedByName,
+            'User account rejected and deleted'
+        );
+        
         // Delete the user account
         $stmt = $connection->prepare("DELETE FROM brgy_users WHERE id = ?");
         $stmt->bind_param("i", $userId);
@@ -69,10 +107,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Update user action for accept, deactivate, activate
     if ($newAction) {
+      $oldAction = $userData['action'] ?? 'pending';
+      
       $stmt = $connection->prepare("UPDATE brgy_users SET action = ? WHERE id = ?");
       $stmt->bind_param("si", $newAction, $userId);
       
       if ($stmt->execute()) {
+        // Log audit trail
+        logCategoryAuditTrail(
+            $userData['id'],
+            $userData['email'],
+            $userData['name'],
+            $auditActionType,
+            $userData['position'],
+            null,
+            $changedByUserId,
+            $changedByEmail,
+            $changedByName,
+            "User status changed from '{$oldAction}' to '{$newAction}'"
+        );
+        
         echo json_encode([
           "success" => true, 
           "message" => $message,

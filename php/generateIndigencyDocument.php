@@ -1,7 +1,7 @@
 <?php
 // Indigency Document Generation
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 // Function to format date with proper ordinal suffix
@@ -42,19 +42,50 @@ function formatIssuedDate($timestamp = null, $language = 'english') {
 // Start output buffering to catch any unexpected output
 ob_start();
 
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
 
-// Include PhpWord for proper document handling
-try {
-    require_once __DIR__ . '/../vendor/autoload.php';
-    error_log("generateIndigencyDocument: PhpWord loaded successfully");
-} catch (Exception $e) {
-    error_log("generateIndigencyDocument: PhpWord loading failed: " . $e->getMessage());
+// Fatal errors often yield HTTP 500 with an empty body; surface JSON for the client
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err === null || !in_array((int) $err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(500);
+    }
+    echo json_encode([
+        'success' => false,
+        'error' => $err['message'] . ' (' . basename($err['file']) . ':' . $err['line'] . ')',
+        'debug_info' => [
+            'file' => $err['file'],
+            'line' => $err['line'],
+            'type' => $err['type'],
+        ],
+    ], JSON_UNESCAPED_UNICODE);
+});
+
+// PhpWord (Composer): vendor must contain phpoffice/phpword — run `composer install` if TemplateProcessor is missing
+require_once __DIR__ . '/../vendor/autoload.php';
+if (!class_exists(\PhpOffice\PhpWord\TemplateProcessor::class)) {
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => 'PHPWord is not installed correctly. Open a terminal in the project folder and run: composer install',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 use PhpOffice\PhpWord\TemplateProcessor;
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 // Function to safely handle image data
 function safeImageData($imageData) {
@@ -223,7 +254,7 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
         error_log("Word document processed successfully with PhpWord TemplateProcessor");
         return true;
         
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Error in populateWordTemplate: " . $e->getMessage());
         error_log("Stack trace: " . $e->getTraceAsString());
         throw $e;
@@ -474,7 +505,7 @@ function processWordDocument($templatePath, $outputPath, $placeholders) {
             return false;
         }
         
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Error in processWordDocument: " . $e->getMessage());
         if (isset($tempDir) && is_dir($tempDir)) {
             removeDirectory($tempDir);
@@ -577,9 +608,9 @@ try {
         'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s')
     ];
     
-    // Generate the document file - select template based on language
-    $templatePath = '../brgy_forms/indigency/indigency_' . $language . '.docx';
-    $outputPath = '../uploads/generated_documents/';
+    // Generate the document file - select template based on language (paths relative to this file, not CWD)
+    $templatePath = __DIR__ . '/../brgy_forms/indigency/indigency_' . $language . '.docx';
+    $outputPath = __DIR__ . '/../uploads/generated_documents/';
     
     // Create output directory if it doesn't exist
     if (!file_exists($outputPath)) {
@@ -603,7 +634,7 @@ try {
     // Populate the template with actual data
     try {
         $success = populateWordTemplate($templatePath, $fullOutputPath, $data, $language);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("generateIndigencyDocument: Error populating template: " . $e->getMessage());
         throw new Exception("Failed to populate template: " . $e->getMessage());
     }
@@ -627,16 +658,19 @@ try {
         $updateStmt->close();
         $connection->close();
         
-        error_log("Document generated successfully: " . $filename);
+        // Keep DOCX file (no PDF conversion)
+        $finalFilename = $filename;
+        
+        error_log("Document generated successfully: " . $finalFilename);
         
         // Clear any unexpected output and send JSON response
         ob_clean();
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'success' => true,
             'message' => 'Indigency certificate generated successfully in ' . ucfirst($language) . ' with personal details',
-            'filename' => $filename,
-            'downloadUrl' => 'uploads/generated_documents/' . $filename,
+            'filename' => $finalFilename,
+            'downloadUrl' => 'uploads/generated_documents/' . $finalFilename,
             'language' => $language,
             'data' => $data
         ]);
@@ -644,16 +678,20 @@ try {
         throw new Exception('Failed to generate document');
     }
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     // Log detailed error information
     error_log("INDIGENCY ERROR: " . $e->getMessage());
     error_log("INDIGENCY ERROR FILE: " . $e->getFile() . " LINE: " . $e->getLine());
     error_log("INDIGENCY ERROR TRACE: " . $e->getTraceAsString());
     
     // Clear any unexpected output and send error response
-    ob_clean();
-    http_response_code(500);
-    header('Content-Type: application/json');
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
@@ -662,7 +700,7 @@ try {
             'line' => $e->getLine(),
             'trace' => $e->getTraceAsString()
         ]
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 ?>

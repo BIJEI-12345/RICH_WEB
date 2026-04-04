@@ -1,6 +1,7 @@
 # Configuration files with sensitive data
 php/config.php
 php/email_config.php
+.env
 
 # Log files
 *.log
@@ -9,6 +10,9 @@ php/php_errors.log
 # Generated documents
 generated_documents/
 uploads/generated_documents/
+
+# PHP session files (local path set in init_session.php)
+php/sessions/sess_*
 
 # Temporary files
 brgy_forms/temp_*/

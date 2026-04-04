@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resident Information - Barangay Bigte</title>
-    <link rel="icon" href="Images/logo app 2.jpg" type="image/x-icon">
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="Styles/resident-info.css" rel="stylesheet">
 </head>
@@ -13,7 +13,7 @@
     <div class="page-container">
         <!-- Header Section -->
         <header class="header">
-            <div class="header-content">
+            <div class="logo-container">
                 <div class="logo-section">
                     <button class="back-btn" onclick="goBack()">
                         <i class="fas fa-arrow-left"></i>
@@ -21,8 +21,10 @@
                     <div class="logo">
                         <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
                     </div>
-                    <h1 class="barangay-name">Barangay Bigte</h1>
+                    <img src="Images/logoHeader.png" alt="Barangay Logo" class="logo-header-img">
                 </div>
+            </div>
+            <div class="header-content">
                 <div class="header-actions">
                 </div>
             </div>
@@ -38,6 +40,14 @@
 
                 <!-- Action Buttons -->
                 <div class="action-buttons">
+                    <button class="action-btn users-btn selected" onclick="goToUsers()">
+                        <i class="fas fa-users"></i>
+                        USERS
+                    </button>
+                    <button class="action-btn census-btn" onclick="goToCensus()">
+                        <i class="fas fa-clipboard-list"></i>
+                        CENSUS
+                    </button>
                     <button class="action-btn search-btn" onclick="toggleSearchBar()">
                         <i class="fas fa-search"></i>
                         Search Residents
@@ -81,7 +91,12 @@
                             </tr>
                         </thead>
                         <tbody id="residents-body">
-                            <!-- Data will be loaded from database -->
+                            <tr>
+                                <td colspan="11" style="text-align: center; padding: 2rem;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #2c5aa0;"></i>
+                                    <p style="margin-top: 1rem; color: #666;">Loading resident data...</p>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -345,7 +360,7 @@
                     background: #2c5aa0;
                     color: white;
                     padding: 0.75rem 0.5rem;
-                    text-align: left;
+                    text-align: center;
                     font-weight: 600;
                     font-size: 0.85rem;
                     border: 1px solid #333;
@@ -414,8 +429,9 @@
         </html>
     </template>
     
-    
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
     <script src="js/resident-info.js"></script>
 </body>
 </html>

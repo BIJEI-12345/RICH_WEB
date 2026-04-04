@@ -1,10 +1,9 @@
 <?php
+require_once __DIR__ . '/init_session.php';
 header('Content-Type: application/json');
 
 // Start session for permission checks
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+rich_session_start();
 
 // Simple permission helper mirrored with frontend rules
 function canEdit($module) {
@@ -13,27 +12,22 @@ function canEdit($module) {
     if ($module === 'reqDocu') {
         return $position === 'document request category';
     }
-    if ($module === 'concerns' || $module === 'emergency') {
-        return ($position === 'concerns & reporting' || $position === 'emergency' || $position === 'emergency category');
+    if ($module === 'concerns') {
+        return $position === 'concerns & reporting';
+    }
+    if ($module === 'emergency') {
+        return ($position === 'emergency' || $position === 'emergency category');
     }
     return false;
 }
 
 // Database configuration
-$host = "rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com";
-$port = 3306; // Default MySQL port for RDS
-$user = "admin";
-$pass = "4mazonb33j4y!";
-$db   = "rich_db";
+// Use config.php for database connection
+require_once __DIR__ . '/config.php';
 
 try {
     // Create connection
-    $conn = new mysqli($host, $user, $pass, $db, $port);
-    
-    // Check connection
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
-    }
+    $conn = getDatabaseConnection();
     
     // Check if this is an image request
     if (isset($_GET['image']) && $_GET['image'] === 'true') {

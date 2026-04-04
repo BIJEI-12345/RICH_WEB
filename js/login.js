@@ -165,6 +165,8 @@ document.addEventListener('DOMContentLoaded', function() {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'same-origin',
+      cache: 'no-store',
       body: JSON.stringify({
         email: email,
         password: password
@@ -184,7 +186,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Login successful for:', data.name, 'Position:', data.position);
         // Redirect to dashboard after showing notification
         setTimeout(() => {
-          // No need to pass email in URL since it's in PHP session
           const redirectUrl = 'admin-dashboard.html';
           console.log('Redirecting to:', redirectUrl);
           window.location.href = redirectUrl;
