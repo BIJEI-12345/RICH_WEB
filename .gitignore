@@ -1,5 +1,4 @@
-# Configuration files with sensitive data
-php/config.php
+# Configuration files with sensitive data (secrets live in .env; config.php loads them)
 php/email_config.php
 .env
 
