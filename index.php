@@ -18,11 +18,39 @@ date_default_timezone_set('Asia/Manila');
 
 // Handle AJAX login request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+    define('RICH_LOGIN_AJAX', true);
+    ob_start();
+    register_shutdown_function(function () {
+        if (!defined('RICH_LOGIN_AJAX')) {
+            return;
+        }
+        $last = error_get_last();
+        if ($last === null) {
+            return;
+        }
+        $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+        if (!in_array((int) $last['type'], $fatalTypes, true)) {
+            return;
+        }
+        $buf = ob_get_contents();
+        if ($buf !== false && $buf !== '') {
+            return;
+        }
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=UTF-8');
+        }
+        http_response_code(500);
+        echo json_encode(['error' => 'Server error. Please try again.']);
+    });
+
     // Disable error reporting to prevent HTML output
     error_reporting(0);
     ini_set('display_errors', 0);
     
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=UTF-8');
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: POST, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
@@ -32,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         exit; 
     }
     
-    // Use config.php for database connection
+    // Load before config so login works even if an older config.php omits this require
+    require_once __DIR__ . '/php/mysqli_helpers.php';
     require_once __DIR__ . '/php/config.php';
     require_once __DIR__ . '/php/audit_trail_helper.php';
     

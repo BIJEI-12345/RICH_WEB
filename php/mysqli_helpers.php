@@ -6,8 +6,18 @@
 function rich_mysqli_stmt_fetch_assoc(mysqli_stmt $stmt): ?array
 {
     if (method_exists($stmt, 'get_result')) {
-        $res = $stmt->get_result();
-        if (!$res) {
+        try {
+            $res = $stmt->get_result();
+        } catch (Throwable $e) {
+            error_log('mysqli get_result: ' . $e->getMessage());
+            throw new RuntimeException('mysqli get_result failed', 0, $e);
+        }
+        if ($res === false) {
+            $err = $stmt->error;
+            if ($err !== '') {
+                error_log('mysqli get_result false: ' . $err);
+                throw new RuntimeException($err);
+            }
             return null;
         }
         $row = $res->fetch_assoc();
