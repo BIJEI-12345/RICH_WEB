@@ -120,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     at.action_type,
                     at.module,
                     at.description,
-                    at.ip_address,
                     at.created_at
                 FROM audit_trail at
                 LEFT JOIN brgy_users u ON at.user_id = u.id
@@ -169,7 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'action_type' => $row['action_type'],
                 'module' => $row['module'],
                 'description' => $row['description'],
-                'ip_address' => $row['ip_address'],
                 'created_at' => $row['created_at']
             ];
         }

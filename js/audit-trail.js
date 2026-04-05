@@ -92,7 +92,6 @@ function displayAuditTrail(data) {
         const position = escapeHtml(record.position || '-');
         const action = getActionLabel(record.action_type);
         const details = escapeHtml(record.description || '-');
-        const ip = escapeHtml(record.ip_address || '-');
         const dateTime = formatDateTime(record.created_at);
 
         row.innerHTML = `
@@ -100,7 +99,6 @@ function displayAuditTrail(data) {
             <td>${position}</td>
             <td>${action}</td>
             <td>${details}</td>
-            <td>${ip}</td>
             <td>${dateTime}</td>
         `;
         auditTrailBody.appendChild(row);

@@ -470,17 +470,14 @@ function updateAdminProfile(data) {
         adminPositionElement.textContent = data.position;
     }
     
-    // Hide notification icon if user is not admin
+    // Notifications: all roles except Mother Leader (no service categories on their dashboard)
     const notificationBell = document.getElementById('notificationBell');
     const notificationDropdown = document.getElementById('notificationDropdown');
     if (notificationBell && notificationDropdown) {
-        if (data.position !== 'Admin') {
-            notificationBell.style.display = 'none';
-            notificationDropdown.style.display = 'none';
-        } else {
-            notificationBell.style.display = 'flex';
-            notificationDropdown.style.display = 'block';
-        }
+        const pos = (data.position || '').trim().toLowerCase();
+        const showNotifications = pos !== 'mother leader';
+        notificationBell.style.display = showNotifications ? 'flex' : 'none';
+        notificationDropdown.style.display = showNotifications ? 'block' : 'none';
     }
     
     // Hide/Show User Management, Analytics, and Archive based on position (Admin only)
@@ -1215,19 +1212,24 @@ function resetImagePreview() {
     startAutoplay();
 })();
 
-// ---- Notifications dropdown ----
+// ---- Notifications dropdown (categories + unread counts) ----
 (function(){
     const bell = document.getElementById('notificationBell');
     const dropdown = document.getElementById('notificationDropdown');
     const list = document.getElementById('notifList');
     const badge = document.querySelector('.notification-badge');
-    const viewMoreBtn = document.getElementById('viewMoreBtn');
     const notifCount = document.getElementById('notifCount');
     let isLoadingNotifications = false;
 
+    const CATEGORY_ROWS = [
+        { id: 'docu', label: 'Document Request', href: 'reqDocu.html', icon: 'fa-file-alt', rowClass: 'notif-cat-row--docu' },
+        { id: 'concerns', label: 'Feedback & Concerns', href: 'concerns.html', icon: 'fa-comments', rowClass: 'notif-cat-row--concerns' },
+        { id: 'emergency', label: 'Emergency', href: 'emergency.html', icon: 'fa-exclamation-triangle', rowClass: 'notif-cat-row--emergency' },
+        { id: 'user_mgmt', label: 'User Management', href: 'userManagement.html', icon: 'fa-users-cog', rowClass: 'notif-cat-row--user_mgmt' }
+    ];
+
     if (!bell || !dropdown) return;
 
-    // Load notifications from server
     async function loadNotifications() {
         if (isLoadingNotifications) return;
         isLoadingNotifications = true;
@@ -1235,84 +1237,91 @@ function resetImagePreview() {
         try {
             const response = await fetch('php/get_notifications.php', {
                 method: 'GET',
-                credentials: 'include', // Include session cookies
+                credentials: 'include',
                 cache: 'no-store'
             });
-            
+
             if (!response.ok) {
                 throw new Error('Failed to load notifications');
             }
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
-                renderNotifications(data.notifications);
-                updateNotificationCount(data.count);
+                renderCategoryNotifications(data);
             } else {
                 console.error('Failed to load notifications:', data.error);
-                renderNotifications([]);
-                updateNotificationCount(0);
+                renderCategoryNotifications({ counts: {}, total_unread: 0, accessible_categories: [] });
             }
         } catch (error) {
             console.error('Error loading notifications:', error);
-            renderNotifications([]);
-            updateNotificationCount(0);
+            renderCategoryNotifications({ counts: {}, total_unread: 0, accessible_categories: [] });
         } finally {
             isLoadingNotifications = false;
         }
     }
 
-    // Render notifications in the dropdown
-    function renderNotifications(notifications) {
+    function renderCategoryNotifications(data) {
         if (!list) return;
-        
-        if (notifications.length === 0) {
-            list.innerHTML = '<li class="notif-item"><div class="notif-body"><p class="notif-title">No pending user requests</p></div></li>';
-        } else {
-            list.innerHTML = notifications.map(notification => {
-                const verificationStatus = notification.verified_email == 1 
-                    ? '<span class="notif-verification verified"><i class="fas fa-check-circle"></i> Verified</span>'
-                    : '<span class="notif-verification not-verified"><i class="fas fa-exclamation-circle"></i> Not Verified</span>';
-                
-                return `
-                    <li class="notif-item">
-                        <div class="notif-icon"><i class="fas fa-user-plus"></i></div>
-                        <div class="notif-body">
-                            <p class="notif-title">${notification.title}</p>
-                            <div class="notif-meta">
-                                <span class="notif-time">${notification.time}</span>
-                                ${verificationStatus}
-                            </div>
-                        </div>
-                    </li>
-                `;
-            }).join('');
+
+        const counts = data.counts || {};
+        const accessible = Array.isArray(data.accessible_categories) ? data.accessible_categories : null;
+        const rows = accessible && accessible.length
+            ? CATEGORY_ROWS.filter(function (cat) { return accessible.indexOf(cat.id) !== -1; })
+            : CATEGORY_ROWS;
+
+        if (rows.length === 0) {
+            list.innerHTML = '<li class="notif-all-clear"><span>No alerts for your role.</span></li>';
+            updateNotificationCount(0);
+            return;
         }
-        
-        updateEmptyState();
+
+        const total = typeof data.total_unread === 'number' ? data.total_unread : 0;
+        updateNotificationCount(total);
+
+        list.innerHTML = rows.map(cat => {
+            const n = parseInt(counts[cat.id], 10) || 0;
+            const badgeHtml = n > 0
+                ? `<span class="notif-cat-badge" aria-label="${n} unread">${n > 99 ? '99+' : n}</span>`
+                : '';
+
+            return `
+                <li>
+                    <a class="notif-category-row ${cat.rowClass}" href="${cat.href}">
+                        <span class="notif-cat-icon" aria-hidden="true"><i class="fas ${cat.icon}"></i></span>
+                        <span class="notif-cat-label">${cat.label}</span>
+                        ${badgeHtml}
+                    </a>
+                </li>
+            `;
+        }).join('');
+
+        if (total === 0) {
+            list.insertAdjacentHTML('beforeend', '<li class="notif-all-clear"><span>All caught up — no new items right now.</span></li>');
+        }
     }
 
-    // Update notification count
+    function markAllNotificationsSeen() {
+        return fetch('php/mark_notification_seen.php', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ all: true })
+        }).catch(function () {});
+    }
+
     function updateNotificationCount(count) {
+        const display = count > 99 ? '99+' : String(count);
         if (notifCount) {
-            notifCount.textContent = count;
+            notifCount.textContent = display;
         }
         if (badge) {
-            badge.textContent = count;
+            badge.textContent = display;
             badge.style.display = count > 0 ? 'inline-block' : 'none';
         }
     }
 
-    function updateEmptyState(){
-        const items = list ? list.querySelectorAll('.notif-item') : [];
-        const hasItems = items && items.length > 0;
-        if (viewMoreBtn) viewMoreBtn.disabled = !hasItems;
-        const footer = dropdown.querySelector('.notif-footer');
-        if (footer) footer.style.display = hasItems ? 'flex' : 'none';
-    }
-
     function open(){
-        // Close admin dropdown if it's open
         const adminDropdown = document.getElementById('adminDropdown');
         if (adminDropdown && adminDropdown.classList.contains('show')) {
             adminDropdown.classList.remove('show');
@@ -1322,18 +1331,21 @@ function resetImagePreview() {
                 adminProfile.setAttribute('aria-expanded', 'false');
             }
         }
-        
-        // Load fresh notifications when opening
+
         loadNotifications();
-        
+
         dropdown.classList.add('show');
         dropdown.setAttribute('aria-hidden','false');
         bell.setAttribute('aria-expanded','true');
     }
     function close(){
+        const wasOpen = dropdown.classList.contains('show');
         dropdown.classList.remove('show');
         dropdown.setAttribute('aria-hidden','true');
         bell.setAttribute('aria-expanded','false');
+        if (wasOpen) {
+            markAllNotificationsSeen().then(function () { loadNotifications(); });
+        }
     }
     function toggle(){
         if (dropdown.classList.contains('show')) close(); else open();
@@ -1356,19 +1368,8 @@ function resetImagePreview() {
         if (e.key === 'Escape') close();
     });
 
-    if (viewMoreBtn){
-        viewMoreBtn.addEventListener('click', () => {
-            // Navigate to user management page
-            window.location.href = 'userManagement.html';
-        });
-    }
-
-    // Load notifications on page load
     loadNotifications();
-    
-    // Refresh notifications every 1 second (near real-time)
-    // NOTE: If this is too heavy in production, increase to 2000–5000 ms.
-    setInterval(loadNotifications, 1000);
+    setInterval(loadNotifications, 5000);
 })();
 
 // ---- Admin Profile Dropdown ----
