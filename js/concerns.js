@@ -372,7 +372,7 @@ async function loadConcerns(status = null) {
         showLoadingIndicator(status);
         
         const url = status ? `php/concerns.php?status=${status}` : 'php/concerns.php';
-        const response = await fetch(url);
+        const response = await fetch(url, { credentials: 'same-origin' });
         
         // Check if response is ok
         if (!response.ok) {
@@ -537,30 +537,28 @@ function displayConcerns(concerns, status) {
     }
     
     console.log('Total rows in tbody after adding:', tbody.querySelectorAll('tr').length);
+    tagConcernsAdminSessionAllowedButtons();
+    updateConcernsAdminBodyClass();
 }
 
 // Risk Level Management Functions
 function setRiskLevel(riskLevel) {
     selectedRiskLevel = riskLevel;
-    
-    // Update button states
-    document.querySelectorAll('.risk-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    const activeBtn = document.querySelector(`.risk-btn[data-risk="${riskLevel}"]`);
+    const btns = document.querySelectorAll('.risk-level-controls .risk-btn');
+    btns.forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.risk-level-controls .risk-btn[data-risk="${riskLevel}"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
     }
-    
-    // Show message to user
-    showStatusModal('info', 'Risk Level Selected', `Click on concerns to mark them as ${riskLevel} risk. Click Clear to cancel.`);
+    if (btns.length > 0) {
+        showStatusModal('info', 'Risk Level Selected', `Click on concerns to mark them as ${riskLevel} risk. Click Clear to cancel.`);
+    }
 }
 
 function clearRiskSelection() {
     selectedRiskLevel = null;
     
-    // Update button states
-    document.querySelectorAll('.risk-btn').forEach(btn => {
+    document.querySelectorAll('.risk-level-controls .risk-btn').forEach(btn => {
         btn.classList.remove('active');
     });
 }
@@ -584,6 +582,7 @@ async function applyRiskLevelToConcern(concernId, riskLevel) {
 async function sendRiskLevelUpdate(concernId, riskLevel) {
     const response = await fetch('php/concerns.php', {
         method: 'PUT',
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -668,7 +667,7 @@ function createConcernRow(concern, status) {
     if (status === 'resolved') {
         // No action column for resolved concerns
     } else if (status === 'processing') {
-        if (canEditModule('concerns')) {
+        if (canProcessOrResolveConcerns()) {
             actionButtonHtml = `
                 <button class="btn-action resolve-btn" onclick="resolveConcern('${concern.concern_id}')" title="Resolve Concern">
                     <i class="fas fa-check"></i> Resolve
@@ -678,7 +677,7 @@ function createConcernRow(concern, status) {
             actionButtonHtml = '-';
         }
     } else {
-        if (canEditModule('concerns')) {
+        if (canProcessOrResolveConcerns()) {
             actionButtonHtml = `
                 <button class="btn-action processing-btn" onclick="moveToProcessing('${concern.concern_id}')" title="Move to Processing">
                     <i class="fas fa-clock"></i> Process
@@ -806,14 +805,80 @@ function escapeForHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            const cost = a[j - 1] === b[i - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+function normalizeLocationForComparisonJs(loc) {
+    let s = String(loc || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    s = s.replace(/^(brgy\.?|barangay)\s+/iu, '');
+    return s.trim();
+}
+
+/** Mirrors php/concerns.php getRelatableIssueCategoryDefinitions / relatableSameIssueCategoryPhp */
+const RELATABLE_ISSUE_CATEGORY_KEYWORDS = {
+    waste: ['basura', 'kalat', 'kolekta', 'kolektahin', 'kinuha', 'kumuha', 'kumukulekta', 'kumukolekta', 'nakolekta', 'pagkolekta', 'kolektor', 'trash', 'garbage', 'waste', 'segregat'],
+    drainage: ['kanal', 'drainage', 'bara', 'barado', 'baradong', 'bumabaha', 'baha'],
+    water: ['tubig', 'water', 'leak', 'tumutulo', 'tulo', 'walang tubig'],
+    light: ['ilaw', 'light', 'streetlight', 'street light'],
+    road: ['lubak', 'kalsada', 'road', 'pothole', 'sidewalk'],
+    noise: ['ingay', 'noise', 'trapiko', 'traffic']
+};
+
+function relatableSameIssueCategoryJs(statementA, statementB) {
+    const s1 = String(statementA || '').toLowerCase();
+    const s2 = String(statementB || '').toLowerCase();
+    for (const kws of Object.values(RELATABLE_ISSUE_CATEGORY_KEYWORDS)) {
+        const hit1 = kws.some(kw => kw.length >= 2 && s1.includes(kw));
+        const hit2 = kws.some(kw => kw.length >= 2 && s2.includes(kw));
+        if (hit1 && hit2) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Aligns with php/concerns.php locationsReferToSamePlace for offline fallback. */
+function locationsReferToSamePlaceJs(baseRaw, otherRaw) {
+    const a = normalizeLocationForComparisonJs(baseRaw);
+    const b = normalizeLocationForComparisonJs(otherRaw);
+    if (a === '' && b === '') return true;
+    if (a === '' || b === '') return false;
+    if (a === b) return true;
+    const shorter = a.length <= b.length ? a : b;
+    const longer = a.length <= b.length ? b : a;
+    if (shorter.length >= 4 && longer.includes(shorter)) return true;
+    const maxLen = Math.max(a.length, b.length);
+    if (maxLen > 64) return false;
+    const dist = levenshteinDistance(a, b);
+    const maxAllowed = maxLen <= 18 ? 3 : Math.max(4, Math.min(12, Math.round(maxLen * 0.18)));
+    return dist <= maxAllowed;
+}
+
 function getConcernsSimilarityScore(base, candidate) {
     const baseWords = new Set(normalizeStatementWords(base.statement || ''));
     const candidateWords = new Set(normalizeStatementWords(candidate.statement || ''));
     const commonWords = [...candidateWords].filter(word => baseWords.has(word));
     const wordMatchScore = baseWords.size ? commonWords.length / baseWords.size : 0;
-    const baseLocation = (base.location || '').trim().toLowerCase();
-    const candidateLocation = (candidate.location || '').trim().toLowerCase();
-    const locationMatch = baseLocation && candidateLocation && baseLocation === candidateLocation;
+    const locA = normalizeLocationForComparisonJs(base.location || '');
+    const locB = normalizeLocationForComparisonJs(candidate.location || '');
+    const sameArea = locationsReferToSamePlaceJs(base.location || '', candidate.location || '');
+    const locationMatch = sameArea && !(locA === '' && locB === '');
     const score = Math.min(wordMatchScore, 0.6) + (locationMatch ? 0.4 : 0);
     return {
         score,
@@ -827,12 +892,14 @@ function findSimilarConcerns(baseConcern) {
         .filter(concern => concern.concern_id !== baseConcern.concern_id)
         .map(concern => {
             const similarity = getConcernsSimilarityScore(baseConcern, concern);
+            const sameCategory = relatableSameIssueCategoryJs(baseConcern.statement, concern.statement);
             return {
                 concern,
-                ...similarity
+                ...similarity,
+                sameCategory
             };
         })
-        .filter(entry => entry.score >= 0.35)
+        .filter(entry => entry.score >= 0.35 || (entry.locationMatch && entry.sameCategory))
         .sort((a, b) => b.score - a.score);
 }
 
@@ -872,7 +939,7 @@ async function showRelatableConcerns(concernId) {
         summaryElement.textContent = 'Analyzing similar concerns using AI...';
     }
     if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;">Loading...</td></tr>';
     }
     
     if (modal) {
@@ -884,6 +951,7 @@ async function showRelatableConcerns(concernId) {
         // Call AI API to find similar concerns
         const response = await fetch('php/concerns.php', {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -904,50 +972,104 @@ async function showRelatableConcerns(concernId) {
         }
         
         const similarIds = result.similar_ids || [];
-        
-        // Find similar concerns from concernsData
-        const similarConcerns = [];
-        const similarIdsSet = new Set(similarIds);
-        
-        concernsData.forEach(concern => {
-            if (similarIdsSet.has(concern.concern_id)) {
-                similarConcerns.push({
-                    concern: concern,
+        const similarConcernsFromApi = Array.isArray(result.similar_concerns) ? result.similar_concerns : [];
+        const baseCidFromApi = result.base_concern_id || concernId;
+
+        let similarConcerns = [];
+        if (similarConcernsFromApi.length > 0) {
+            similarConcerns = similarConcernsFromApi.map(concern => {
+                const isBaseConcern = concern.concern_id === baseCidFromApi;
+                return {
+                    concern,
                     score: 1.0,
                     locationMatch: true,
                     commonWordCount: 999,
-                    isSelected: true // Auto-select similar concerns
-                });
-            }
-        });
+                    isSelected: !isBaseConcern,
+                    isBaseConcern
+                };
+            });
+        } else {
+            const similarIdsSet = new Set(similarIds);
+            concernsData.forEach(concern => {
+                if (similarIdsSet.has(concern.concern_id)) {
+                    const isBaseConcern = concern.concern_id === baseCidFromApi;
+                    similarConcerns.push({
+                        concern: concern,
+                        score: 1.0,
+                        locationMatch: true,
+                        commonWordCount: 999,
+                        isSelected: !isBaseConcern,
+                        isBaseConcern
+                    });
+                }
+            });
+        }
         
-        // Only show other similar concerns, not the base concern itself
-        // If no similar concerns found, show empty state
         if (similarConcerns.length === 0) {
             updateRelatableActionVisibility(baseConcern.status);
             populateRelatableModal([], baseConcern);
         } else {
-            // Only show the similar concerns, not the base concern
             updateRelatableActionVisibility(baseConcern.status);
             populateRelatableModal(similarConcerns, baseConcern);
         }
         
     } catch (error) {
         console.error('Error finding similar concerns:', error);
-        // Fallback to old method if AI fails
-        const similarConcerns = findSimilarConcerns(baseConcern);
-        
-        // Only show other similar concerns, not the base concern itself
-        if (similarConcerns.length === 0) {
+        const relatedFromLocal = findSimilarConcerns(baseConcern);
+        if (relatedFromLocal.length === 0) {
             updateRelatableActionVisibility(baseConcern.status);
             populateRelatableModal([], baseConcern);
         } else {
-            // Only show the similar concerns, not the base concern
-            const similarOnly = similarConcerns.map(sc => ({ ...sc, isSelected: true })); // Auto-select all similar concerns
+            const withBase = [
+                {
+                    concern: baseConcern,
+                    score: 1.0,
+                    locationMatch: true,
+                    commonWordCount: 999,
+                    isSelected: false,
+                    isBaseConcern: true
+                },
+                ...relatedFromLocal.map(sc => ({
+                    ...sc,
+                    isSelected: true,
+                    isBaseConcern: false
+                }))
+            ].sort((a, b) => {
+                const ta = new Date(a.concern.date_and_time || 0).getTime();
+                const tb = new Date(b.concern.date_and_time || 0).getTime();
+                return tb - ta;
+            });
             updateRelatableActionVisibility(baseConcern.status);
-            populateRelatableModal(similarOnly, baseConcern);
+            populateRelatableModal(withBase, baseConcern);
         }
     }
+}
+
+/** Highlight relatable Low/Medium/High buttons to match risk levels present in the modal table (all visible rows). */
+function syncRelatableRiskButtonHighlights() {
+    const modal = document.getElementById('relatableModal');
+    if (!modal) return;
+    const controls = modal.querySelector('.relatable-risk-controls');
+    if (!controls) return;
+    controls.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('relatable-risk-reflect'));
+    const rows = document.querySelectorAll('#relatableTableBody tr[data-risk-level]');
+    const levels = new Set();
+    rows.forEach(tr => {
+        const v = (tr.getAttribute('data-risk-level') || '').toLowerCase().trim();
+        if (v === 'low' || v === 'medium' || v === 'high') {
+            levels.add(v);
+        }
+    });
+    levels.forEach(level => {
+        const btn = controls.querySelector(`.risk-btn[data-risk="${level}"]`);
+        if (btn) btn.classList.add('relatable-risk-reflect');
+    });
+}
+
+function clearRelatableRiskButtonHighlights() {
+    document.querySelectorAll('#relatableModal .relatable-risk-controls .risk-btn').forEach(btn => {
+        btn.classList.remove('relatable-risk-reflect');
+    });
 }
 
 function populateRelatableModal(similarConcerns, baseConcern) {
@@ -958,12 +1080,14 @@ function populateRelatableModal(similarConcerns, baseConcern) {
     const emptyState = document.getElementById('relatableEmptyState');
 
     if (summaryElement) {
-        // similarConcerns already excludes the base concern, so just count them
-        const similarCount = similarConcerns.length;
-        if (similarCount > 0) {
-            summaryElement.textContent = `Found ${similarCount} similar concern(s) based on same concern type and location. All similar concerns are automatically selected.`;
+        const total = similarConcerns.length;
+        const relatedOnly = similarConcerns.filter(e => !e.isBaseConcern).length;
+        if (total > 0) {
+            summaryElement.textContent = relatedOnly > 0
+                ? `Showing ${total} report(s): this concern plus ${relatedOnly} related at the same general area. Related rows are pre-selected; adjust checkboxes if needed.`
+                : `Showing ${total} report(s) in this group. Adjust checkboxes if needed.`;
         } else {
-            summaryElement.textContent = 'No similar concerns found with the same concern type and location.';
+            summaryElement.textContent = 'No related concerns found for the same general area and issue.';
         }
     }
 
@@ -977,6 +1101,7 @@ function populateRelatableModal(similarConcerns, baseConcern) {
 
     if (similarConcerns.length === 0) {
         tableBody.innerHTML = '';
+        clearRelatableRiskButtonHighlights();
         if (emptyState) {
             emptyState.style.display = 'block';
         }
@@ -984,6 +1109,7 @@ function populateRelatableModal(similarConcerns, baseConcern) {
             selectAllWrapper.style.display = 'none';
         }
         updateRelatableBulkButtons();
+        tagConcernsAdminSessionAllowedButtons();
         return;
     }
 
@@ -1002,9 +1128,19 @@ function populateRelatableModal(similarConcerns, baseConcern) {
                 : rawStatement;
             const preview = escapeForHtml(previewValue);
             const isSelected = entry.isSelected !== false; // Default to true (auto-selected)
-            const riskLevel = entry.concern.risk_level || '';
-            const riskClass = riskLevel ? `risk-${riskLevel}` : '';
-            const riskDot = riskLevel ? `<span class="relatable-risk-dot ${riskClass}" title="${riskLevel} risk"></span>` : '';
+            const riskLevelRaw = (entry.concern.risk_level || '').toLowerCase().trim();
+            const riskNorm = ['low', 'medium', 'high'].includes(riskLevelRaw) ? riskLevelRaw : '';
+            const riskLevel = riskNorm || (entry.concern.risk_level || '');
+            const riskClass = riskNorm ? `risk-${riskNorm}` : '';
+            const riskDot = riskNorm ? `<span class="relatable-risk-dot ${riskClass}" title="${riskNorm} risk"></span>` : '';
+            const reporterRaw = (entry.concern.reporter_name || '').trim();
+            const reporterDisplay = escapeForHtml(reporterRaw || entry.concern.concern_id || 'N/A');
+            const reporterTitle = escapeForHtml(
+                reporterRaw ? `${reporterRaw} (${entry.concern.concern_id})` : String(entry.concern.concern_id || '')
+            );
+            const baseBadge = entry.isBaseConcern
+                ? ' <span class="relatable-base-badge" title="The concern you opened">This concern</span>'
+                : '';
             
             // Display image if available
             let imageHtml = '<span style="color: #999;">No image</span>';
@@ -1013,12 +1149,13 @@ function populateRelatableModal(similarConcerns, baseConcern) {
                 imageHtml = `<img src="${imageUrl}" alt="Concern Image" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="viewConcernImage('${entry.concern.concern_id}', '${escapeForHtml(entry.concern.reporter_name || '')}', '${imageUrl}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';"><span style="display: none; color: #999;">No image</span>`;
             }
             
+            const rowClasses = [isSelected ? 'relatable-selected' : '', entry.isBaseConcern ? 'relatable-row-base' : ''].filter(Boolean).join(' ');
             return `
-            <tr class="${isSelected ? 'relatable-selected' : ''}">
+            <tr class="${rowClasses}" data-risk-level="${riskNorm}">
                 <td>
                     <input type="checkbox" class="relatable-checkbox" data-concern-id="${entry.concern.concern_id}" ${isSelected ? 'checked' : ''}>
                 </td>
-                <td>${entry.concern.concern_id} ${riskDot}</td>
+                <td title="${reporterTitle}">${reporterDisplay} ${riskDot}${baseBadge}</td>
                 <td>${formatRelatableDate(entry.concern.date_and_time)}</td>
                 <td class="relatable-statement" title="${safeStatement}">${preview}</td>
                 <td>${entry.concern.location || 'N/A'}</td>
@@ -1029,6 +1166,7 @@ function populateRelatableModal(similarConcerns, baseConcern) {
     }).join('');
 
     tableBody.innerHTML = rowsHtml;
+    syncRelatableRiskButtonHighlights();
     tableBody.querySelectorAll('.relatable-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', () => {
             updateRelatableSelectAllState();
@@ -1048,6 +1186,7 @@ function populateRelatableModal(similarConcerns, baseConcern) {
         if (processBtn) processBtn.disabled = false;
         if (resolveBtn) resolveBtn.disabled = false;
     }
+    tagConcernsAdminSessionAllowedButtons();
 }
 
 function toggleRelatableSelectAll(source) {
@@ -1188,15 +1327,16 @@ async function applyBulkStatusChange(targetStatus) {
 
 async function sendConcernStatusUpdate(concernId, status) {
     const response = await fetch('php/concerns.php', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                concern_id: concernId,
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            concern_id: concernId,
             status: status
-            })
-        });
+        })
+    });
 
     if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -1207,6 +1347,7 @@ async function sendConcernStatusUpdate(concernId, status) {
 }
 
 function closeRelatableModal() {
+    clearRelatableRiskButtonHighlights();
     const modal = document.getElementById('relatableModal');
     if (modal) {
         modal.classList.remove('show');
@@ -1238,6 +1379,58 @@ if (typeof window.canEditModule !== 'function') {
 }
 if (typeof window.checkAccessBeforeAction !== 'function') {
     window.checkAccessBeforeAction = function(/* module, action */) { return true; };
+}
+
+function getConcernsUserPositionLower() {
+    let p = '';
+    if (window.CurrentUser && window.CurrentUser.position != null) {
+        p = String(window.CurrentUser.position).toLowerCase().trim();
+    } else if (window.Session && window.Session.data && window.Session.data.position != null) {
+        p = String(window.Session.data.position).toLowerCase().trim();
+    }
+    return p.replace(/\s+/g, ' ');
+}
+
+function isConcernsAdminUser() {
+    return getConcernsUserPositionLower() === 'admin';
+}
+
+/** Matches DB value "Concerns & Reporting" (same rules as userSession.canEditModule / PHP canEdit). */
+function isConcernsReportingStaffUser() {
+    const p = getConcernsUserPositionLower();
+    return p === 'concerns & reporting' || p === 'concern & reporting';
+}
+
+/** Who may use Process/Resolve on concerns rows (mirrors PHP canEdit for concerns module). */
+function canProcessOrResolveConcerns() {
+    if (isConcernsAdminUser()) return true;
+    if (isConcernsReportingStaffUser()) return true;
+    return typeof canEditModule === 'function' && canEditModule('concerns');
+}
+
+function userHasConcernsFullActionRole() {
+    return isConcernsAdminUser() || isConcernsReportingStaffUser();
+}
+
+/** Process/Resolve stay clickable after Session.disableTransactions() for admin + Concerns & Reporting. */
+function tagConcernsAdminSessionAllowedButtons() {
+    if (!userHasConcernsFullActionRole()) return;
+    document.querySelectorAll('.btn-action.processing-btn, .btn-action.resolve-btn').forEach((btn) => {
+        btn.classList.add('session-allowed');
+    });
+    const relProcess = document.getElementById('relatableProcessBtn');
+    const relResolve = document.getElementById('relatableResolveBtn');
+    if (relProcess) relProcess.classList.add('session-allowed');
+    if (relResolve) relResolve.classList.add('session-allowed');
+}
+
+function updateConcernsAdminBodyClass() {
+    if (typeof document === 'undefined' || !document.body) return;
+    if (userHasConcernsFullActionRole()) {
+        document.body.classList.add('concerns-page-admin');
+    } else {
+        document.body.classList.remove('concerns-page-admin');
+    }
 }
 
 // Concern Management Functions
@@ -1487,9 +1680,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Initialize the page
-    setAllCountsToZero(); // Set counts to 0 first
-    loadConcerns('new');
+    // Wait for session so admin / role-based canEditModule is set before rendering row actions
+    setAllCountsToZero();
+    (async function initConcernsPage() {
+        if (window.Session && typeof Session.load === 'function') {
+            try {
+                await Session.load();
+            } catch (e) {
+                console.error('Session load failed before concerns list', e);
+            }
+        }
+        updateConcernsAdminBodyClass();
+        loadConcerns('new');
+    })();
 });
 
 function applyNavCounts(counts) {
@@ -1509,7 +1712,7 @@ async function updateCategoryCounts() {
     try {
         console.log('Starting updateCategoryCounts...');
         
-        const response = await fetch('php/concerns.php');
+        const response = await fetch('php/concerns.php', { credentials: 'same-origin' });
         console.log('Response status:', response.status);
         
         if (!response.ok) {

@@ -234,7 +234,7 @@
 
 .member-row-cell {
     font-size: 0.85rem;
-    color: #333;
+    color: #ffffff;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -263,7 +263,7 @@
 .member-workplace-cell,
 .member-disabilities-cell,
 .member-benefits-cell {
-    color: #666;
+    color: #2c5aa0;
     font-size: 0.75rem;
 }
 

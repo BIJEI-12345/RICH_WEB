@@ -63,7 +63,7 @@
             }
         },
         canEditModule(moduleName) {
-            const pos = (this.data.position || '').toLowerCase();
+            const pos = (this.data.position || '').toLowerCase().trim().replace(/\s+/g, ' ');
             if (!pos) return false;
             if (pos === 'mother leader') return false;
             // Admin: full access everywhere
@@ -75,7 +75,7 @@
                 return pos === 'document request category';
             }
             if (moduleName === 'concerns') {
-                return pos === 'concerns & reporting';
+                return pos === 'concerns & reporting' || pos === 'concern & reporting';
             }
             if (moduleName === 'emergency') {
                 return pos === 'emergency' || pos === 'emergency category';

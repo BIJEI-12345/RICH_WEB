@@ -89,18 +89,6 @@
                             <p>Review and manage incoming concern reports from residents</p>
                         </div>
                         <div class="section-controls">
-                            <div class="risk-level-controls">
-                                <span class="risk-label">Risk Level:</span>
-                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
-                                    <i class="fas fa-circle"></i> Low
-                                </button>
-                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
-                                    <i class="fas fa-circle"></i> Medium
-                                </button>
-                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
-                                    <i class="fas fa-circle"></i> High
-                                </button>
-                            </div>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="new-sort" onchange="sortConcerns('new', this.value)">
                                     <option value="latest">Latest</option>
@@ -151,18 +139,6 @@
                             <p>Concerns currently being addressed and in progress</p>
                         </div>
                         <div class="section-controls">
-                            <div class="risk-level-controls">
-                                <span class="risk-label">Risk Level:</span>
-                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
-                                    <i class="fas fa-circle"></i> Low
-                                </button>
-                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
-                                    <i class="fas fa-circle"></i> Medium
-                                </button>
-                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
-                                    <i class="fas fa-circle"></i> High
-                                </button>
-                            </div>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="processing-sort" onchange="sortConcerns('processing', this.value)">
                                     <option value="latest">Latest</option>
@@ -214,18 +190,6 @@
                             <p>Successfully resolved concern reports with documented solutions</p>
                         </div>
                         <div class="section-controls">
-                            <div class="risk-level-controls">
-                                <span class="risk-label">Risk Level:</span>
-                                <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRiskLevel('low')" title="Select Low Risk">
-                                    <i class="fas fa-circle"></i> Low
-                                </button>
-                                <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRiskLevel('medium')" title="Select Medium Risk">
-                                    <i class="fas fa-circle"></i> Medium
-                                </button>
-                                <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRiskLevel('high')" title="Select High Risk">
-                                    <i class="fas fa-circle"></i> High
-                                </button>
-                            </div>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="finished-sort" onchange="sortConcerns('finished', this.value)">
                                     <option value="latest">Latest</option>
@@ -351,7 +315,7 @@
                         <thead>
                             <tr>
                                 <th></th>
-                                <th>Concern ID</th>
+                                <th>Reporter Name</th>
                                 <th>Date &amp; Time</th>
                                 <th>Statement</th>
                                 <th>Location</th>
@@ -367,13 +331,13 @@
             <div class="relatable-actions">
                 <div class="relatable-risk-controls">
                     <span class="risk-label">Set Risk Level:</span>
-                    <button type="button" class="risk-btn risk-low" onclick="setRelatableRiskLevel('low')" title="Set Low Risk">
+                    <button type="button" class="risk-btn risk-low" data-risk="low" onclick="setRelatableRiskLevel('low')" title="Set Low Risk">
                         <i class="fas fa-circle"></i> Low
                     </button>
-                    <button type="button" class="risk-btn risk-medium" onclick="setRelatableRiskLevel('medium')" title="Set Medium Risk">
+                    <button type="button" class="risk-btn risk-medium" data-risk="medium" onclick="setRelatableRiskLevel('medium')" title="Set Medium Risk">
                         <i class="fas fa-circle"></i> Medium
                     </button>
-                    <button type="button" class="risk-btn risk-high" onclick="setRelatableRiskLevel('high')" title="Set High Risk">
+                    <button type="button" class="risk-btn risk-high" data-risk="high" onclick="setRelatableRiskLevel('high')" title="Set High Risk">
                         <i class="fas fa-circle"></i> High
                     </button>
                 </div>
