@@ -582,7 +582,7 @@ try {
             break;
             
         case 'indigency':
-            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at FROM indigency_forms ORDER BY submitted_at DESC";
+            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at, para_kay, `position`, hall_address, document_language FROM indigency_forms ORDER BY submitted_at DESC";
             $result = $connection->query($sql);
             
             if ($result === false) {
@@ -612,7 +612,11 @@ try {
                         'status' => $row['status'] ?? 'New',
                         'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s'),
                         'processAt' => $row['process_at'] ?? null,
-                        'finishAt' => $row['finish_at'] ?? null
+                        'finishAt' => $row['finish_at'] ?? null,
+                        'para_kay' => $row['para_kay'] ?? '',
+                        'position' => $row['position'] ?? '',
+                        'hall_address' => $row['hall_address'] ?? '',
+                        'document_language' => $row['document_language'] ?? ''
                     ];
                 }
             }

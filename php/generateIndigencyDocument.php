@@ -87,6 +87,64 @@ use PhpOffice\PhpWord\TemplateProcessor;
 
 header('Content-Type: application/json; charset=utf-8');
 
+/**
+ * Hinati ang halaga ng column `position` ("MAYOR / TL", o maraming "|" — EN = unang segment, TL = huli).
+ * @return array{en: string, tl: string}
+ */
+function indigencySplitPositionEnTl(string $raw): array
+{
+    $s = trim(preg_replace('/\s+/u', ' ', $raw));
+    if ($s === '') {
+        return ['en' => '', 'tl' => ''];
+    }
+    if (strpos($s, '|') !== false) {
+        $segments = preg_split('/\s*\|\s*/u', $s);
+        $segments = array_values(array_filter(array_map('trim', $segments), static function ($p) {
+            return $p !== '';
+        }));
+        if (count($segments) >= 2) {
+            $tl = $segments[count($segments) - 1];
+            $first = $segments[0];
+            $en = $first;
+            if (strpos($first, '/') !== false) {
+                $en = trim(explode('/', $first, 2)[0]);
+            }
+
+            return ['en' => $en, 'tl' => $tl];
+        }
+    }
+    if (preg_match('#\s/\s#u', $s)) {
+        $parts = preg_split('#\s/\s#u', $s, 2);
+
+        return ['en' => trim($parts[0]), 'tl' => isset($parts[1]) ? trim($parts[1]) : ''];
+    }
+
+    return ['en' => $s, 'tl' => ''];
+}
+
+/** Isang value lang para sa {{position}} depende sa wika ng dokumento. */
+function indigencyResolvePositionForLanguage(string $raw, string $language): string
+{
+    $sp = indigencySplitPositionEnTl($raw);
+    if ($language === 'tagalog') {
+        return $sp['tl'] !== '' ? $sp['tl'] : $sp['en'];
+    }
+
+    return $sp['en'] !== '' ? $sp['en'] : $sp['tl'];
+}
+
+/** Web path from site root to generated files (avoids broken relative URLs from JS). */
+function indigencyPublicGeneratedFileUrl($filename) {
+    $scriptName = isset($_SERVER['SCRIPT_NAME']) ? str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']) : '/php/generateIndigencyDocument.php';
+    $appRoot = dirname(dirname($scriptName));
+    $appRoot = rtrim($appRoot, '/');
+    if ($appRoot === '/' || $appRoot === '.' || $appRoot === '') {
+        $appRoot = '';
+    }
+    $path = ($appRoot === '' ? '' : $appRoot) . '/uploads/generated_documents/' . ltrim($filename, '/');
+    return preg_replace('#(?<!:)/+#', '/', $path);
+}
+
 // Function to safely handle image data
 function safeImageData($imageData) {
     if (!$imageData) {
@@ -113,6 +171,69 @@ function safeImageData($imageData) {
     return $imageData;
 }
 
+/**
+ * Convert {{name}} to ${name} in all main Word XML parts so PhpWord can merge macros.
+ * Also covers headers/footers/notes, not only document.xml.
+ */
+function indigencyPatchDocxDoubleBracesToDollarMacros($docxPath) {
+    $zip = new ZipArchive();
+    if ($zip->open($docxPath) !== true) {
+        throw new Exception('Cannot open Word document as ZIP for placeholder normalization');
+    }
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        if (!preg_match('#^word/(document\\.xml|header\\d+\\.xml|footer\\d+\\.xml|endnotes\\.xml|footnotes\\.xml)$#', $name)) {
+            continue;
+        }
+        $xml = $zip->getFromIndex($i);
+        if ($xml === false) {
+            continue;
+        }
+        $updated = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $xml);
+        if ($updated !== $xml) {
+            $zip->addFromString($name, $updated);
+        }
+    }
+    $zip->close();
+}
+
+/**
+ * Final pass: replace any remaining {{key}} / ${key} in XML (handles split runs / editors that keep {{}}).
+ */
+function indigencyApplyDirectXmlPlaceholderReplacements($docxPath, array $templateData) {
+    $keys = array_keys($templateData);
+    usort($keys, function ($a, $b) {
+        return strlen($b) - strlen($a);
+    });
+    $zip = new ZipArchive();
+    if ($zip->open($docxPath) !== true) {
+        error_log('indigencyApplyDirectXmlPlaceholderReplacements: could not open docx: ' . $docxPath);
+        return;
+    }
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = $zip->getNameIndex($i);
+        if (!preg_match('#^word/(document\\.xml|header\\d+\\.xml|footer\\d+\\.xml|endnotes\\.xml|footnotes\\.xml)$#', $name)) {
+            continue;
+        }
+        $xml = $zip->getFromIndex($i);
+        if ($xml === false) {
+            continue;
+        }
+        $orig = $xml;
+        foreach ($keys as $key) {
+            $value = $templateData[$key];
+            $str = ($value !== null && $value !== '') ? (string)$value : '';
+            $safe = htmlspecialchars($str, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $xml = str_replace('{{' . $key . '}}', $safe, $xml);
+            $xml = str_replace('${' . $key . '}', $safe, $xml);
+        }
+        if ($xml !== $orig) {
+            $zip->addFromString($name, $xml);
+        }
+    }
+    $zip->close();
+}
+
 // Function to populate Word document template using PhpWord TemplateProcessor (like Barangay ID)
 function populateWordTemplate($templatePath, $outputPath, $data, $language = 'english') {
     try {
@@ -130,27 +251,8 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
         if (!copy($templatePath, $outputPath)) {
             throw new Exception("Failed to copy template");
         }
-        
-        // Open the Word document as ZIP
-        $zip = new ZipArchive();
-        if ($zip->open($outputPath) !== TRUE) {
-            throw new Exception("Cannot open Word document as ZIP");
-        }
-        
-        // Get the document.xml content
-        $documentXml = $zip->getFromName('word/document.xml');
-        if ($documentXml === false) {
-            throw new Exception("Cannot read document.xml");
-        }
-        
-        // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-        $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
-        
-        // Put the converted XML back
-        if ($zip->addFromString('word/document.xml', $documentXml) === false) {
-            throw new Exception("Failed to update document.xml");
-        }
-        $zip->close();
+
+        indigencyPatchDocxDoubleBracesToDollarMacros($outputPath);
         
         // Create a temporary file for TemplateProcessor to work with
         $tempTemplatePath = $outputPath . '.template';
@@ -231,7 +333,10 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
             'BARANGAY_CAPTAIN' => 'ROSEMARIE M. CAPA',
             'BARANGAY_NAME' => 'BIGTE',
             'BARANGAY' => 'BIGTE',
-            'BARANGAY_BIGTE' => 'BARANGAY BIGTE'
+            'BARANGAY_BIGTE' => 'BARANGAY BIGTE',
+            'para_kay' => strtoupper((string)($data['para_kay'] ?? '')),
+            'position' => strtoupper(indigencyResolvePositionForLanguage((string)($data['position'] ?? ''), $language)),
+            'hall_address' => strtoupper((string)($data['hall_address'] ?? '')),
         ];
         
         // Set all values
@@ -245,6 +350,8 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
         
         // Save the template
         $template->saveAs($outputPath);
+
+        indigencyApplyDirectXmlPlaceholderReplacements($outputPath, $templateData);
         
         // Clean up temporary file
         if (file_exists($tempTemplatePath)) {
@@ -549,7 +656,7 @@ try {
     }
     
     // Database connection
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int) DB_PORT);
     
     if ($connection->connect_error) {
         throw new Exception("Connection failed: " . $connection->connect_error);
@@ -563,7 +670,7 @@ try {
     $usedTable = '';
     
     foreach ($possibleTables as $table) {
-        $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, id_image, status, submitted_at FROM $table WHERE id = ?";
+        $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, id_image, status, submitted_at, para_kay, `position`, hall_address, document_language FROM $table WHERE id = ?";
         
         $stmt = $connection->prepare($sql);
         if ($stmt) {
@@ -605,11 +712,51 @@ try {
         'validId' => $row['valid_id'] ?? '',
         'idImage' => safeImageData($row['id_image']),
         'status' => $row['status'] ?? 'New',
-        'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s')
+        'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s'),
+        'para_kay' => $row['para_kay'] ?? '',
+        'position' => $row['position'] ?? '',
+        'hall_address' => $row['hall_address'] ?? '',
+        'document_language' => $row['document_language'] ?? '',
     ];
     
+    // Merge POST overrides (process form / API) when provided
+    if (isset($_POST['para_kay'])) {
+        $data['para_kay'] = trim((string)$_POST['para_kay']);
+    }
+    if (isset($_POST['position'])) {
+        $data['position'] = trim((string)$_POST['position']);
+    }
+    if (isset($_POST['hall_address'])) {
+        $data['hall_address'] = trim((string)$_POST['hall_address']);
+    }
+    
+    // Persist addressee fields and chosen document language on the form row (same table)
+    $upd = $connection->prepare("UPDATE $usedTable SET para_kay = ?, `position` = ?, hall_address = ?, document_language = ? WHERE id = ?");
+    if ($upd) {
+        $pk = $data['para_kay'];
+        $pos = $data['position'];
+        $hall = $data['hall_address'];
+        $upd->bind_param('ssssi', $pk, $pos, $hall, $language, $requestId);
+        if (!$upd->execute()) {
+            error_log('generateIndigencyDocument: Failed to save para_kay fields: ' . $upd->error);
+        }
+        $upd->close();
+    } else {
+        error_log('generateIndigencyDocument: Could not prepare UPDATE for para_kay (missing columns?): ' . $connection->error);
+    }
+    
+    // Preset officials: use *_officials templates ONLY for the three specific officials; any other value uses regular indigency_{lang}.docx
+    $officialParaKay = [
+        'Igg. DANIEL FERNANDO',
+        'Igg. ADOR PLEYTO',
+        'Igg. MARIA ELENA GERMAR',
+    ];
+    $paraKayTrimmed = trim((string)($data['para_kay'] ?? ''));
+    $useOfficialsTemplate = in_array($paraKayTrimmed, $officialParaKay, true);
+    $templateSuffix = $useOfficialsTemplate ? '_officials' : '';
+    
     // Generate the document file - select template based on language (paths relative to this file, not CWD)
-    $templatePath = __DIR__ . '/../brgy_forms/indigency/indigency_' . $language . '.docx';
+    $templatePath = __DIR__ . '/../brgy_forms/indigency/indigency_' . $language . $templateSuffix . '.docx';
     $outputPath = __DIR__ . '/../uploads/generated_documents/';
     
     // Create output directory if it doesn't exist
@@ -670,7 +817,7 @@ try {
             'success' => true,
             'message' => 'Indigency certificate generated successfully in ' . ucfirst($language) . ' with personal details',
             'filename' => $finalFilename,
-            'downloadUrl' => 'uploads/generated_documents/' . $finalFilename,
+            'downloadUrl' => indigencyPublicGeneratedFileUrl($finalFilename),
             'language' => $language,
             'data' => $data
         ]);

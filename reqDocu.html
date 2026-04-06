@@ -1194,6 +1194,17 @@
             </div>
             <div class="modal-body">
                 <div class="indigency-form">
+                    <div class="form-section">
+                        <h4 class="section-title">Indigency document</h4>
+                        <div class="form-row">
+                            <label>Language:</label>
+                            <input type="text" class="form-input" id="indigDocLanguagePreview" value="" readonly placeholder="—">
+                        </div>
+                        <div class="form-row">
+                            <label>Para kay:</label>
+                            <input type="text" class="form-input" id="indigParaKayPreview" value="" readonly placeholder="—">
+                        </div>
+                    </div>
                     <!-- Personal Information Section -->
                     <div class="form-section">
                         <div class="form-row">
@@ -1414,15 +1425,40 @@
             </div>
             <div class="modal-body">
                 <form id="indigencyProcessForm" class="indigency-process-form">
-                    <!-- Language Selection Section -->
-                    <div class="language-selection-section">
+                    <!-- Language -->
+                    <div class="language-selection-section indigency-addressee-section">
                         <h4 class="section-title">Document Language</h4>
-                        <div class="form-row">
-                            <label>Select Language:</label>
+                        <div class="form-row indigency-addressee-field">
+                            <label for="indigencyLanguage">Select Language:</label>
                             <select class="form-select" id="indigencyLanguage" required>
                                 <option value="english">English</option>
                                 <option value="tagalog">Tagalog</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Para kay (pangalan, text) / Position / Hall -->
+                    <div class="language-selection-section indigency-addressee-section">
+                        <div class="form-row indigency-addressee-field indigency-para-kay-row">
+                            <label for="indigencyParaKay">Para kay:</label>
+                            <input type="text" id="indigencyParaKay" class="form-input indigency-para-kay-input" autocomplete="off" list="paraKayOptions">
+                            <datalist id="paraKayOptions">
+                                <option value="Igg. DANIEL FERNANDO">GOVERNOR</option> 
+                                <option value="Igg. ADOR PLEYTO">CONGRESSMAN</option> 
+                                <option value="Igg. MARIA ELENA GERMAR">MAYOR</option> 
+                            </datalist>
+                        </div>
+                        <input type="hidden" id="indigencyPositionEn" value="">
+                        <input type="hidden" id="indigencyPositionTl" value="">
+
+                        <div class="form-row indigency-addressee-field">
+                            <label for="indigencyPositionDisplay" id="indigencyPositionCustomMainLabel">Position:</label>
+                            <input type="text" id="indigencyPositionDisplay" class="form-input indigency-position-display-input" autocomplete="off">
+                        </div>
+
+                        <div class="form-row indigency-addressee-field">
+                            <label for="indigencyHallAddress" id="indigencyHallAddressLabel">Hall Address:</label>
+                            <input type="text" id="indigencyHallAddress" class="form-input indigency-input-compact" autocomplete="off">
                         </div>
                     </div>
                     
@@ -1436,10 +1472,24 @@
                         </div>
                         
                         <div class="certificate-title">
-                            <h2>CERTIFICATE OF INDIGENCY</h2>
+                            <h2 id="indigencyCertificatePreviewTitle">CERTIFICATE OF INDIGENCY</h2>
                         </div>
-                        
+
                         <div class="certificate-content">
+                            <div id="indigencyPreviewAddresseeBlock" class="indigency-preview-addressee-block" aria-label="Preview ng addressee">
+                                <div class="indigency-preview-row">
+                                    <span class="indigency-preview-label">Para kay:</span>
+                                    <span class="indigency-preview-value" id="indigencyPreviewParaKayLine"></span>
+                                </div>
+                                <div class="indigency-preview-row">
+                                    <span class="indigency-preview-label" id="indigencyPreviewPositionLabel">Position:</span>
+                                    <span class="indigency-preview-value" id="indigencyPreviewPositionLine"></span>
+                                </div>
+                                <div class="indigency-preview-row">
+                                    <span class="indigency-preview-label">Hall Address:</span>
+                                    <span class="indigency-preview-value" id="indigencyPreviewHallLine"></span>
+                                </div>
+                            </div>
                             <div class="certificate-text">
                                 <p>TO WHOM IT MAY CONCERN:</p>
                                 

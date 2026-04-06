@@ -626,11 +626,19 @@ async function downloadClearanceDirectly(requestId) {
     }
 }
 
+/** Para sa generate/download: `document_language` sa DB o fallback english. */
+function normalizeIndigencyLanguage(raw) {
+    const s = String(raw || '').toLowerCase().trim();
+    return s === 'tagalog' ? 'tagalog' : 'english';
+}
+
 async function downloadIndigencyDirectly(requestId) {
+    const row = await fetchIndigencyRequestData(requestId);
+    const language = normalizeIndigencyLanguage(row && row.document_language);
     const formData = new FormData();
     formData.append('requestId', requestId);
-    formData.append('language', 'english'); // Default language
-    
+    formData.append('language', language);
+
     const response = await fetch('php/generateIndigencyDocument.php', {
         method: 'POST',
         body: formData
@@ -639,7 +647,7 @@ async function downloadIndigencyDirectly(requestId) {
     const data = await parseJsonFromResponse(response);
     if (data.success && data.downloadUrl) {
         const downloadLink = document.createElement('a');
-        downloadLink.href = data.downloadUrl;
+        downloadLink.href = resolveDownloadUrl(data.downloadUrl);
         downloadLink.download = data.filename || 'indigency.docx';
         downloadLink.style.display = 'none';
         document.body.appendChild(downloadLink);
@@ -1345,10 +1353,12 @@ async function generateClearanceDocumentDirectly(requestId) {
 }
 
 async function generateIndigencyDocumentDirectly(requestId) {
+    const row = await fetchIndigencyRequestData(requestId);
+    const language = normalizeIndigencyLanguage(row && row.document_language);
     const formData = new FormData();
     formData.append('requestId', requestId);
-    formData.append('language', 'english'); // Default language
-    
+    formData.append('language', language);
+
     const response = await fetch('php/generateIndigencyDocument.php', {
         method: 'POST',
         body: formData
@@ -3602,10 +3612,166 @@ function convertNumberToWords(num) {
     return 'AMOUNT TOO LARGE';
 }
 
+function unlockIndigencyAddresseeFields() {
+    const pk = document.getElementById('indigencyParaKay');
+    const hall = document.getElementById('indigencyHallAddress');
+    const posDisp = document.getElementById('indigencyPositionDisplay');
+    if (pk) pk.readOnly = false;
+    if (hall) hall.readOnly = false;
+    if (posDisp) posDisp.readOnly = false;
+}
+
+/** Kapag may para_kay na sa DB, hindi na mababago ang addressee dito (galing database). */
+function applyIndigencyAddresseeLockState(requestData) {
+    const hasPk = (requestData.para_kay || '').trim() !== '';
+    const pk = document.getElementById('indigencyParaKay');
+    const hall = document.getElementById('indigencyHallAddress');
+    const posDisp = document.getElementById('indigencyPositionDisplay');
+    if (pk) pk.readOnly = hasPk;
+    if (hall) hall.readOnly = hasPk;
+    if (posDisp) posDisp.readOnly = hasPk;
+}
+
+/** Hinati ang position — tugma sa PHP indigencySplitPositionEnTl (unang segment = EN, huli = TL kung may |). */
+function splitPositionEnTl(raw) {
+    const s = (raw || '').trim().replace(/\s+/g, ' ');
+    if (!s) return { en: '', tl: '' };
+    if (s.includes('|')) {
+        const segments = s.split(/\s*\|\s*/).map((x) => x.trim()).filter(Boolean);
+        if (segments.length >= 2) {
+            const tl = segments[segments.length - 1];
+            const first = segments[0];
+            let en = first;
+            if (first.includes('/') && !first.includes('://')) {
+                en = first.split(/\s*\/\s*/)[0].trim();
+            }
+            return { en, tl };
+        }
+    }
+    const i = s.indexOf(' / ');
+    if (i > 0) {
+        return { en: s.slice(0, i).trim(), tl: s.slice(i + 3).trim() };
+    }
+    return { en: s, tl: '' };
+}
+
+/** Isang halaga lang para sa preview / padala — tugma sa resolve sa PHP. */
+function resolvePositionForLanguage(raw, lang) {
+    const sp = splitPositionEnTl(raw);
+    const L = normalizeIndigencyLanguage(lang);
+    if (L === 'tagalog') {
+        return (sp.tl || sp.en || '').trim();
+    }
+    return (sp.en || sp.tl || '').trim();
+}
+
+/** Ilipat ang nakikitang posisyon sa tamang hidden field batay sa wika. */
+function commitIndigencyPositionDisplayToHidden(lang) {
+    const L = normalizeIndigencyLanguage(lang);
+    const display = document.getElementById('indigencyPositionDisplay');
+    const enH = document.getElementById('indigencyPositionEn');
+    const tlH = document.getElementById('indigencyPositionTl');
+    if (!display || !enH || !tlH) return;
+    const v = (display.value || '').trim();
+    if (L === 'tagalog') {
+        tlH.value = v;
+    } else {
+        enH.value = v;
+    }
+}
+
+/** Ipakita ang EN o TL sa isang textbox depende sa Document Language. */
+function syncIndigencyPositionDisplayFromHidden() {
+    const lang = normalizeIndigencyLanguage(
+        document.getElementById('indigencyLanguage')?.value || selectedIndigencyLanguage || 'english'
+    );
+    const enH = document.getElementById('indigencyPositionEn');
+    const tlH = document.getElementById('indigencyPositionTl');
+    const disp = document.getElementById('indigencyPositionDisplay');
+    if (!disp || !enH || !tlH) return;
+    const en = (enH.value || '').trim();
+    const tl = (tlH.value || '').trim();
+    disp.value = lang === 'tagalog' ? (tl || en) : (en || tl);
+}
+
+/** Itakda ang para_kay / position inputs mula sa request (DB). */
+function applyIndigencyOfficialFieldsFromRequest(requestData) {
+    const pk = (requestData.para_kay || '').trim();
+    const pos = (requestData.position || '').trim();
+    const pkEl = document.getElementById('indigencyParaKay');
+    const enH = document.getElementById('indigencyPositionEn');
+    const tlH = document.getElementById('indigencyPositionTl');
+    if (pkEl) pkEl.value = pk;
+    const split = splitPositionEnTl(pos);
+    if (enH) enH.value = split.en || pos;
+    if (tlH) tlH.value = split.tl;
+}
+
+/** Label Position/Posisyon — isang field lang ang nakikita. */
+function updateIndigencyPositionBilingualDisplay() {
+    const lang = (document.getElementById('indigencyLanguage')?.value || selectedIndigencyLanguage || 'english');
+    const customMain = document.getElementById('indigencyPositionCustomMainLabel');
+    const hallLbl = document.getElementById('indigencyHallAddressLabel');
+
+    const posLabelText = lang === 'tagalog' ? 'Posisyon:' : 'Position:';
+
+    if (hallLbl) {
+        hallLbl.textContent = 'Hall Address:';
+    }
+    if (customMain) {
+        customMain.textContent = posLabelText;
+    }
+
+    syncIndigencyPositionDisplayFromHidden();
+    refreshIndigencyPreviewAddressee();
+}
+
+function refreshIndigencyPreviewAddressee() {
+    const block = document.getElementById('indigencyPreviewAddresseeBlock');
+    const linePk = document.getElementById('indigencyPreviewParaKayLine');
+    const linePos = document.getElementById('indigencyPreviewPositionLine');
+    const lineHall = document.getElementById('indigencyPreviewHallLine');
+    const lblPos = document.getElementById('indigencyPreviewPositionLabel');
+    if (!block || !linePk || !linePos || !lineHall) return;
+
+    const lang = normalizeIndigencyLanguage(
+        document.getElementById('indigencyLanguage')?.value || selectedIndigencyLanguage || 'english'
+    );
+    const p = collectIndigencyOfficialPayload();
+    const posDisplay = resolvePositionForLanguage(p.position, lang);
+
+    linePk.textContent = (p.para_kay || '').trim() || '—';
+    linePos.textContent = (posDisplay || '').trim() || '—';
+    lineHall.textContent = (p.hall_address || '').trim() || '—';
+    if (lblPos) {
+        lblPos.textContent = lang === 'tagalog' ? 'Posisyon:' : 'Position:';
+    }
+}
+
 // Function to populate the Indigency process form
-function populateIndigencyProcessForm(requestData) {
+function populateIndigencyProcessForm(requestData, opts = {}) {
     // Store the request data globally for language switching
     currentIndigencyRequestData = requestData;
+
+    unlockIndigencyAddresseeFields();
+
+    if (opts.preserveUiLanguage) {
+        const langSel = document.getElementById('indigencyLanguage');
+        if (langSel) {
+            selectedIndigencyLanguage = langSel.value;
+        }
+    } else {
+        const langRaw = String(requestData.document_language || '').toLowerCase();
+        if (langRaw === 'tagalog' || langRaw === 'english') {
+            selectedIndigencyLanguage = langRaw;
+            const langSel = document.getElementById('indigencyLanguage');
+            if (langSel) langSel.value = langRaw;
+        } else {
+            selectedIndigencyLanguage = 'english';
+            const langSel = document.getElementById('indigencyLanguage');
+            if (langSel) langSel.value = 'english';
+        }
+    }
     
     // Personal Information - individual name fields
     const firstName = (requestData.givenname || 'NO FIRST NAME').toUpperCase();
@@ -3679,6 +3845,15 @@ function populateIndigencyProcessForm(requestData) {
     const fullName = `${firstName} ${middleName} ${lastName}`.trim();
     if (fullNameElement) fullNameElement.value = fullName;
     if (fullNameElement2) fullNameElement2.value = fullName;
+
+    const hall = (requestData.hall_address || '').trim();
+    if (!opts.preserveOfficialFields) {
+        applyIndigencyOfficialFieldsFromRequest(requestData);
+        const hallEl = document.getElementById('indigencyHallAddress');
+        if (hallEl) hallEl.value = hall;
+    }
+    syncIndigencyOfficialFieldsUI();
+    applyIndigencyAddresseeLockState(requestData);
     
     // Store the request ID for later use
     document.getElementById('indigencyProcessForm').setAttribute('data-request-id', requestData.id);
@@ -3820,14 +3995,68 @@ function showIndigencyProcessModal() {
     // Add event listener for language selection when modal is shown
     const languageSelect = document.getElementById('indigencyLanguage');
     if (languageSelect && !languageSelect.hasAttribute('data-listener-added')) {
-        languageSelect.addEventListener('change', function() {
-            selectedIndigencyLanguage = this.value;
-            console.log('Language changed to:', selectedIndigencyLanguage);
-            
-            // Update the document preview based on selected language
-            updateIndigencyDocumentPreview(selectedIndigencyLanguage);
-        });
+        const onIndigencyLanguagePick = function () {
+            commitIndigencyPositionDisplayToHidden(selectedIndigencyLanguage);
+            const v = normalizeIndigencyLanguage(this.value);
+            selectedIndigencyLanguage = v;
+            if (this.value !== v) {
+                this.value = v;
+            }
+            console.log('Language changed to:', v);
+            updateIndigencyDocumentPreview(v);
+        };
+        languageSelect.addEventListener('change', onIndigencyLanguagePick);
+        languageSelect.addEventListener('input', onIndigencyLanguagePick);
         languageSelect.setAttribute('data-listener-added', 'true');
+    }
+
+    // Add listener for para_kay auto-fill
+    const pkInput = document.getElementById('indigencyParaKay');
+    if (pkInput && !pkInput.hasAttribute('data-autofill-listener')) {
+        pkInput.addEventListener('input', function() {
+            const val = this.value.trim();
+            const posEn = document.getElementById('indigencyPositionEn');
+            const posTl = document.getElementById('indigencyPositionTl');
+            const hall = document.getElementById('indigencyHallAddress');
+            const lang = document.getElementById('indigencyLanguage')?.value || 'english';
+
+            const officials = {
+                'Igg. DANIEL FERNANDO': {
+                    en: 'GOVERNOR',
+                    tl: 'GOBERNADOR',
+                    hall: 'PROVINCIAL CAPITOL, MALOLOS CITY, BULACAN'
+                },
+                'Igg. ADOR PLEYTO': {
+                    en: 'CONGRESSMAN',
+                    tl: 'KONGRESISTA',
+                    hall: 'HOUSE OF REPRESENTATIVES, QUEZON CITY'
+                },
+                'Igg. MARIA ELENA GERMAR': {
+                    en: 'MAYOR',
+                    tl: 'MAYORA',
+                    hall: 'MUNICIPAL HALL, NORZAGARAY, BULACAN'
+                }
+            };
+
+            if (officials[val]) {
+                if (posEn) posEn.value = officials[val].en;
+                if (posTl) posTl.value = officials[val].tl;
+                if (hall) hall.value = officials[val].hall;
+                syncIndigencyPositionDisplayFromHidden();
+                refreshIndigencyPreviewAddressee();
+            }
+        });
+        pkInput.setAttribute('data-autofill-listener', 'true');
+    }
+
+    const indigencyProcForm = document.getElementById('indigencyProcessForm');
+    if (indigencyProcForm && !indigencyProcForm.hasAttribute('data-preview-refresh-listener')) {
+        const bumpIndigencyPreview = () => {
+            refreshIndigencyPreviewAddressee();
+        };
+        indigencyProcForm.addEventListener('input', bumpIndigencyPreview);
+        indigencyProcForm.addEventListener('change', bumpIndigencyPreview);
+        indigencyProcForm.setAttribute('data-preview-refresh-listener', 'true');
     }
     
     // Update document preview to match current language selection
@@ -3849,16 +4078,28 @@ function showIndigencyProcessModal() {
 
 // Function to update document preview based on selected language
 function updateIndigencyDocumentPreview(language) {
-    const certificateText = document.querySelector('.certificate-text');
+    const lang = language === 'tagalog' ? 'tagalog' : 'english';
+    selectedIndigencyLanguage = lang;
+    const langSel = document.getElementById('indigencyLanguage');
+    if (langSel) {
+        langSel.value = lang;
+    }
+
+    const titleEl = document.getElementById('indigencyCertificatePreviewTitle');
+    if (titleEl) {
+        titleEl.textContent = lang === 'tagalog' ? 'SERTIPIKO NG KAWALANG-KALAKHAN' : 'CERTIFICATE OF INDIGENCY';
+    }
+
+    const certificateText = document.querySelector('#indigencyProcessModal .certificate-text');
     if (!certificateText) return;
-    
-    if (language === 'tagalog') {
-        // Tagalog template content - matches actual indigency_tagalog.docx
+
+    if (lang === 'tagalog') {
+        // Tagalog template — dapat tumugma sa indigency_tagalog.docx
         certificateText.innerHTML = `
             <p>PARA SA KINAUUKULAN:</p>
             
             <p>Ito ay pagpapatunay na si <strong><input type="text" id="indigProcessFirstName" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName" class="form-input inline-input" value="{{last_name}}"></strong>, 
-            lehitimong naninirahan sa Sityo <input type="text" id="indigProcessAddress" class="form-input inline-input" value="{{address}}"> n ay nabibilang sa isang mahirap na pamilya at walang sapat na kakayahan upang suportahan ang kanilang pangangailangan pang <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="{{purpose}}">.</p>
+            lehitimong naninirahan sa Sityo <input type="text" id="indigProcessAddress" class="form-input inline-input" value="{{address}}"> ay nabibilang sa isang mahirap na pamilya at walang sapat na kakayahan upang suportahan ang kanilang pangangailangan para sa <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="{{purpose}}">.</p>
             
             <p>Dahil dito sa kahilingan ni <strong><input type="text" id="indigProcessFirstName2" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName2" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName2" class="form-input inline-input" value="{{last_name}}"></strong> 
             ay ipinagkakaloob ko ang <strong>PAGPAPATUNAY</strong> na ito upang magamit sa <input type="text" id="indigProcessPurpose2" class="form-input inline-input" value="{{purpose}}">.</p>
@@ -3867,7 +4108,6 @@ function updateIndigencyDocumentPreview(language) {
             sa Bigte, Norzagaray, Bulacan.</p>
         `;
     } else {
-        // English template content
         certificateText.innerHTML = `
             <p>TO WHOM IT MAY CONCERN:</p>
             
@@ -3876,19 +4116,24 @@ function updateIndigencyDocumentPreview(language) {
             belongs to one of many indigent families of this barangay. The income of this family is barely enough to meet day to day needs.</p>
             
             <p>This certification is being issued upon the request of <strong><input type="text" id="indigProcessFirstName2" class="form-input inline-input" value="{{first_name}}"> <input type="text" id="indigProcessMiddleName2" class="form-input inline-input" value="{{middle_name}}"> <input type="text" id="indigProcessLastName2" class="form-input inline-input" value="{{last_name}}"></strong> 
-            to apply for <input type="text" id="indigProcessPurpose" class="form-input inline-input" value="{{purpose}}">.</p>
+            to apply for <input type="text" id="indigProcessPurpose2" class="form-input inline-input" value="{{purpose}}">.</p>
             
             <p>Issued this <input type="text" id="indigProcessCertificateDate" class="form-input inline-input" value="{{date_issued}}"> 
             at Bigte, Norzagaray, Bulacan.</p>
         `;
     }
-    
-    // Re-populate the data after updating the template
+
     if (currentIndigencyRequestData) {
-        populateIndigencyProcessForm(currentIndigencyRequestData);
+        populateIndigencyProcessForm(currentIndigencyRequestData, {
+            preserveUiLanguage: true,
+            preserveOfficialFields: true
+        });
+    } else {
+        refreshIndigencyPreviewAddressee();
+        updateIndigencyPositionBilingualDisplay();
     }
-    
-    console.log('Document preview updated to:', language);
+
+    console.log('Document preview updated to:', lang);
 }
 
 // Function to close the Indigency process modal without resetting language
@@ -3934,8 +4179,9 @@ async function doneIndigencyProcess() {
         return;
     }
     
-    // Use the stored language value
-    const selectedLanguage = selectedIndigencyLanguage || 'english';
+    const langSelDone = document.getElementById('indigencyLanguage');
+    const selectedLanguage = normalizeIndigencyLanguage(langSelDone ? langSelDone.value : selectedIndigencyLanguage);
+    selectedIndigencyLanguage = selectedLanguage;
     
     try {
         // Show loading modal
@@ -3945,6 +4191,7 @@ async function doneIndigencyProcess() {
         const formData = new FormData();
         formData.append('requestId', requestId);
         formData.append('language', selectedLanguage);
+        appendIndigencyOfficialFieldsToFormData(formData);
         
         const response = await fetch('php/generateIndigencyDocument.php', {
             method: 'POST',
@@ -4020,6 +4267,8 @@ function closeIndigencyProcessModal() {
         
         // Clear any form data that might have been modified
         form.reset();
+        syncIndigencyOfficialFieldsUI();
+        unlockIndigencyAddresseeFields();
     }
     
     // Clear any processing state or loading indicators
@@ -4034,6 +4283,30 @@ function closeIndigencyProcessModal() {
 
 // Global variable to store selected language
 let selectedIndigencyLanguage = 'english';
+
+function collectIndigencyOfficialPayload() {
+    commitIndigencyPositionDisplayToHidden(
+        document.getElementById('indigencyLanguage')?.value || selectedIndigencyLanguage || 'english'
+    );
+    const hallEl = document.getElementById('indigencyHallAddress');
+    const hall = (hallEl && hallEl.value ? hallEl.value : '').trim();
+    const pk = (document.getElementById('indigencyParaKay')?.value || '').trim();
+    const posEn = (document.getElementById('indigencyPositionEn')?.value || '').trim();
+    const posTl = (document.getElementById('indigencyPositionTl')?.value || '').trim();
+    const positionStorage = (posEn && posTl) ? `${posEn} / ${posTl}` : (posEn || posTl);
+    return { para_kay: pk, position: positionStorage, hall_address: hall };
+}
+
+function syncIndigencyOfficialFieldsUI() {
+    updateIndigencyPositionBilingualDisplay();
+}
+
+function appendIndigencyOfficialFieldsToFormData(formData) {
+    const p = collectIndigencyOfficialPayload();
+    formData.append('para_kay', p.para_kay);
+    formData.append('position', p.position);
+    formData.append('hall_address', p.hall_address);
+}
 
 // Global variable to store the current processing button
 let currentProcessingButton = null;
@@ -4126,10 +4399,10 @@ async function generateIndigencyFromForm() {
             throw new Error('No request ID found');
         }
 
-        // Use the stored language value
-        console.log('Using stored language:', selectedIndigencyLanguage);
-        
-        const selectedLanguage = selectedIndigencyLanguage;
+        const langSelGen = document.getElementById('indigencyLanguage');
+        const selectedLanguage = normalizeIndigencyLanguage(langSelGen ? langSelGen.value : selectedIndigencyLanguage);
+        selectedIndigencyLanguage = selectedLanguage;
+        console.log('Using stored language:', selectedLanguage);
 
         // Show loading modal
         showStatusModal('info', 'Generating Document', 'Creating Indigency certificate from template...');
@@ -4142,6 +4415,7 @@ async function generateIndigencyFromForm() {
         formData.append('requestId', requestId);
         formData.append('documentType', 'indigency');
         formData.append('language', selectedLanguage);
+        appendIndigencyOfficialFieldsToFormData(formData);
         
         const response = await fetch('php/generateIndigencyDocument.php', {
             method: 'POST',
@@ -4564,12 +4838,25 @@ async function updateRequestStatus(requestId, newStatus, tableName = 'barangay_i
     }
 }
 
+/** Turn relative upload paths into absolute URLs so downloads work from any entry page. */
+function resolveDownloadUrl(url) {
+    if (!url) return url;
+    const s = String(url).trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    if (s.startsWith('/')) return window.location.origin + s;
+    try {
+        return new URL(s, window.location.href).href;
+    } catch (e) {
+        return s;
+    }
+}
+
 // Utility function to trigger a file download
 function triggerFileDownload(url, filename = null) {
     if (!url) return;
     
     const downloadLink = document.createElement('a');
-    downloadLink.href = url;
+    downloadLink.href = resolveDownloadUrl(url);
     if (filename) {
         downloadLink.download = filename;
     } else {
@@ -4650,15 +4937,16 @@ function showStatusModal(type, title, message, downloadUrl = null, autoClose = f
     };
     
     if (downloadUrl && type === 'success') {
+        const absoluteUrl = resolveDownloadUrl(downloadUrl);
         if (autoClose) {
             // Auto-download after closing
             swalConfig.didClose = () => {
                 // Auto-download the document
-                triggerFileDownload(downloadUrl);
+                triggerFileDownload(absoluteUrl);
             };
         } else {
             swalConfig.preConfirm = () => {
-                window.open(downloadUrl, '_blank');
+                window.open(absoluteUrl, '_blank');
             };
         }
     }
@@ -6102,6 +6390,15 @@ function renderIndigencyCards(forms) {
 }
 
 function populateAndShowIndigencyModal(row) {
+	const langRaw = String(row.document_language || '').toLowerCase();
+	let langLabel = '—';
+	if (langRaw === 'english') langLabel = 'English';
+	else if (langRaw === 'tagalog') langLabel = 'Tagalog';
+	const langEl = document.getElementById('indigDocLanguagePreview');
+	if (langEl) langEl.value = langLabel;
+	const pkEl = document.getElementById('indigParaKayPreview');
+	if (pkEl) pkEl.value = (row.para_kay || '').trim() || '—';
+
 	// Personal info
 	document.getElementById('indigFirstName').value = row.givenname || '';
 	document.getElementById('indigMiddleName').value = row.middlename || '';
