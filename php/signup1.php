@@ -184,7 +184,7 @@ function getSlotStatus($pdo) {
 function sendOTPEmail($email, $name, $otpCode) {
     if (!rich_smtp_configured()) {
         error_log(
-            'sendOTPEmail: SMTP not configured. In the project root .env set SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL (see .env.example). Gmail: use an App Password (Google Account → Security → 2-Step Verification → App passwords), not your normal password.'
+            'sendOTPEmail: SMTP not configured. In the project root .env set SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL. Gmail: use an App Password (Google Account → Security → 2-Step Verification → App passwords), not your normal password.'
         );
         return false;
     }
