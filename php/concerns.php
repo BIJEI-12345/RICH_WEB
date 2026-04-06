@@ -12,23 +12,42 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Include configuration file
-require_once 'config.php';
+// Same session storage as login.php / userSession.php (required or PHP uses a different save path and loses login)
+require_once __DIR__ . '/init_session.php';
+require_once __DIR__ . '/config.php';
 
-// Start session for permission checks
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    rich_session_start();
+}
+
+function rich_session_position_normalized() {
+    if (!isset($_SESSION['position'])) {
+        return '';
+    }
+    return strtolower(trim((string) $_SESSION['position']));
+}
+
+function rich_session_is_admin() {
+    $p = rich_session_position_normalized();
+    return $p === 'admin' || $p === 'administrator';
+}
+
+function rich_session_is_concerns_reporting_role() {
+    $p = preg_replace('/\s+/', ' ', rich_session_position_normalized());
+    return $p === 'concerns & reporting' || $p === 'concern & reporting';
 }
 
 // Simple permission helper mirrored with frontend rules
 function canEdit($module) {
-    $position = isset($_SESSION['position']) ? strtolower($_SESSION['position']) : '';
-    if ($position === 'admin') return true;
+    if (rich_session_is_admin()) {
+        return true;
+    }
+    $position = rich_session_position_normalized();
     if ($module === 'reqDocu') {
         return $position === 'document request category';
     }
     if ($module === 'concerns') {
-        return $position === 'concerns & reporting';
+        return rich_session_is_concerns_reporting_role();
     }
     if ($module === 'emergency') {
         return ($position === 'emergency' || $position === 'emergency category');
@@ -36,199 +55,280 @@ function canEdit($module) {
     return false;
 }
 
-// Function to analyze statement and determine risk level using Groq AI
-function analyzeRiskLevel($statement) {
-    if (empty($statement) || strlen(trim($statement)) < 5) {
-        return 'low'; // Default to low for empty or very short statements
-    }
-    
-    $statementLower = mb_strtolower($statement, 'UTF-8');
-    
-    // ========================================================================
-    // KEYWORD-BASED PRE-CHECK FOR HIGH RISK SCENARIOS
-    // Safety-critical: Injuries, accidents, emergencies requiring immediate response
-    // ========================================================================
-    
-    // High risk keywords - check these FIRST for public safety
+/**
+ * Keyword-only HIGH detection (used when Groq is unavailable or fails).
+ */
+function concernStatementIndicatesHighRiskByKeywords($statementLower) {
     $highRiskKeywords = [
-        // Injuries and medical emergencies
         'nabagok', 'natamaan', 'nabunggo', 'nabugbog', 'nabasag', 'nasugatan', 'nasaktan', 'nabalian',
-        'nabali', 'naputol', 'nabugbog', 'nasaktan', 'nasugatan', 'nakagat', 'natapilok',
+        'nabali', 'naputol', 'nakagat', 'natapilok',
         'hospital', 'emergency', 'nahihimatay', 'dumudugo', 'unconscious', 'kailangan ng doktor',
-        'may nasugatan', 'may nasaktan', 'may nasugatan', 'may nasugatan', 'may sugat',
-        // Vehicle accidents
+        'may nasugatan', 'may nasaktan', 'may sugat',
+        'sakuna', 'trahedya', 'disgrasya', 'malubhang aksidente',
         'nadulas na motor', 'nadulas na sasakyan', 'naaksidente', 'nabangga', 'nabunggo na motor',
-        'nabunggo na sasakyan', 'accident', 'naaksidente', 'crash', 'collision', 'natumba',
+        'nabunggo na sasakyan', 'accident', 'crash', 'collision', 'natumba',
         'may aksidente', 'may nabangga', 'may nabunggo',
-        // Fire and structural emergencies
         'sunog', 'fire', 'nagliliyab', 'burning', 'nasusunog', 'may sunog', 'nagkasunog',
-        // Violence and fights
         'nag-away', 'nagaway', 'may away', 'may nag-away', 'may nagaway', 'may nananakit',
         'may nagbabangga', 'violence', 'nag-away at may nasaktan', 'nagaway at may nasugatan',
-        // Structural collapse
         'gumuguho', 'nagguho', 'bumagsak', 'nabagsak', 'nagiba', 'nagiba na bahay',
         'nagiba na gusali', 'collapse', 'collapsed', 'may gumuguho',
-        // Head injuries (specific safety concern)
         'nabagok ang ulo', 'natamaan ang ulo', 'nabunggo ang ulo', 'nabugbog ang ulo',
-        'nasaktan ang ulo', 'nasugatan ang ulo', 'nabalian ng ulo'
+        'nasaktan ang ulo', 'nasugatan ang ulo', 'nabalian ng ulo',
+        'kuryente', 'nakakuryente', 'nakuryente', 'electrocution', 'electrical shock',
+        'nagliyab ang kuryente', 'sunog sa kuryente', 'electrical fire',
+        'live wire', 'exposed wire', 'nakalutang na wire', 'poste ng kuryente',
+        'transformer', 'power line', 'high voltage',
+        'nasira ang tulay', 'sira ang tulay', 'delikadong tulay', 'delikadong imprastraktura',
+        'delikadong istruktura', 'mabagsak na gusali', 'gumuho ang kalsada'
     ];
     
-    // Check for HIGH risk keywords - IMMEDIATE RETURN for safety
     foreach ($highRiskKeywords as $keyword) {
         if (mb_stripos($statementLower, $keyword) !== false) {
-            return 'high'; // CRITICAL: Safety emergencies are always HIGH risk
+            return true;
         }
     }
     
-    // Additional checks for compound high-risk phrases
-    // Head injury patterns
-    if ((mb_stripos($statementLower, 'ulo') !== false || mb_stripos($statementLower, 'head') !== false) 
-        && (mb_stripos($statementLower, 'nabagok') !== false || mb_stripos($statementLower, 'natamaan') !== false 
+    if ((mb_stripos($statementLower, 'ulo') !== false || mb_stripos($statementLower, 'head') !== false)
+        && (mb_stripos($statementLower, 'nabagok') !== false || mb_stripos($statementLower, 'natamaan') !== false
             || mb_stripos($statementLower, 'nabunggo') !== false || mb_stripos($statementLower, 'nasugatan') !== false
             || mb_stripos($statementLower, 'nasaktan') !== false)) {
-        return 'high';
+        return true;
     }
     
-    // Vehicle accident patterns
-    if ((mb_stripos($statementLower, 'motor') !== false || mb_stripos($statementLower, 'motorcycle') !== false 
+    if ((mb_stripos($statementLower, 'motor') !== false || mb_stripos($statementLower, 'motorcycle') !== false
         || mb_stripos($statementLower, 'sasakyan') !== false || mb_stripos($statementLower, 'vehicle') !== false)
         && (mb_stripos($statementLower, 'nadulas') !== false || mb_stripos($statementLower, 'accident') !== false
             || mb_stripos($statementLower, 'nabangga') !== false || mb_stripos($statementLower, 'nabunggo') !== false
             || mb_stripos($statementLower, 'crash') !== false || mb_stripos($statementLower, 'collision') !== false)) {
-        return 'high';
+        return true;
     }
     
-    // ========================================================================
-    // KEYWORD-BASED PRE-CHECK FOR MEDIUM RISK SCENARIOS
-    // Infrastructure and service problems affecting daily life and public service
-    // ========================================================================
+    if ((mb_stripos($statementLower, 'tulay') !== false || mb_stripos($statementLower, 'bridge') !== false)
+        && (mb_stripos($statementLower, 'nasira') !== false || mb_stripos($statementLower, 'sira') !== false
+            || mb_stripos($statementLower, 'delikado') !== false || mb_stripos($statementLower, 'gumuho') !== false)) {
+        return true;
+    }
     
-    $mediumRiskKeywords = [
-        // Drainage and sewer problems (critical for public health)
-        'barado', 'baradong', 'blocked', 'blockage', 'drainage', 'drain', 'kanal', 'sewer',
-        'baradong kanal', 'baradong drainage', 'barado ang kanal', 'barado ang drainage',
-        'blocked drainage', 'blocked kanal', 'blocked sewer', 'blocked drain',
-        // Infrastructure damage (affects public safety)
-        'sira ang', 'sira ang ilaw', 'broken', 'damaged', 'nasira', 'nasira ang',
-        'sira ang poste', 'sira ang ilaw sa kalye', 'sira ang streetlight',
-        'broken light', 'broken streetlight', 'broken lamp post',
-        // Water leaks (waste and safety hazard)
-        'may tumutulo', 'tumutulo', 'leak', 'leaking', 'water leak',
-        'may tumutulo na tubig', 'tumutulo ang tubig', 'may leak sa tubig',
-        'leaking water', 'leaking pipe', 'water pipe leak',
-        // Road problems (traffic and safety)
-        'may lubak', 'lubak', 'pothole', 'potholes', 'damaged road',
-        'may lubak sa kalsada', 'may pothole', 'may potholes', 'may damaged road',
-        'damaged kalsada', 'sira ang kalsada', 'nasira ang kalsada',
-        // Street lighting (public safety at night)
-        'walang ilaw', 'wala ng ilaw', 'streetlight', 'street light', 'streetlight broken',
-        'walang ilaw sa kalye', 'wala ng streetlight', 'sira ang streetlight',
-        'broken streetlight', 'damaged streetlight',
-        // Garbage collection (public health)
-        'hindi nakolekta', 'nakolekta', 'garbage', 'basura', 'trash',
-        'hindi nakolekta ang basura', 'hindi nakolekta ang garbage', 'hindi nakolekta ang trash',
-        'walang nagkokolekta ng basura', 'walang nagkokolekta ng garbage',
-        // Water supply problems (basic necessity)
-        'walang tubig', 'wala ng tubig', 'water supply', 'problema sa tubig',
-        'walang tubig sa area', 'wala ng tubig supply', 'problema sa tubig supply',
-        'walang tubig sa lugar', 'wala ng tubig sa amin',
-        // Noise and traffic issues (quality of life)
-        'may ingay', 'ingay', 'noise', 'trapiko', 'traffic',
-        'may ingay gabi-gabi', 'may ingay sa gabi', 'may malakas na ingay',
-        'problema sa trapiko', 'problema sa traffic', 'heavy traffic',
-        // Property damage (public property)
-        'vandalism', 'graffiti', 'nasira ang', 'damaged',
-        'may vandalism', 'may graffiti', 'nasira ang public property',
-        'damaged public facility', 'damaged bench', 'damaged playground',
-        // Environmental issues (flooding affects public safety)
-        'may baha', 'baha', 'flooding', 'flood',
-        'may baha sa area', 'may flooding', 'may flood', 'baha sa lugar',
-        // Sidewalk and walkway damage (pedestrian safety)
-        'sidewalk', 'walkway', 'damaged sidewalk', 'damaged walkway',
-        'sira ang sidewalk', 'nasira ang sidewalk', 'sira ang walkway',
-        'broken sidewalk', 'broken walkway',
-        // Additional infrastructure problems
-        'may problema sa', 'problema sa', 'may issue sa',
-        'hindi gumagana', 'not working', 'may sira'
+    if ((mb_stripos($statementLower, 'imprastraktura') !== false || mb_stripos($statementLower, 'istruktura') !== false)
+        && (mb_stripos($statementLower, 'delikado') !== false || mb_stripos($statementLower, 'mabagsak') !== false
+            || mb_stripos($statementLower, 'gumuho') !== false || mb_stripos($statementLower, 'bumagsak') !== false)) {
+        return true;
+    }
+    
+    $imminentHarmKeywords = [
+        'nakakamatay', 'panganib sa buhay', 'delikado ang buhay', 'malubhang pinsala',
+        'life-threatening', 'critical condition', 'nagbabanta ng patay', 'may baril',
+        'may sandata', 'hostage', 'kidnap', 'nakakulong na biktima',
+        'banta sa buhay', 'binabanta', 'pagbabanta', 'pagbabanta ng', 'binanta',
+        'may biktima', 'maraming nasaktan'
     ];
-    
-    // Check for MEDIUM risk keywords - if found, return MEDIUM immediately
-    foreach ($mediumRiskKeywords as $keyword) {
+    foreach ($imminentHarmKeywords as $keyword) {
         if (mb_stripos($statementLower, $keyword) !== false) {
-            return 'medium'; // Infrastructure/service problems affecting public service are MEDIUM risk
+            return true;
         }
     }
     
-    // Check if API key is defined
-    if (!defined('GROQ_API_KEY')) {
-        error_log("GROQ_API_KEY not defined");
-        return 'low'; // Default to low if API key not available
+    // Fallen / damaged utility pole with electrical hazard cues
+    if (mb_stripos($statementLower, 'poste') !== false) {
+        if (mb_stripos($statementLower, 'wire') !== false
+            || mb_stripos($statementLower, 'kawad') !== false
+            || mb_stripos($statementLower, 'naputol') !== false
+            || mb_stripos($statementLower, 'kuryente') !== false
+            || mb_stripos($statementLower, 'transformer') !== false
+            || mb_stripos($statementLower, 'high voltage') !== false) {
+            return true;
+        }
+        if (mb_stripos($statementLower, 'natumba') !== false
+            || mb_stripos($statementLower, 'tumumba') !== false
+            || mb_stripos($statementLower, 'bumagsak') !== false
+            || mb_stripos($statementLower, 'nabagsak') !== false) {
+            return true;
+        }
     }
     
-    $apiKey = GROQ_API_KEY;
-    // Groq AI API endpoint
+    return false;
+}
+
+/**
+ * Road / public infrastructure / local environment issues that should be at least MEDIUM (not LOW).
+ * Used after Groq when the model under-rates, and for re-analysis of stored LOW concerns.
+ */
+function concernStatementIndicatesMediumInfrastructureOrEnvironment($statementLower) {
+    if (concernStatementIndicatesHighRiskByKeywords($statementLower)) {
+        return false;
+    }
+    $phrases = [
+        'sirang kalsada', 'sirang kalye', 'sirang daan', 'sirang imprastraktura', 'sirang calsada',
+        'sira ang kalsada', 'nasira ang kalsada', 'problema sa kalsada', 'kalsadang sira',
+        'butas sa kalsada', 'may butas sa kalsada', 'maraming lubak', 'kalat sa kalsada',
+    ];
+    foreach ($phrases as $p) {
+        if (mb_stripos($statementLower, $p) !== false) {
+            return true;
+        }
+    }
+    $hasRoad = mb_stripos($statementLower, 'kalsada') !== false
+        || mb_stripos($statementLower, 'kalye') !== false
+        || mb_stripos($statementLower, 'highway') !== false;
+    if ($hasRoad) {
+        if (mb_stripos($statementLower, 'sirang') !== false
+            || mb_stripos($statementLower, 'nasira') !== false
+            || mb_stripos($statementLower, 'sira ang') !== false
+            || mb_stripos($statementLower, 'lubak') !== false
+            || mb_stripos($statementLower, 'butas') !== false) {
+            return true;
+        }
+        if (mb_stripos($statementLower, 'truck') !== false
+            || mb_stripos($statementLower, 'trailer') !== false
+            || mb_stripos($statementLower, 'dump truck') !== false) {
+            return true;
+        }
+    }
+    if (mb_stripos($statementLower, 'kapaligiran') !== false) {
+        if (mb_stripos($statementLower, 'basura') !== false
+            || mb_stripos($statementLower, 'marumi') !== false
+            || mb_stripos($statementLower, 'usok') !== false
+            || mb_stripos($statementLower, 'pollution') !== false
+            || (mb_stripos($statementLower, 'tubig') !== false && mb_stripos($statementLower, 'marumi') !== false)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function getMediumRiskKeywordsForConcernFallback() {
+    return [
+        'barado', 'baradong', 'blocked', 'blockage', 'drainage', 'drain', 'kanal', 'sewer',
+        'baradong kanal', 'baradong drainage', 'barado ang kanal', 'barado ang drainage',
+        'blocked drainage', 'blocked kanal', 'blocked sewer', 'blocked drain',
+        'sira ang', 'sira ang ilaw', 'broken', 'damaged', 'nasira', 'nasira ang',
+        'sira ang poste', 'sira ang ilaw sa kalye', 'sira ang streetlight',
+        'broken light', 'broken streetlight', 'broken lamp post',
+        'may tumutulo', 'tumutulo', 'leak', 'leaking', 'water leak',
+        'may tumutulo na tubig', 'tumutulo ang tubig', 'may leak sa tubig',
+        'leaking water', 'leaking pipe', 'water pipe leak',
+        'may lubak', 'lubak', 'pothole', 'potholes', 'damaged road',
+        'may lubak sa kalsada', 'may pothole', 'may potholes', 'may damaged road',
+        'damaged kalsada', 'sira ang kalsada', 'nasira ang kalsada',
+        'sirang kalsada', 'sirang kalye', 'sirang daan', 'problema sa kalsada', 'kalsadang sira',
+        'walang ilaw', 'wala ng ilaw', 'streetlight', 'street light', 'streetlight broken',
+        'walang ilaw sa kalye', 'wala ng streetlight', 'sira ang streetlight',
+        'broken streetlight', 'damaged streetlight',
+        'hindi nakolekta', 'nakolekta', 'garbage', 'basura', 'trash',
+        'hindi nakolekta ang basura', 'hindi nakolekta ang garbage', 'hindi nakolekta ang trash',
+        'walang nagkokolekta ng basura', 'walang nagkokolekta ng garbage',
+        'walang tubig', 'wala ng tubig', 'water supply', 'problema sa tubig',
+        'walang tubig sa area', 'wala ng tubig supply', 'problema sa tubig supply',
+        'walang tubig sa lugar', 'wala ng tubig sa amin',
+        'may ingay', 'ingay', 'noise', 'trapiko', 'traffic',
+        'may ingay gabi-gabi', 'may ingay sa gabi', 'may malakas na ingay',
+        'problema sa trapiko', 'problema sa traffic', 'heavy traffic',
+        'vandalism', 'graffiti', 'nasira ang', 'damaged',
+        'may vandalism', 'may graffiti', 'nasira ang public property',
+        'damaged public facility', 'damaged bench', 'damaged playground',
+        'may baha', 'baha', 'flooding', 'flood',
+        'may baha sa area', 'may flooding', 'may flood', 'baha sa lugar',
+        'sidewalk', 'walkway', 'damaged sidewalk', 'damaged walkway',
+        'sira ang sidewalk', 'nasira ang sidewalk', 'sira ang walkway',
+        'broken sidewalk', 'broken walkway',
+        'may problema sa', 'problema sa', 'may issue sa',
+        'hindi gumagana', 'not working', 'may sira'
+    ];
+}
+
+// Groq first when API key is set; keyword fallback when key missing or Groq fails
+function analyzeRiskLevel($statement) {
+    if (empty($statement) || strlen(trim($statement)) < 5) {
+        return 'low';
+    }
+    
+    $statementLower = mb_strtolower($statement, 'UTF-8');
+    $mediumRiskKeywords = getMediumRiskKeywordsForConcernFallback();
+    
+    $apiKey = (defined('GROQ_API_KEY') && GROQ_API_KEY !== '') ? trim((string) GROQ_API_KEY) : '';
+    if ($apiKey !== '') {
+        $groqLevel = groqClassifyConcernRiskFromStatement($statement, $apiKey);
+        if ($groqLevel !== null) {
+            // Safety net: keyword HIGH overrides Groq low/medium (model can misclassify life-safety cases)
+            if (concernStatementIndicatesHighRiskByKeywords($statementLower)) {
+                return 'high';
+            }
+            // Road / infrastructure / environment: Groq sometimes returns LOW — bump to MEDIUM when cues match
+            if ($groqLevel === 'low' && concernStatementIndicatesMediumInfrastructureOrEnvironment($statementLower)) {
+                return 'medium';
+            }
+            return $groqLevel;
+        }
+        error_log('Groq risk classification failed; using keyword fallback');
+    }
+    
+    if (concernStatementIndicatesHighRiskByKeywords($statementLower)) {
+        return 'high';
+    }
+    
+    foreach ($mediumRiskKeywords as $keyword) {
+        if (mb_stripos($statementLower, $keyword) !== false) {
+            return 'medium';
+        }
+    }
+    
+    return 'low';
+}
+
+/**
+ * Classify concern risk via Groq OpenAI-compatible Chat Completions API.
+ * Returns low|medium|high or null on HTTP/parse failure.
+ */
+function groqClassifyConcernRiskFromStatement($statement, $apiKey) {
     $apiUrl = 'https://api.groq.com/openai/v1/chat/completions';
     
-    // Create prompt for reasonable and appropriate risk assessment for barangay concerns
-    $prompt = "You are analyzing a barangay (community) resident concern statement. Classify the risk level as LOW, MEDIUM, or HIGH based on actual severity and urgency.\n\n";
+    $prompt = "You classify a barangay (community) resident's concern statement for triage. Base your answer ONLY on the statement text.\n\n";
     
-    $prompt .= "RISK LEVEL CLASSIFICATION FOR BARANGAY CONCERNS:\n\n";
+    $prompt .= "HIGH — Mataas na tyansa ng kapahamakan sa tao (serious harm, imminent danger, or life-safety emergency):\n";
+    $prompt .= "- May nasaktan, nasugatan, biktima, malubhang pinsala, sakuna/trahedya/disgrasya na may panganib sa tao\n";
+    $prompt .= "- Sunog, medical emergency, himatay, malubhang pagdurugo, karahasan na may nasaktan\n";
+    $prompt .= "- KURYENTE / electrical hazard: nakakuryente, bukas o live na kawad, poste/transformer na natumba o nagliyab, sunog dahil sa kuryente, high voltage na delikado sa publiko\n";
+    $prompt .= "- NASIRANG IMPRASTRAKTURA na puwedeng magdulot ng malubhang pinsala o kamatayan: gumuguhong gusali/tulay, tulay o kalsadang delikado at mabagsak, istruktura na malapit nang bumagsak\n";
+    $prompt .= "- BANTA SA BUHAY, pagbabanta, hostage, kidnapan, may baril/sandata, life-threatening na sitwasyon\n";
+    $prompt .= "English: electrocution risk, fallen power lines, electrical fire, bridge/building collapse risk, disaster with casualties.\n\n";
     
-    $prompt .= "HIGH RISK - Serious emergencies requiring immediate response:\n";
-    $prompt .= "- Physical injuries to people: head injuries, broken bones, wounds requiring medical attention\n";
-    $prompt .= "- Vehicle accidents with people involved: motorcycle accidents, car crashes with injuries\n";
-    $prompt .= "- Medical emergencies: unconscious person, severe bleeding, life-threatening conditions\n";
-    $prompt .= "- Fires: active fires, burning structures\n";
-    $prompt .= "- Violence or fights with injuries: physical altercations resulting in harm\n";
-    $prompt .= "- Structural collapse: buildings or structures falling or in danger of falling\n";
-    $prompt .= "Examples: 'nabagok ang ulo', 'nadulas na motor at may nasugatan', 'may sunog sa bahay', 'may nag-away at may nasaktan'\n\n";
+    $prompt .= "MEDIUM — Hindi masyadong direktang malubhang kapahamakan sa tao kumpara sa HIGH, pero may tunay na problema sa serbisyo o imprastraktura o kapaligiran:\n";
+    $prompt .= "- Baradong kanal, tumutulo na tubig (hindi electrical), ordinaryong sira ng streetlight, lubak, walang tubig, basura, ingay, trapiko\n";
+    $prompt .= "- SIRANG o NASIRANG KALSADA / KALYE / DAAN: kasama kung dahil sa mabibigat na sasakyan, malalaking truck, dump truck, o pasada — palaging MEDIUM (hindi LOW)\n";
+    $prompt .= "- Halimbawa MEDIUM: 'Sirang kalsada dahil sa malalaking truck na dumadaan', 'may lubak sa kalsada', 'sira ang kalye'\n";
+    $prompt .= "- Baha o ulan na abala kung hindi inilarawan bilang delikado sa buhay o guho\n";
+    $prompt .= "- Isyu sa kapaligiran (basura, maruming tubig, usok) na nangangailangan ng aksyon ng barangay — MEDIUM kung may konkretong problema\n";
+    $prompt .= "- Sira sa pasilidad na hindi tinutukoy na may kuryente o delikadong pagbagsak\n";
+    $prompt .= "HINDI MEDIUM kung may malinaw na panganib sa kuryente o banta sa buhay — doon ay HIGH.\n\n";
     
-    $prompt .= "MEDIUM RISK - Problems causing inconvenience, need attention within days (THIS IS THE MOST COMMON LEVEL FOR BARANGAY CONCERNS):\n";
-    $prompt .= "- Infrastructure issues: water leaks ('may tumutulo na tubig'), broken street lights ('sira ang ilaw sa kalye'), damaged roads ('may lubak sa kalsada'), blocked drainage ('barado ang kanal'), potholes on roads\n";
-    $prompt .= "- Public services: garbage not collected ('hindi nakolekta ang basura'), persistent noise ('may ingay gabi-gabi'), parking issues, water supply problems ('walang tubig' or 'mahina ang tubig'), electricity issues\n";
-    $prompt .= "- Property damage: broken street signs, damaged public facilities, vandalism, damaged benches or playground equipment\n";
-    $prompt .= "- Ongoing problems: issues that disrupt daily activities but are not emergencies ('nakakaabala', 'hindi makadaan', 'problema sa trapiko')\n";
-    $prompt .= "- Safety concerns: dark areas without lights, slippery walkways, low-hanging wires, damaged sidewalks (non-immediate danger)\n";
-    $prompt .= "- Environmental issues: flooding ('may baha'), drainage problems, water accumulation, stagnant water\n";
-    $prompt .= "KEY INDICATORS FOR MEDIUM: Problems that need repair, affect daily activities, cause inconvenience, visible issues requiring action\n";
-    $prompt .= "Examples: 'may tumutulo na tubig sa poste', 'sira ang ilaw sa kalye', 'barado ang kanal', 'hindi nakolekta ang basura ng ilang araw na', 'may ingay gabi-gabi', 'may problema sa tubig', 'may lubak sa kalsada', 'sira ang sidewalk'\n\n";
+    $prompt .= "LOW — Minor concerns lamang:\n";
+    $prompt .= "- Tanong, permiso, dokumento, suggestion, kosmetiko/aesthetic, napakaliit na isyu na walang malinaw na panganib o abala sa serbisyo\n\n";
     
-    $prompt .= "LOW RISK - Minor issues, routine requests, can wait weeks/months with no impact:\n";
-    $prompt .= "- Simple requests: permit applications ('gusto ko pong kumuha ng permit'), information inquiries ('tanong lang po'), document requests\n";
-    $prompt .= "- Minor complaints: very small potholes, minor graffiti, cosmetic issues, aesthetic improvements, landscaping suggestions\n";
-    $prompt .= "- Non-urgent matters: suggestions for improvement, routine maintenance requests, planning matters, general feedback\n";
-    $prompt .= "- Administrative: general inquiries, clarifications, non-critical requests, simple questions\n";
-    $prompt .= "- No impact on daily activities or safety\n";
-    $prompt .= "Examples: 'gusto ko pong magtanong tungkol sa permit', 'tanong lang po tungkol sa', 'suggestion lang po para sa improvement', 'may tanong ako'\n\n";
+    $prompt .= "RULES:\n";
+    $prompt .= "- Use HIGH for electricity hazards, life threats, serious injury/victims, disasters implying harm, or critically dangerous damaged infrastructure.\n";
+    $prompt .= "- Use MEDIUM for routine public works issues without those HIGH signals.\n";
+    $prompt .= "- NEVER use LOW for damaged roads, potholes, or heavy vehicles damaging streets — those are MEDIUM.\n";
+    $prompt .= "- Use LOW only for inquiries or trivial matters.\n";
+    $prompt .= "- If unsure between LOW and MEDIUM, prefer MEDIUM when a concrete public problem is described.\n\n";
     
-    $prompt .= "IMPORTANT GUIDELINES:\n";
-    $prompt .= "- MEDIUM RISK is the MOST COMMON level for barangay infrastructure and service problems\n";
-    $prompt .= "- If the statement describes a problem that needs repair or affects daily life, it's usually MEDIUM\n";
-    $prompt .= "- HIGH should ONLY be for real emergencies (injuries, fires, accidents with harm)\n";
-    $prompt .= "- LOW is ONLY for simple requests/inquiries or very minor issues with no real impact\n";
-    $prompt .= "- When between LOW and MEDIUM, choose MEDIUM (most concerns are MEDIUM)\n";
-    $prompt .= "- If it mentions broken/fixed infrastructure, service problems, or visible issues = MEDIUM\n";
-    $prompt .= "- If it's just asking a question or making a suggestion = LOW\n\n";
-    
-    $prompt .= "ANALYSIS STEPS:\n";
-    $prompt .= "1. Is there injury to a person, fire, medical emergency, or violence with harm? → If YES = HIGH\n";
-    $prompt .= "2. If NO to step 1: Does this describe a problem (broken, damaged, leaking, blocked, missing service, noise, etc.) that needs attention? → If YES = MEDIUM (this is common)\n";
-    $prompt .= "3. If NO to both: Is this just a simple question, request, or suggestion with no problem described? → If YES = LOW\n\n";
-    
-    $prompt .= "Statement: \"" . addslashes($statement) . "\"\n\n";
-    $prompt .= "Analyze this barangay concern statement carefully. Remember: MEDIUM is the most common level for problems that need repair or affect daily activities.\n";
-    $prompt .= "Respond with ONLY one word: low, medium, or high";
+    $prompt .= "Statement:\n\"" . addslashes($statement) . "\"\n\n";
+    $prompt .= "Reply with exactly one word, lowercase: low, medium, or high";
     
     $requestData = [
         'model' => 'llama-3.1-8b-instant',
         'messages' => [
             [
+                'role' => 'system',
+                'content' => 'You are a risk triage assistant for barangay concerns. Output exactly one word: low, medium, or high. No punctuation or explanation.'
+            ],
+            [
                 'role' => 'user',
                 'content' => $prompt
             ]
         ],
-        'temperature' => 0.2,
-        'max_tokens' => 10
+        'temperature' => 0.15,
+        'max_tokens' => 12
     ];
     
     $ch = curl_init($apiUrl);
@@ -239,7 +339,7 @@ function analyzeRiskLevel($statement) {
         'Content-Type: application/json',
         'Authorization: Bearer ' . $apiKey
     ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10); // 10 second timeout
+    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     
@@ -248,37 +348,221 @@ function analyzeRiskLevel($statement) {
     $curlError = curl_error($ch);
     curl_close($ch);
     
-    // If API call fails, default to 'low'
     if ($response === false || !empty($curlError) || $httpCode !== 200) {
-        error_log("Groq AI API error: HTTP $httpCode, Error: $curlError, Response: " . substr($response, 0, 200));
-        return 'low'; // Default to low on error
+        error_log("Groq AI API error (risk): HTTP $httpCode, Error: $curlError, Response: " . substr((string) $response, 0, 200));
+        return null;
     }
     
     $result = json_decode($response, true);
     
-    // Extract the response text from Groq API format
     if (isset($result['choices'][0]['message']['content'])) {
         $aiResponse = trim(strtolower($result['choices'][0]['message']['content']));
         
-        // Extract risk level from response (check for 'high' first, then 'medium', then 'low')
         if (preg_match('/\bhigh\b/', $aiResponse)) {
             return 'high';
-        } elseif (preg_match('/\bmedium\b/', $aiResponse)) {
+        }
+        if (preg_match('/\bmedium\b/', $aiResponse)) {
             return 'medium';
-        } elseif (preg_match('/\blow\b/', $aiResponse)) {
+        }
+        if (preg_match('/\blow\b/', $aiResponse)) {
             return 'low';
         }
     }
     
-    // Default to 'low' if we can't parse the response
-    error_log("Could not parse Groq AI response. Raw response: " . substr(json_encode($result), 0, 500));
-    return 'low';
+    error_log('Could not parse Groq risk response: ' . substr(json_encode($result), 0, 500));
+    return null;
+}
+
+/**
+ * Normalize location strings for comparison (spacing, case-insensitive UTF-8, optional Barangay prefix).
+ */
+function normalizeLocationForComparison($loc) {
+    $s = trim((string) $loc);
+    if (function_exists('mb_strtolower')) {
+        $s = mb_strtolower($s, 'UTF-8');
+    } else {
+        $s = strtolower($s);
+    }
+    $s = preg_replace('/\s+/', ' ', $s);
+    $s = preg_replace('/^(brgy\.?|barangay)\s+/iu', '', $s);
+    return trim($s);
+}
+
+/**
+ * True when two location strings likely refer to the same place (fuzzy, not only exact match).
+ */
+function locationsReferToSamePlace($baseRaw, $otherRaw) {
+    $a = normalizeLocationForComparison($baseRaw);
+    $b = normalizeLocationForComparison($otherRaw);
+    if ($a === '' && $b === '') {
+        return true;
+    }
+    if ($a === '' || $b === '') {
+        return false;
+    }
+    if ($a === $b) {
+        return true;
+    }
+    $lenA = strlen($a);
+    $lenB = strlen($b);
+    $shorter = $lenA <= $lenB ? $a : $b;
+    $longer = $lenA <= $lenB ? $b : $a;
+    if (strlen($shorter) >= 4 && strpos($longer, $shorter) !== false) {
+        return true;
+    }
+    $maxLen = max($lenA, $lenB);
+    if ($maxLen > 64) {
+        return false;
+    }
+    $dist = levenshtein($a, $b);
+    $maxAllowed = $maxLen <= 18 ? 3 : (int) max(4, min(12, round($maxLen * 0.18)));
+    return $dist <= $maxAllowed;
+}
+
+/** Word tokens for statement overlap (aligned with js/concerns.js normalizeStatementWords). */
+function normalizeStatementWordsPhp($text) {
+    $text = strtolower((string) $text);
+    $text = preg_replace('/[^a-z0-9\s]/u', ' ', $text);
+    $parts = preg_split('/\s+/', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+    $out = [];
+    foreach ($parts as $word) {
+        if (mb_strlen($word, 'UTF-8') >= 3) {
+            $out[] = $word;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Broad issue buckets (Tagalog + English) so different phrasings still match, e.g. kinuha vs kumukolekta basura.
+ *
+ * @return array<string, list<string>>
+ */
+function getRelatableIssueCategoryDefinitions() {
+    return [
+        'waste' => ['basura', 'kalat', 'kolekta', 'kolektahin', 'kinuha', 'kumuha', 'kumukulekta', 'kumukolekta', 'nakolekta', 'pagkolekta', 'kolektor', 'trash', 'garbage', 'waste', 'segregat'],
+        'drainage' => ['kanal', 'drainage', 'bara', 'barado', 'baradong', 'bumabaha', 'baha'],
+        'water' => ['tubig', 'water', 'leak', 'tumutulo', 'tulo', 'walang tubig'],
+        'light' => ['ilaw', 'light', 'streetlight', 'street light'],
+        'road' => ['lubak', 'kalsada', 'road', 'pothole', 'sidewalk'],
+        'noise' => ['ingay', 'noise', 'trapiko', 'traffic'],
+    ];
+}
+
+/** @return list<string> */
+function relatableIssueCategoryKeysForStatementPhp($statement) {
+    $s = mb_strtolower((string) $statement, 'UTF-8');
+    $found = [];
+    foreach (getRelatableIssueCategoryDefinitions() as $key => $keywords) {
+        foreach ($keywords as $kw) {
+            if (mb_strlen($kw, 'UTF-8') < 2) {
+                continue;
+            }
+            if (mb_stripos($s, $kw, 0, 'UTF-8') !== false) {
+                $found[$key] = true;
+                break;
+            }
+        }
+    }
+    return array_keys($found);
+}
+
+function relatableSameIssueCategoryPhp($statementA, $statementB) {
+    $a = relatableIssueCategoryKeysForStatementPhp($statementA);
+    $b = relatableIssueCategoryKeysForStatementPhp($statementB);
+    if ($a === [] || $b === []) {
+        return false;
+    }
+    return count(array_intersect($a, $b)) > 0;
+}
+
+/** Same 0–1+ scale as getConcernsSimilarityScore in js/concerns.js (location + word overlap). */
+function relatableStatementLocationScorePhp($baseStatement, $baseLocation, $otherStatement, $otherLocation) {
+    $baseWords = array_unique(normalizeStatementWordsPhp($baseStatement));
+    $otherWords = array_unique(normalizeStatementWordsPhp($otherStatement));
+    $baseSet = array_fill_keys($baseWords, true);
+    $common = 0;
+    foreach ($otherWords as $w) {
+        if (isset($baseSet[$w])) {
+            $common++;
+        }
+    }
+    $wordMatchScore = count($baseWords) > 0 ? ($common / count($baseWords)) : 0;
+    $locA = normalizeLocationForComparison($baseLocation);
+    $locB = normalizeLocationForComparison($otherLocation);
+    $sameArea = locationsReferToSamePlace($baseLocation, $otherLocation);
+    $locationMatch = $sameArea && !($locA === '' && $locB === '');
+    return min($wordMatchScore, 0.6) + ($locationMatch ? 0.4 : 0.0);
+}
+
+/** All concerns that meet score rule OR same-area + same issue category (handles different Tagalog phrasing). */
+function findRuleBasedRelatableIds($baseConcern, $allConcerns, $minScore = 0.35) {
+    $baseId = $baseConcern['concern_id'] ?? '';
+    $baseStatement = $baseConcern['statement'] ?? '';
+    $baseLocation = $baseConcern['location'] ?? '';
+    $ids = [];
+    foreach ($allConcerns as $c) {
+        $cid = isset($c['concern_id']) ? $c['concern_id'] : ('CON-' . str_pad((string)$c['id'], 3, '0', STR_PAD_LEFT));
+        if ($cid === $baseId) {
+            continue;
+        }
+        $otherStatement = $c['statement'] ?? '';
+        $otherLocation = $c['location'] ?? '';
+        $score = relatableStatementLocationScorePhp(
+            $baseStatement,
+            $baseLocation,
+            $otherStatement,
+            $otherLocation
+        );
+        $sameArea = locationsReferToSamePlace($baseLocation, $otherLocation);
+        $sameCategory = relatableSameIssueCategoryPhp($baseStatement, $otherStatement);
+        if ($score >= $minScore || ($sameArea && $sameCategory)) {
+            $ids[] = $cid;
+        }
+    }
+    return $ids;
+}
+
+function enrichConcernRowForRelatableModal(array $concern) {
+    $id = (int)($concern['id'] ?? 0);
+    $concern['concern_id'] = 'CON-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT);
+    if (!empty($concern['concern_image'])) {
+        $img = $concern['concern_image'];
+        if (strpos($img, 'Images/') === 0 || strpos($img, 'Pictures/') === 0) {
+            $concern['concern_image'] = str_replace('Pictures/', 'Images/', $img);
+        } elseif (strlen($img) > 100) {
+            $concern['concern_image'] = 'php/concerns.php?image=true&id=' . $concern['concern_id'];
+        }
+    }
+    if (!isset($concern['risk_level'])) {
+        $concern['risk_level'] = '';
+    }
+    return $concern;
+}
+
+/** @return list<array<string,mixed>> */
+function fetchConcernsByNumericIds(mysqli $connection, array $idsInt) {
+    $idsInt = array_values(array_unique(array_filter(array_map('intval', $idsInt))));
+    if (empty($idsInt)) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($idsInt), '?'));
+    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id IN ($placeholders)";
+    $stmt = $connection->prepare($sql);
+    if (!$stmt) {
+        return [];
+    }
+    $types = str_repeat('i', count($idsInt));
+    $stmt->bind_param($types, ...$idsInt);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    return $rows;
 }
 
 // Function to find similar concerns using Groq AI
 function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
-    if (!defined('GROQ_API_KEY')) {
-        error_log("GROQ_API_KEY not defined for similarity analysis");
+    if (!defined('GROQ_API_KEY') || (string) GROQ_API_KEY === '') {
         return [];
     }
     
@@ -295,35 +579,68 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
         return [];
     }
     
-    // Prepare list of other concerns for comparison (exclude base concern by comparing statement+location)
-    $otherConcerns = [];
+    // Same-area candidates only; sort by statement+location score so the top 75 are most likely related.
+    $scored = [];
     foreach ($allConcerns as $concern) {
         $concernId = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
-        // Skip if it's the same concern (same statement and location)
         if ($concernId === $baseConcernId) {
             continue;
         }
-        
-        $otherConcerns[] = [
-            'id' => $concernId,
-            'statement' => $concern['statement'] ?? '',
-            'location' => $concern['location'] ?? '',
-            'image' => !empty($concern['concern_image']) ? 'Has image' : 'No image'
+        if (!locationsReferToSamePlace($baseLocation, $concern['location'] ?? '')) {
+            continue;
+        }
+        $relScore = relatableStatementLocationScorePhp(
+            $baseStatement,
+            $baseLocation,
+            $concern['statement'] ?? '',
+            $concern['location'] ?? ''
+        );
+        $scored[] = [
+            'rel_score' => $relScore,
+            'row' => [
+                'id' => $concernId,
+                'statement' => $concern['statement'] ?? '',
+                'location' => $concern['location'] ?? '',
+                'image' => !empty($concern['concern_image']) ? 'Has image' : 'No image'
+            ]
         ];
     }
     
-    if (empty($otherConcerns)) {
+    if (empty($scored)) {
         return [];
     }
     
-    // Create prompt for Groq AI to find EXACTLY similar concerns based on statement, location, and image
-    $prompt = "You are analyzing barangay (community) concerns to find EXACTLY similar ones using GROQ AI.\n\n";
+    usort($scored, function ($a, $b) {
+        return $b['rel_score'] <=> $a['rel_score'];
+    });
+    
+    $maxCandidates = 75;
+    if (count($scored) > $maxCandidates) {
+        $scored = array_slice($scored, 0, $maxCandidates);
+    }
+    
+    $otherConcerns = array_map(function ($s) {
+        return $s['row'];
+    }, $scored);
+    
+    $sentIdSet = [];
+    foreach ($otherConcerns as $row) {
+        $sentIdSet[$row['id']] = true;
+    }
+    
+    $normBaseLoc = normalizeLocationForComparison($baseLocation);
+    $locNote = $normBaseLoc !== ''
+        ? 'All concerns listed below are already filtered to the same general area as the base (addresses may be worded differently).'
+        : 'Location was not specified on some records; treat same-area as already applied by the system.';
+    
+    // Semantic same-issue matching at the same place; wording need not be identical.
+    $prompt = "You triage barangay (community) concerns. {$locNote}\n\n";
     $prompt .= "BASE CONCERN:\n";
     $prompt .= "Statement: \"" . addslashes($baseStatement) . "\"\n";
     $prompt .= "Location: \"" . addslashes($baseLocation) . "\"\n";
     $prompt .= "Image: " . $baseImage . "\n\n";
     
-    $prompt .= "OTHER CONCERNS TO COMPARE:\n";
+    $prompt .= "OTHER CONCERNS (same general area as base):\n";
     foreach ($otherConcerns as $idx => $concern) {
         $prompt .= ($idx + 1) . ". ID: " . $concern['id'] . "\n";
         $prompt .= "   Statement: \"" . addslashes($concern['statement']) . "\"\n";
@@ -331,27 +648,15 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
         $prompt .= "   Image: " . $concern['image'] . "\n\n";
     }
     
-    $prompt .= "IMPORTANT: Find ONLY concerns that are EXACTLY similar to the BASE CONCERN using GROQ AI analysis.\n\n";
-    $prompt .= "MATCHING RULES (based on Statement, Location, and Image):\n";
-    $prompt .= "1. The concern type/issue (Statement) MUST be EXACTLY THE SAME:\n";
-    $prompt .= "   - If BASE is about 'kanal' (drainage), only match other 'kanal' concerns\n";
-    $prompt .= "   - If BASE is about 'street lights', only match other 'street lights' concerns\n";
-    $prompt .= "   - If BASE is about 'water leak', only match other 'water leak' concerns\n";
-    $prompt .= "   - DO NOT match different concern types (e.g., kanal vs street lights)\n\n";
-    $prompt .= "2. The location/address MUST be EXACTLY THE SAME:\n";
-    $prompt .= "   - Location must match word-for-word\n";
-    $prompt .= "   - 'Bigte Circle' matches 'Bigte Circle' but NOT 'Old Bario'\n";
-    $prompt .= "   - 'Old Bario' matches 'Old Bario' but NOT 'Bigte Circle'\n\n";
-    $prompt .= "3. Image status can be considered (if both have images or both don't have images, it's a plus)\n\n";
-    $prompt .= "4. BOTH Statement AND Location must match EXACTLY:\n";
-    $prompt .= "   - Same concern type (Statement) AND same location = MATCH\n";
-    $prompt .= "   - Different concern type OR different location = NO MATCH\n\n";
-    $prompt .= "Examples:\n";
-    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → Match: 'kanal' at 'Bigte Circle' ONLY\n";
-    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → NO Match: 'street lights' at 'Bigte Circle' (different concern type)\n";
-    $prompt .= "- BASE: 'kanal' at 'Bigte Circle' → NO Match: 'kanal' at 'Old Bario' (different location)\n\n";
-    $prompt .= "Analyze using GROQ AI and respond with ONLY a comma-separated list of concern IDs that match EXACTLY (e.g., CON-001,CON-002).\n";
-    $prompt .= "If no concerns match EXACTLY, respond with: NONE";
+    $prompt .= "TASK: Return IDs where the reported problem is substantively the SAME underlying issue as the base (same hazard, same infrastructure, same service problem), even if phrasing differs.\n\n";
+    $prompt .= "Rules:\n";
+    $prompt .= "- Match: same issue type (e.g. drainage/kanal, street lights, water leak, road damage) described for the same place.\n";
+    $prompt .= "- Do NOT match a clearly different issue at that place (e.g. garbage vs street lights, noise vs flooding).\n";
+    $prompt .= "- Prefer precision: when unsure, exclude the ID.\n";
+    $prompt .= "- Image presence is a weak hint only; do not decide mainly on image.\n";
+    $prompt .= "- Include EVERY qualifying ID from the numbered list (all rows that match), separated by commas — not only the single closest match.\n\n";
+    $prompt .= "Output ONLY a comma-separated list of matching concern IDs (e.g. CON-001,CON-002,CON-003). No other text.\n";
+    $prompt .= "If none qualify, output exactly: NONE";
     
     $requestData = [
         'model' => 'llama-3.1-8b-instant',
@@ -362,7 +667,7 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
             ]
         ],
         'temperature' => 0.3,
-        'max_tokens' => 200
+        'max_tokens' => 512
     ];
     
     $ch = curl_init($apiUrl);
@@ -401,13 +706,14 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
         
         // Extract concern IDs from response (format: CON-001,CON-002,CON-005)
         preg_match_all('/CON-\d+/', $aiResponse, $matches);
-        $similarIds = $matches[0] ?? [];
+        $similarIds = array_values(array_unique($matches[0] ?? []));
         
-        // Post-process: Double-check that returned concerns are EXACTLY similar
-        // (same concern type AND same location)
+        // Post-process: ID must have been sent to the model; location must still match fuzzily.
         $exactMatches = [];
         foreach ($similarIds as $concernId) {
-            // Find the concern in allConcerns
+            if (!isset($sentIdSet[$concernId])) {
+                continue;
+            }
             $matchedConcern = null;
             foreach ($allConcerns as $concern) {
                 $concernIdFromData = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
@@ -416,81 +722,16 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
                     break;
                 }
             }
-            
             if (!$matchedConcern) {
-                continue; // Skip if concern not found
+                continue;
             }
-            
-            $matchedStatement = strtolower(trim($matchedConcern['statement'] ?? ''));
-            $matchedLocation = strtolower(trim($matchedConcern['location'] ?? ''));
-            $baseStatementLower = strtolower(trim($baseStatement));
-            $baseLocationLower = strtolower(trim($baseLocation));
-            
-            // Check if location matches exactly
-            $locationMatch = ($matchedLocation === $baseLocationLower);
-            
-            // Check if concern type is similar (extract key words)
-            // Simple check: if both contain same key words like "kanal", "street light", "tubig", etc.
-            $baseKeywords = [];
-            $matchedKeywords = [];
-            
-            // Extract key concern words - expanded list with more variations
-            $concernKeywords = [
-                'kanal', 'drainage', 'drain', 'bara', 'barado', 'blocked', 'baradong', 'malaking bara', 'maliit na bara',
-                'street light', 'streetlight', 'ilaw', 'sira ang ilaw', 'broken light', 'walang ilaw', 'wala ng ilaw',
-                'tubig', 'water', 'leak', 'tumutulo', 'leaking', 'walang tubig', 'wala ng tubig',
-                'lubak', 'pothole', 'kalsada', 'road', 'sira ang kalsada', 'damaged road', 'sirang kalsada',
-                'basura', 'garbage', 'trash', 'nakolekta', 'hindi nakolekta',
-                'baha', 'flood', 'flooding',
-                'ingay', 'noise', 'trapiko', 'traffic',
-                'vandalism', 'graffiti', 'nasira', 'damaged',
-                'sidewalk', 'walkway', 'sira ang sidewalk'
-            ];
-            
-            foreach ($concernKeywords as $keyword) {
-                if (stripos($baseStatementLower, $keyword) !== false) {
-                    $baseKeywords[] = $keyword;
-                }
-                if (stripos($matchedStatement, $keyword) !== false) {
-                    $matchedKeywords[] = $keyword;
-                }
+            if (!locationsReferToSamePlace($baseLocation, $matchedConcern['location'] ?? '')) {
+                error_log("Filtered out concern $concernId: location no longer matches fuzzy same-place check");
+                continue;
             }
-            
-            // Check if they share at least one key concern word (same concern type)
-            $hasCommonKeyword = !empty(array_intersect($baseKeywords, $matchedKeywords));
-            
-            // If no keywords found, check word similarity (for concerns not in keyword list)
-            if (!$hasCommonKeyword) {
-                if (!empty($baseKeywords) && empty($matchedKeywords)) {
-                    // If base has keywords but matched doesn't, they're different types
-                    $hasCommonKeyword = false;
-                } elseif (empty($baseKeywords) && empty($matchedKeywords)) {
-                    // If neither has keywords, check word overlap (at least 2 common words)
-                    $stopWords = ['ang', 'sa', 'na', 'ng', 'at', 'may', 'walang', 'wala', 'po', 'sir', 'the', 'a', 'an', 'is', 'are', 'was', 'were'];
-                    $baseWords = array_filter(explode(' ', $baseStatementLower), function($w) use ($stopWords) {
-                        $w = trim($w);
-                        return strlen($w) >= 3 && !in_array($w, $stopWords);
-                    });
-                    $matchedWords = array_filter(explode(' ', $matchedStatement), function($w) use ($stopWords) {
-                        $w = trim($w);
-                        return strlen($w) >= 3 && !in_array($w, $stopWords);
-                    });
-                    $commonWords = array_intersect($baseWords, $matchedWords);
-                    $hasCommonKeyword = count($commonWords) >= 2; // At least 2 common meaningful words
-                }
-            }
-            
-            // Only include if BOTH location matches AND concern type matches
-            // Trust Groq AI's judgment - if AI says it's similar and location matches, include it
-            if ($locationMatch && $hasCommonKeyword) {
-                $exactMatches[] = $concernId;
-            } else {
-                // Log why it was filtered out for debugging
-                error_log("Filtered out concern $concernId: locationMatch=" . ($locationMatch ? 'true' : 'false') . ", hasCommonKeyword=" . ($hasCommonKeyword ? 'true' : 'false'));
-            }
+            $exactMatches[] = $concernId;
         }
         
-        // Return array of exactly similar concern IDs
         return $exactMatches;
     }
     
@@ -605,28 +846,9 @@ try {
                 exit;
             }
             
-            // Helper function to check if statement contains MEDIUM risk keywords
             $hasMediumRiskKeywords = function($statement) {
                 $statementLower = mb_strtolower($statement, 'UTF-8');
-                $mediumRiskKeywords = [
-                    // Infrastructure problems
-                    'barado', 'baradong', 'blocked', 'blockage', 'drainage', 'drain', 'kanal', 'sewer',
-                    'sira ang', 'sira ang ilaw', 'broken', 'damaged', 'nasira', 'nasira ang',
-                    'may tumutulo', 'tumutulo', 'leak', 'leaking', 'water leak',
-                    'may lubak', 'lubak', 'pothole', 'potholes', 'damaged road',
-                    'walang ilaw', 'wala ng ilaw', 'streetlight', 'street light',
-                    // Service problems
-                    'hindi nakolekta', 'nakolekta', 'garbage', 'basura', 'trash',
-                    'walang tubig', 'wala ng tubig', 'water supply', 'problema sa tubig',
-                    'may ingay', 'ingay', 'noise', 'trapiko', 'traffic',
-                    // Property damage
-                    'vandalism', 'graffiti', 'nasira ang', 'damaged',
-                    // Environmental issues
-                    'may baha', 'baha', 'flooding', 'flood',
-                    'sidewalk', 'walkway', 'damaged sidewalk'
-                ];
-                
-                foreach ($mediumRiskKeywords as $keyword) {
+                foreach (getMediumRiskKeywordsForConcernFallback() as $keyword) {
                     if (mb_stripos($statementLower, $keyword) !== false) {
                         return true;
                     }
@@ -648,15 +870,21 @@ try {
                     // Need analysis if risk level is not set
                     $needsAnalysis = true;
                 } elseif ($currentRiskLevel === 'low' && !empty($statement) && strlen(trim($statement)) >= 5) {
-                    // Re-analyze LOW concerns that have MEDIUM risk keywords
                     if ($hasMediumRiskKeywords($statement)) {
+                        $needsAnalysis = true;
+                    }
+                    $stmtLower = mb_strtolower($statement, 'UTF-8');
+                    if (concernStatementIndicatesHighRiskByKeywords($stmtLower)) {
+                        $needsAnalysis = true;
+                    }
+                    if (concernStatementIndicatesMediumInfrastructureOrEnvironment($stmtLower)) {
                         $needsAnalysis = true;
                     }
                 }
                 
                 if ($needsAnalysis && !empty($statement) && strlen(trim($statement)) >= 5) {
                     try {
-                        // Analyze statement using Groq AI API (with keyword pre-checks)
+                        // Risk level: Groq API first when GROQ_API_KEY is set; keyword fallback otherwise
                         $detectedRiskLevel = analyzeRiskLevel($statement);
                         
                         // Update risk level in database
@@ -760,7 +988,8 @@ try {
                     $result = $connection->query($sql);
                     $row = $result->fetch_assoc();
                     
-                    if ($row && $row['position'] === 'Admin') {
+                    $dbPos = strtolower(trim((string)($row['position'] ?? '')));
+                    if ($row && ($dbPos === 'admin' || $dbPos === 'administrator')) {
                         $isAdmin = true;
                     }
                 } catch (Exception $e) {
@@ -881,22 +1110,88 @@ try {
                 // Add concern_id to base concern
                 $baseConcern['concern_id'] = 'CON-' . str_pad($baseConcern['id'], 3, '0', STR_PAD_LEFT);
                 
-                // Get all concerns for comparison
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 100";
+                // Latest rows + every row at the same trimmed location (case-insensitive) so pairs like COC/COc are never split by LIMIT
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 350";
                 $result = $connection->query($sql);
                 $allConcerns = $result->fetch_all(MYSQLI_ASSOC);
                 
-                // Add concern_id to all concerns
+                $baseLocTrim = trim((string)($baseConcern['location'] ?? ''));
+                if ($baseLocTrim !== '') {
+                    $sqlSameLoc = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE LOWER(TRIM(location)) = LOWER(?)";
+                    $stmtLoc = $connection->prepare($sqlSameLoc);
+                    if ($stmtLoc) {
+                        $stmtLoc->bind_param('s', $baseLocTrim);
+                        $stmtLoc->execute();
+                        $sameLocRows = $stmtLoc->get_result()->fetch_all(MYSQLI_ASSOC);
+                        $stmtLoc->close();
+                        $byId = [];
+                        foreach ($allConcerns as $row) {
+                            $byId[(int)$row['id']] = $row;
+                        }
+                        foreach ($sameLocRows as $row) {
+                            $byId[(int)$row['id']] = $row;
+                        }
+                        $allConcerns = array_values($byId);
+                    }
+                }
+                
                 foreach ($allConcerns as &$concern) {
                     $concern['concern_id'] = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);
                 }
+                unset($concern);
                 
-                // Use AI to find similar concerns
-                $similarIds = findSimilarConcernsWithAI($baseConcern, $allConcerns);
+                $groqIds = findSimilarConcernsWithAI($baseConcern, $allConcerns);
+                if (!is_array($groqIds)) {
+                    $groqIds = [];
+                }
+                $ruleIds = findRuleBasedRelatableIds($baseConcern, $allConcerns);
+                $baseCid = $baseConcern['concern_id'];
+                $mergedIds = array_values(array_unique(array_merge($groqIds, $ruleIds)));
+                $mergedIds = array_values(array_filter($mergedIds, function ($cid) use ($baseCid) {
+                    return $cid !== $baseCid;
+                }));
+                
+                $numericIds = [];
+                foreach ($mergedIds as $cid) {
+                    $numericIds[] = (int) str_replace('CON-', '', $cid);
+                }
+                $rows = fetchConcernsByNumericIds($connection, $numericIds);
+                foreach ($rows as &$r) {
+                    $r = enrichConcernRowForRelatableModal($r);
+                }
+                unset($r);
+                usort($rows, function ($a, $b) {
+                    return strcmp((string)($b['date_and_time'] ?? ''), (string)($a['date_and_time'] ?? ''));
+                });
+                
+                if (count($rows) === 0) {
+                    echo json_encode([
+                        'success' => true,
+                        'similar_ids' => [],
+                        'similar_concerns' => [],
+                        'related_only_count' => 0,
+                        'base_concern_id' => $baseCid
+                    ]);
+                    break;
+                }
+                
+                $relatedOnlyCount = count($rows);
+                $baseEnriched = enrichConcernRowForRelatableModal($baseConcern);
+                $rowsForTable = $rows;
+                $rowsForTable[] = $baseEnriched;
+                usort($rowsForTable, function ($a, $b) {
+                    return strcmp((string)($b['date_and_time'] ?? ''), (string)($a['date_and_time'] ?? ''));
+                });
+                $orderedIds = array_map(function ($r) {
+                    return $r['concern_id'];
+                }, $rowsForTable);
                 
                 echo json_encode([
                     'success' => true,
-                    'similar_ids' => $similarIds
+                    'similar_ids' => $orderedIds,
+                    'related_only_count' => $relatedOnlyCount,
+                    'base_concern_id' => $baseCid,
+                    'similar_concerns' => $rowsForTable
                 ]);
             } else {
                 echo json_encode(['success' => false, 'message' => 'Invalid action']);

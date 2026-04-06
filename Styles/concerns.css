@@ -976,6 +976,14 @@ body {
     align-items: center;
 }
 
+/* Admin: row actions stay fully interactive (avoid global disabled/session styles looking like no access) */
+body.concerns-page-admin .action-buttons-container .btn-action.processing-btn,
+body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
 .action-icon-btn {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     border: none;
@@ -1299,6 +1307,18 @@ body {
     border-color: #004085;
 }
 
+/* Concerns table row actions: green gradient (Process, Resolve, View in .action-buttons-container) */
+.action-buttons-container .btn-action {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: 1px solid #20c997;
+}
+
+.action-buttons-container .btn-action:hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    border-color: #1e7e34;
+}
+
 .relatable-btn {
     background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
     color: #1e2a3b;
@@ -1612,6 +1632,25 @@ body {
     font-size: 0.6rem;
 }
 
+/* Mirrors .risk-btn.*.active — driven by rows in #relatableTableBody (syncRelatableRiskButtonHighlights) */
+.relatable-risk-controls .risk-btn.risk-low.relatable-risk-reflect {
+    background: #ffc107;
+    color: #000;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+}
+
+.relatable-risk-controls .risk-btn.risk-medium.relatable-risk-reflect {
+    background: #ff9800;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(255, 152, 0, 0.4);
+}
+
+.relatable-risk-controls .risk-btn.risk-high.relatable-risk-reflect {
+    background: #f44336;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+}
+
 .relatable-action-buttons {
     display: flex;
     gap: 0.75rem;
@@ -1625,6 +1664,24 @@ body {
 
 .relatable-selected:hover {
     background-color: #d6e4ff !important;
+}
+
+.relatable-row-base {
+    box-shadow: inset 3px 0 0 #0d9488;
+}
+
+.relatable-base-badge {
+    display: inline-block;
+    margin-left: 0.35rem;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #0f766e;
+    background: #ccfbf1;
+    border-radius: 4px;
+    vertical-align: middle;
 }
 
 .relatable-risk-dot {
