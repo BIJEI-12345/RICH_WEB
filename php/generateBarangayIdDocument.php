@@ -662,6 +662,7 @@ try {
     
     // Ensure bid column exists
     ensureBidColumnExists($connection);
+    ensure_barangay_id_height_varchar($connection);
     
     // Check if BID already exists (uniqueness check)
     $checkBidSql = "SELECT id FROM barangay_id_forms WHERE bid = ? AND id != ?";
@@ -791,6 +792,22 @@ try {
         error_log("generateBarangayIdDocument: WARNING - Weight is empty or null: " . var_export($row['weight'] ?? 'NULL', true));
     }
     
+    // Height: ft/in (e.g. 5'8) stored without unit words; strip legacy cm/foot suffixes; plain numbers = legacy cm, no suffix added
+    $heightValue = '';
+    if (isset($row['height']) && $row['height'] !== '' && $row['height'] !== null) {
+        $hs = normalize_barangay_id_height_string($row['height']);
+        if ($hs !== '') {
+            $hsNorm = str_replace(',', '.', $hs);
+            if (preg_match('/^-?\d+(\.\d+)?$/', $hsNorm)) {
+                $heightValue = removeDecimalZeros($hsNorm);
+            } else {
+                $heightValue = $hs;
+            }
+        }
+    } else {
+        error_log("generateBarangayIdDocument: WARNING - Height is empty or null: " . var_export($row['height'] ?? 'NULL', true));
+    }
+    
     $data = [
         'id' => $row['id'] ?? '',
         'first_name' => $row['given_name'] ?? '',
@@ -801,7 +818,7 @@ try {
         'birthday' => $birthDateValue, // Support {{birthday}} placeholder without space
         'address' => $row['address'] ?? '',
         'gender' => $row['gender'] ?? '',
-        'height' => removeDecimalZeros($row['height'] ?? ''),
+        'height' => $heightValue,
         'nationality' => 'Filipino', // Default nationality
         'emergency_contact_number' => $row['emergency_contact_number'] ?? '',
         'emergency_contact_name' => $row['emergency_contact_name'] ?? '',

@@ -324,6 +324,7 @@ try {
     // Fetch data based on table parameter
     switch ($table) {
         case 'barangay_id':
+            ensure_barangay_id_height_varchar($connection);
             // First, try to get all columns to see what actually exists
             $describeResult = $connection->query("DESCRIBE barangay_id_forms");
             $actualColumns = [];
@@ -374,7 +375,7 @@ try {
                         'birthPlace' => $birthPlace,
                         'address' => $row['address'] ?? '',
                         'civilStatus' => $row['civil_status'] ?? $row['civilstatus'] ?? '',
-                        'height' => $row['height'] ?? '',
+                        'height' => normalize_barangay_id_height_string($row['height'] ?? ''),
                         'weight' => $row['weight'] ?? '',
                         'gender' => $row['gender'] ?? '',
                         'emergencyContactName' => $row['emergency_contact_name'] ?? $row['emergencyContactName'] ?? '',

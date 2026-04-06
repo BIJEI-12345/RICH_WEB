@@ -162,4 +162,39 @@ if (empty($googleVisionApiKey)) {
     error_log("Warning: GOOGLE_VISION_API_KEY is not set in .env file, using default key");
 }
 define('GOOGLE_VISION_API_KEY', $googleVisionApiKey);
+
+/**
+ * Ensure barangay_id_forms.height is VARCHAR for values like 5'8 (no "cm"/"foot" in stored data).
+ */
+function ensure_barangay_id_height_varchar(mysqli $connection) {
+    $t = @$connection->query("SHOW TABLES LIKE 'barangay_id_forms'");
+    if (!$t || $t->num_rows === 0) {
+        return;
+    }
+    $r = @$connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'height'");
+    if (!$r) {
+        return;
+    }
+    if ($r->num_rows === 0) {
+        @$connection->query("ALTER TABLE barangay_id_forms ADD COLUMN height VARCHAR(20) NULL");
+        return;
+    }
+    $row = $r->fetch_assoc();
+    $type = strtolower($row['Type'] ?? '');
+    if (preg_match('/^(varchar|char)\(/i', $type)) {
+        return;
+    }
+    if (!$connection->query("ALTER TABLE barangay_id_forms MODIFY COLUMN height VARCHAR(20) NULL")) {
+        error_log('ensure_barangay_id_height_varchar: MODIFY failed: ' . $connection->error);
+    }
+}
+
+/** Strip accidental unit suffixes from height for API/UI (DB should hold e.g. 5'8 only). */
+function normalize_barangay_id_height_string($value) {
+    if ($value === null || $value === '') {
+        return '';
+    }
+    $s = trim((string) $value);
+    return trim(preg_replace('/\s*(cm|CM|foot|feet|ft\.?)\s*$/i', '', $s));
+}
 ?>

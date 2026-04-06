@@ -1764,14 +1764,16 @@ function populateBarangayIdProcessForm(requestData) {
     document.getElementById('processGender').value = gender.toUpperCase();
     console.log('Gender set to:', gender);
     
-    // Format height: remove decimals and add "cm"
-    const heightValue = requestData.height;
-    if (heightValue && heightValue !== 'NOT SPECIFIED' && !isNaN(parseFloat(heightValue))) {
-        const heightInt = Math.round(parseFloat(heightValue));
-        document.getElementById('processHeight').value = heightInt + ' CM';
-    } else {
-        document.getElementById('processHeight').value = 'NOT SPECIFIED';
+    // Height: ft/in (e.g. 5'8) as stored in DB — no "cm" or "foot" suffix
+    const rawHeight = requestData.height;
+    let heightDisplay = 'NOT SPECIFIED';
+    if (rawHeight != null && String(rawHeight).trim() !== '') {
+        const h = String(rawHeight).trim().replace(/\s*(cm|CM|foot|feet|ft\.?)\s*$/i, '').trim();
+        if (h !== '' && h.toUpperCase() !== 'NOT SPECIFIED') {
+            heightDisplay = h;
+        }
     }
+    document.getElementById('processHeight').value = heightDisplay;
     
     document.getElementById('processNationality').value = (requestData.nationality || 'FILIPINO').toUpperCase();
     
