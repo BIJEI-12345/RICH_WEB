@@ -7,6 +7,30 @@ let selectedCards = new Set();
 // Ready Multiple Selection State
 let readyMultipleMode = false;
 let selectedReadyCards = new Set();
+let pendingRevokeRequestContext = null;
+
+function getTableNameFromType(docType) {
+    const type = String(docType || '').toLowerCase();
+    const tableMap = {
+        'barangay_id': 'barangay_id',
+        'barangay-id': 'barangay_id',
+        'certification': 'certification',
+        'coe': 'coe',
+        'clearance': 'clearance',
+        'indigency': 'indigency'
+    };
+    return tableMap[type] || 'barangay_id';
+}
+
+function getRevokeSummary(row, fallbackType = 'Request') {
+    const fullName = [
+        row.givenname || row.given_name || row.firstname || row.first_name,
+        row.middlename || row.middle_name,
+        row.surname || row.lastname || row.last_name
+    ].filter(Boolean).join(' ').trim() || 'Unknown';
+    const docLabel = String(fallbackType || row.documentType || '').replace(/_/g, ' ').toUpperCase();
+    return `${docLabel} - ${fullName}`;
+}
 
 // Navigation Functions
 function goBack() {
@@ -729,6 +753,9 @@ function switchRequestTab(tabName) {
         // Load finished requests
         loadReleasedRequests();
         updateSidebarCountsForReleased();
+    } else if (tabName === 'revoked') {
+        loadRevokedRequests();
+        updateSidebarCountsForRevoked();
     }
 }
 
@@ -792,6 +819,23 @@ function updateSidebarCountsForReleased() {
     
     // Update total
     const total = barangayIdFinished + certificationFinished + coeFinished + clearanceFinished + indigencyFinished;
+    document.getElementById('total-requests').textContent = total;
+}
+
+function updateSidebarCountsForRevoked() {
+    const barangayIdRevoked = parseInt(document.getElementById('revoked-barangayId-revoked')?.textContent || '0');
+    const certificationRevoked = parseInt(document.getElementById('revoked-certification-revoked')?.textContent || '0');
+    const coeRevoked = parseInt(document.getElementById('revoked-coe-revoked')?.textContent || '0');
+    const clearanceRevoked = parseInt(document.getElementById('revoked-clearance-revoked')?.textContent || '0');
+    const indigencyRevoked = parseInt(document.getElementById('revoked-indigency-revoked')?.textContent || '0');
+
+    document.getElementById('barangay-id-count').textContent = barangayIdRevoked;
+    document.getElementById('certification-count').textContent = certificationRevoked;
+    document.getElementById('coe-count').textContent = coeRevoked;
+    document.getElementById('clearance-count').textContent = clearanceRevoked;
+    document.getElementById('indigency-count').textContent = indigencyRevoked;
+
+    const total = barangayIdRevoked + certificationRevoked + coeRevoked + clearanceRevoked + indigencyRevoked;
     document.getElementById('total-requests').textContent = total;
 }
 
@@ -880,6 +924,48 @@ async function loadReleasedRequests() {
     }
 }
 
+async function loadRevokedRequests() {
+    try {
+        const allRequests = await Promise.all([
+            fetchDocumentRequests('barangay_id'),
+            fetchDocumentRequests('certification'),
+            fetchDocumentRequests('coe'),
+            fetchDocumentRequests('clearance'),
+            fetchDocumentRequests('indigency')
+        ]);
+
+        const [barangayIdData, certificationData, coeData, clearanceData, indigencyData] = allRequests;
+
+        const barangayIdRevoked = barangayIdData.filter(r => r.status === 'Revoked');
+        const certificationRevoked = certificationData.filter(r => r.status === 'Revoked');
+        const coeRevoked = coeData.filter(r => r.status === 'Revoked');
+        const clearanceRevoked = clearanceData.filter(r => r.status === 'Revoked');
+        const indigencyRevoked = indigencyData.filter(r => r.status === 'Revoked');
+
+        barangayIdRevoked.forEach(r => { r.type = 'barangay_id'; });
+        certificationRevoked.forEach(r => { r.type = 'certification'; });
+        coeRevoked.forEach(r => { r.type = 'coe'; });
+        clearanceRevoked.forEach(r => { r.type = 'clearance'; });
+        indigencyRevoked.forEach(r => { r.type = 'indigency'; });
+
+        revokedRequestsCache.barangay_id = barangayIdRevoked;
+        revokedRequestsCache.certification = certificationRevoked;
+        revokedRequestsCache.coe = coeRevoked;
+        revokedRequestsCache.clearance = clearanceRevoked;
+        revokedRequestsCache.indigency = indigencyRevoked;
+
+        renderRevokedCards(barangayIdRevoked, 'revoked-barangayId-revoked-cards', 'revoked-barangayId-revoked');
+        renderRevokedCards(certificationRevoked, 'revoked-certification-revoked-cards', 'revoked-certification-revoked');
+        renderRevokedCards(coeRevoked, 'revoked-coe-revoked-cards', 'revoked-coe-revoked');
+        renderRevokedCards(clearanceRevoked, 'revoked-clearance-revoked-cards', 'revoked-clearance-revoked');
+        renderRevokedCards(indigencyRevoked, 'revoked-indigency-revoked-cards', 'revoked-indigency-revoked');
+
+        updateSidebarCountsForRevoked();
+    } catch (error) {
+        console.error('Error loading revoked requests:', error);
+    }
+}
+
 // Global sort order - applies to all tabs
 let globalSortOrder = 'latest';
 
@@ -902,6 +988,14 @@ let newRequestsCache = {
 };
 
 let checkedRequestsCache = {
+    barangay_id: [],
+    certification: [],
+    coe: [],
+    clearance: [],
+    indigency: []
+};
+
+let revokedRequestsCache = {
     barangay_id: [],
     certification: [],
     coe: [],
@@ -950,6 +1044,88 @@ function renderReleasedCards(requests, containerId, countId, sortOrder = null) {
         const card = createReleasedCard(request);
         container.appendChild(card);
     });
+}
+
+function renderRevokedCards(requests, containerId, countId, sortOrder = null) {
+    if (sortOrder === null) {
+        sortOrder = globalSortOrder;
+    }
+    const container = document.getElementById(containerId);
+    const countElement = document.getElementById(countId);
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (countElement) {
+        countElement.textContent = requests.length;
+    }
+
+    if (requests.length === 0) {
+        container.innerHTML = '<div class="no-data-message">No revoked requests</div>';
+        return;
+    }
+
+    const sorted = [...requests].sort((a, b) => {
+        const timeA = getSortTimestamp(a);
+        const timeB = getSortTimestamp(b);
+        return sortOrder === 'latest' ? timeB - timeA : timeA - timeB;
+    });
+
+    sorted.forEach(request => {
+        const card = createRevokedCard(request);
+        container.appendChild(card);
+    });
+}
+
+function createRevokedCard(request) {
+    const card = document.createElement('div');
+    card.className = 'request-card';
+    card.dataset.requestId = request.id || request.requestId || request.request_id;
+    card.dataset.documentType = request.type || request.documentType || 'barangay-id';
+
+    const fullName = [request.givenname || request.given_name || request.firstname || request.first_name,
+                      request.middlename || request.middle_name,
+                      request.surname || request.lastname || request.last_name].filter(Boolean).join(' ') || 'Unknown';
+    const submitted = formatDisplayDate(request.submittedAt || request.submitted_at);
+    const submittedTime = formatTime(request.submittedAt || request.submitted_at);
+    const revokedAt = request.revokedAt || request.revoked_at || '';
+    const revokedDisplay = revokedAt ? `${formatDisplayDate(revokedAt)} at ${formatTime(revokedAt)}` : 'Revoked';
+    const revokeReason = String(request.reason_revoke || request.reasonRevoke || '').trim();
+
+    card.innerHTML = `
+        <div class="card-header">
+            <span class="request-date">${submitted} • ${submittedTime}</span>
+        </div>
+        <div class="card-body">
+            <h5>${escapeHtml(fullName || 'No Name')}</h5>
+            <p>${escapeHtml(request.address || 'No Address')}</p>
+            <div class="card-meta">
+                <span class="done-time">Revoked at: ${escapeHtml(revokedDisplay)}</span>
+                ${revokeReason ? `<span class="processed-time">Reason: ${escapeHtml(revokeReason)}</span>` : '<span class="processed-time">Reason: N/A</span>'}
+            </div>
+        </div>
+        <div class="card-actions">
+            <button class="btn-action view-btn"><i class="fas fa-eye"></i> View</button>
+        </div>
+    `;
+
+    const viewBtn = card.querySelector('.view-btn');
+    if (viewBtn) {
+        viewBtn.addEventListener('click', () => {
+            if (request.documentType === 'BARANGAY_ID' || request.type === 'barangay_id' || request.type === 'barangay-id') {
+                populateAndShowBarangayIdModal(request);
+            } else if (request.documentType === 'CERTIFICATION' || request.type === 'certification') {
+                populateAndShowCertificationModal(request);
+            } else if (request.documentType === 'COE' || request.type === 'coe') {
+                populateAndShowCoeModal(request);
+            } else if (request.documentType === 'CLEARANCE' || request.type === 'clearance') {
+                populateAndShowClearanceModal(request);
+            } else if (request.documentType === 'INDIGENCY' || request.type === 'indigency') {
+                populateAndShowIndigencyModal(request);
+            }
+        });
+    }
+
+    return card;
 }
 
 // Helper function to create a card for finished requests
@@ -4808,8 +4984,79 @@ function getRequestData(requestId) {
     return sampleData[requestId] || null;
 }
 
+function requestRevokeDocument(row, docType) {
+    pendingRevokeRequestContext = {
+        id: row.id,
+        table: getTableNameFromType(docType),
+        summary: getRevokeSummary(row, docType)
+    };
+    openRevokeReasonModal();
+}
+
+function openRevokeReasonModal() {
+    const modal = document.getElementById('revokeReasonModal');
+    const input = document.getElementById('revokeReasonInput');
+    const statementEl = document.getElementById('revokeReasonStatement');
+    const confirmBtn = document.getElementById('revokeReasonConfirmBtn');
+    if (!modal || !input || !confirmBtn) return;
+
+    if (statementEl) {
+        statementEl.textContent = pendingRevokeRequestContext?.summary || '-';
+    }
+    input.value = '';
+    confirmBtn.onclick = submitRevokeReason;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => input.focus(), 20);
+}
+
+function closeRevokeReasonModal() {
+    const modal = document.getElementById('revokeReasonModal');
+    const input = document.getElementById('revokeReasonInput');
+    const statementEl = document.getElementById('revokeReasonStatement');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    if (input) input.value = '';
+    if (statementEl) statementEl.textContent = '-';
+    pendingRevokeRequestContext = null;
+}
+
+async function submitRevokeReason() {
+    const context = pendingRevokeRequestContext;
+    const input = document.getElementById('revokeReasonInput');
+    const confirmBtn = document.getElementById('revokeReasonConfirmBtn');
+    if (!context || !input) return;
+
+    const reason = String(input.value || '').trim();
+    if (!reason) {
+        showStatusModal('warning', 'Reason required', 'Please enter a reason for revoking this document request.');
+        input.focus();
+        return;
+    }
+
+    if (confirmBtn) confirmBtn.disabled = true;
+    try {
+        await updateRequestStatus(context.id, 'Revoked', context.table, { reason_revoke: reason });
+        closeRevokeReasonModal();
+        showStatusModal('success', 'Request Revoked', 'Document request has been revoked successfully.', null, true, 1800);
+        if (document.getElementById('revoked-tab')?.classList.contains('active')) {
+            loadRevokedRequests();
+        }
+        loadAllDocumentRequests();
+        loadProcessingRequests();
+        loadReleasedRequests();
+    } catch (error) {
+        console.error('Failed to revoke request:', error);
+        showStatusModal('error', 'Revoke Failed', error.message || 'Failed to revoke request.');
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
+}
+
 // Function to update request status in database
-async function updateRequestStatus(requestId, newStatus, tableName = 'barangay_id') {
+async function updateRequestStatus(requestId, newStatus, tableName = 'barangay_id', extraPayload = {}) {
     console.log(`Updating request ${requestId} status to: ${newStatus} in table: ${tableName}`);
     
     try {
@@ -4822,7 +5069,8 @@ async function updateRequestStatus(requestId, newStatus, tableName = 'barangay_i
                 action: 'update_status',
                 table: tableName,
                 id: requestId,
-                status: newStatus
+                status: newStatus,
+                ...extraPayload
             })
         });
         
@@ -5278,11 +5526,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         const adminDropdown = document.getElementById('adminDropdown');
         const adminProfile = document.getElementById('adminProfile');
+        const revokeReasonModal = document.getElementById('revokeReasonModal');
         
         if (adminDropdown && adminDropdown.classList.contains('show')) {
             if (!(adminProfile.contains(e.target) || adminDropdown.contains(e.target))) {
                 closeAdminDropdown();
             }
+        }
+
+        if (revokeReasonModal && revokeReasonModal.classList.contains('show') && e.target === revokeReasonModal) {
+            closeRevokeReasonModal();
         }
     });
     
@@ -5299,6 +5552,7 @@ document.addEventListener('DOMContentLoaded', function() {
             closeBarangayIdProcessModal();
             closeIndigencyProcessModal();
             closeCoeProcessModal();
+            closeRevokeReasonModal();
         }
     });
     
@@ -5567,6 +5821,7 @@ function renderBarangayIdCards(forms) {
 			</div>
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
+                ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
 				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
 				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 			</div>
@@ -5577,6 +5832,11 @@ function renderBarangayIdCards(forms) {
 		if (viewBtn) {
 			viewBtn.addEventListener('click', () => populateAndShowBarangayIdModal(row));
 		}
+
+        const revokeBtn = card.querySelector('.revoke-btn');
+        if (revokeBtn) {
+            revokeBtn.addEventListener('click', () => requestRevokeDocument(row, 'barangay_id'));
+        }
 
 		// Mark buttons as admin-visible if user is admin
 		const isAdmin = window.AccessControl && window.AccessControl.data && window.AccessControl.data.position && window.AccessControl.data.position.toLowerCase() === 'admin';
@@ -5790,6 +6050,7 @@ function renderCertificationCards(forms) {
 			</div>
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
+                ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
 				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
 				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
@@ -5801,6 +6062,11 @@ function renderCertificationCards(forms) {
 		if (viewBtn) {
 			viewBtn.addEventListener('click', () => populateAndShowCertificationModal(row));
 		}
+
+        const revokeBtn = card.querySelector('.revoke-btn');
+        if (revokeBtn) {
+            revokeBtn.addEventListener('click', () => requestRevokeDocument(row, 'certification'));
+        }
 
 		// Attach process handler for Certification requests
 		const processBtn = card.querySelector('.process-btn');
@@ -5982,6 +6248,7 @@ function renderCoeCards(forms) {
 			</div>
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
+                ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
 				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
 				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
@@ -5993,6 +6260,11 @@ function renderCoeCards(forms) {
 		if (viewBtn) {
 			viewBtn.addEventListener('click', () => populateAndShowCoeModal(row));
 		}
+
+        const revokeBtn = card.querySelector('.revoke-btn');
+        if (revokeBtn) {
+            revokeBtn.addEventListener('click', () => requestRevokeDocument(row, 'coe'));
+        }
 
 		// Attach process handler for COE requests
 		const processBtn = card.querySelector('.process-btn');
@@ -6149,6 +6421,7 @@ function renderClearanceCards(forms) {
 			</div>
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
+                ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
 				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
 				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
@@ -6160,6 +6433,11 @@ function renderClearanceCards(forms) {
 		if (viewBtn) {
 			viewBtn.addEventListener('click', () => populateAndShowClearanceModal(row));
 		}
+
+        const revokeBtn = card.querySelector('.revoke-btn');
+        if (revokeBtn) {
+            revokeBtn.addEventListener('click', () => requestRevokeDocument(row, 'clearance'));
+        }
 
 		// Attach process handler for Clearance requests
 		const processBtn = card.querySelector('.process-btn');
@@ -6332,6 +6610,7 @@ function renderIndigencyCards(forms) {
 			</div>
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
+                ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
 				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
 				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
@@ -6343,6 +6622,11 @@ function renderIndigencyCards(forms) {
 		if (viewBtn) {
 			viewBtn.addEventListener('click', () => populateAndShowIndigencyModal(row));
 		}
+
+        const revokeBtn = card.querySelector('.revoke-btn');
+        if (revokeBtn) {
+            revokeBtn.addEventListener('click', () => requestRevokeDocument(row, 'indigency'));
+        }
 
 		// Attach process handler for Indigency requests
 		const processBtn = card.querySelector('.process-btn');
@@ -6701,6 +6985,25 @@ function applyGlobalSort(sortOrder) {
         // Reload checked requests which will use the new sort order
         // For checked tab, we need to reload processing requests
         loadAllRequests();
+    } else if (activeTab === 'revoked') {
+        const containerMap = {
+            'barangay_id': 'revoked-barangayId-revoked-cards',
+            'certification': 'revoked-certification-revoked-cards',
+            'coe': 'revoked-coe-revoked-cards',
+            'clearance': 'revoked-clearance-revoked-cards',
+            'indigency': 'revoked-indigency-revoked-cards'
+        };
+        const countMap = {
+            'barangay_id': 'revoked-barangayId-revoked',
+            'certification': 'revoked-certification-revoked',
+            'coe': 'revoked-coe-revoked',
+            'clearance': 'revoked-clearance-revoked',
+            'indigency': 'revoked-indigency-revoked'
+        };
+        Object.keys(revokedRequestsCache).forEach(type => {
+            const requests = revokedRequestsCache[type] || [];
+            renderRevokedCards(requests, containerMap[type], countMap[type]);
+        });
     }
 }
 
@@ -6708,6 +7011,7 @@ function applyGlobalSort(sortOrder) {
 function getSortTimestamp(request) {
     // Try multiple possible field name variations
     const candidates = [
+        request.revokedAt || request.revoked_at,
         request.finishAt || request.finish_at || request.finishedAt || request.finished_at,
         request.processAt || request.process_at || request.processedAt || request.processed_at,
         request.submittedAt || request.submitted_at || request.date || request.createdAt || request.created_at
@@ -6761,6 +7065,10 @@ function updateAllCounts(barangayIdForms, certificationForms, coeForms, clearanc
 		updateSidebarCountsForNew();
 	} else if (document.getElementById('checked-tab')?.classList.contains('active')) {
 		updateSidebarCountsForChecked();
+	} else if (document.getElementById('released-tab')?.classList.contains('active')) {
+		updateSidebarCountsForReleased();
+	} else if (document.getElementById('revoked-tab')?.classList.contains('active')) {
+		updateSidebarCountsForRevoked();
 	}
 }
 
@@ -6819,7 +7127,8 @@ function applyAccessControlToCards() {
 				
 				body.view-only-mode .process-btn,
 				body.view-only-mode .finish-btn,
-				body.view-only-mode .ready-btn {
+				body.view-only-mode .ready-btn,
+                body.view-only-mode .revoke-btn {
 					display: none !important;
 				}
 				

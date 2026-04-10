@@ -84,6 +84,7 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="analytics-table-chart" id="concernsTableChart" aria-label="Concerns bar chart"></div>
                             </div>
                             <div class="analytics-table-container">
                                 <div class="table-header">
@@ -114,6 +115,7 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="analytics-table-chart" id="emergencyTableChart" aria-label="Emergency alerts bar chart"></div>
                             </div>
                             <div class="analytics-table-container">
                                 <div class="table-header">
@@ -143,6 +145,60 @@
                                         </tbody>
                                     </table>
                                 </div>
+                                <div class="analytics-table-chart" id="documentRequestsTableChart" aria-label="Document requests bar chart"></div>
+                            </div>
+                            <div class="analytics-table-container analytics-sitio-section">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>By sitio</h5>
+                                        <p class="table-subtitle" id="sitioAnalyticsSubtitle">Pumili ng sitio; gamitin ang mga arrow para lumipat sa Concerns, Emergency, o Document requests.</p>
+                                    </div>
+                                </div>
+                                <div class="sitio-analytics-toolbar">
+                                    <button type="button" class="btn outline sitio-step-btn" id="sitioPrevBtn" title="Nakaraang sitio" aria-label="Nakaraang sitio">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <select id="analyticsSitioSelect" class="analytics-range-select sitio-select-wide" aria-label="Pumili ng sitio">
+                                        <option value="">Select Sitio</option>
+                                        <option value="AHUNIN">AHUNIN</option>
+                                        <option value="BALTAZAR">BALTAZAR</option>
+                                        <option value="BIAK NA BATO">BIAK NA BATO</option>
+                                        <option value="CALLE ONSE/SAMPAGUITA">CALLE ONSE/SAMPAGUITA</option>
+                                        <option value="COC">COC</option>
+                                        <option value="CRUSHER HIGHWAY">CRUSHER HIGHWAY</option>
+                                        <option value="INNER CRUSHER">INNER CRUSHER</option>
+                                        <option value="LOOBAN 1">LOOBAN 1</option>
+                                        <option value="LOOBAN 2">LOOBAN 2</option>
+                                        <option value="NABUS">NABUS</option>
+                                        <option value="OLD BARRIO NPC">OLD BARRIO NPC</option>
+                                        <option value="OLD BARRIO 2">OLD BARRIO 2</option>
+                                        <option value="OLD BARRIO EXT">OLD BARRIO EXT</option>
+                                        <option value="POBLACION">POBLACION</option>
+                                        <option value="KADAYUNAN">KADAYUNAN</option>
+                                        <option value="MANGGAHAN">MANGGAHAN</option>
+                                        <option value="RIVERSIDE">RIVERSIDE</option>
+                                        <option value="SETTLING">SETTLING</option>
+                                        <option value="SPAR">SPAR</option>
+                                        <option value="UPPER">UPPER</option>
+                                        <option value="ALINSANGAN">ALINSANGAN</option>
+                                        <option value="RCD">RCD</option>
+                                        <option value="BRIA PHASE 1">BRIA PHASE 1</option>
+                                        <option value="BRIA PHASE 2">BRIA PHASE 2</option>
+                                    </select>
+                                    <button type="button" class="btn outline sitio-step-btn" id="sitioNextBtn" title="Susunod na sitio" aria-label="Susunod na sitio">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div class="sitio-graph-type-nav">
+                                    <button type="button" class="btn outline" id="sitioGraphPrevBtn" aria-label="Nakaraang uri ng graph">
+                                        <i class="fas fa-arrow-left"></i>
+                                    </button>
+                                    <span id="sitioGraphTypeLabel" class="sitio-graph-type-label">Concerns</span>
+                                    <button type="button" class="btn outline" id="sitioGraphNextBtn" aria-label="Susunod na uri ng graph">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </button>
+                                </div>
+                                <div class="analytics-table-chart sitio-chart-outer" id="sitioPerSitioChart" aria-label="Graph ayon sa sitio"></div>
                             </div>
                             <div class="analytics-table-container">
                                 <div class="table-header">

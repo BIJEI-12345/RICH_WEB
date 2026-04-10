@@ -6,12 +6,14 @@ let currentView = 'new';
 let currentSortOrder = {
     'new': 'latest',
     'processing': 'latest', 
-    'finished': 'latest'
+    'finished': 'latest',
+    'revoked': 'latest'
 };
 let selectedConcernId = null;
 let selectedConcernCategory = null;
 let selectedRowElement = null;
 let selectedRiskLevel = null; // 'low', 'medium', 'high', or null
+let pendingRevokeConcernId = null;
 
 // Navigation Functions
 function goBack() {
@@ -27,6 +29,7 @@ function sortConcerns(category, sortOrder) {
         if (category === 'new') return concern.status === 'new';
         if (category === 'processing') return concern.status === 'processing';
         if (category === 'finished') return concern.status === 'resolved';
+        if (category === 'revoked') return concern.status === 'revoked';
         return false;
     });
     
@@ -181,11 +184,13 @@ function showNewConcerns() {
     const newSection = document.getElementById('new-concerns-section');
     const processingSection = document.getElementById('processing-concerns-section');
     const finishedSection = document.getElementById('finished-concerns-section');
+    const revokedSection = document.getElementById('revoked-concerns-section');
     
-    if (newSection && processingSection && finishedSection) {
+    if (newSection && processingSection && finishedSection && revokedSection) {
         newSection.classList.remove('hidden');
         processingSection.classList.add('hidden');
         finishedSection.classList.add('hidden');
+        revokedSection.classList.add('hidden');
     }
     
     // Update active nav item
@@ -207,11 +212,13 @@ function showProcessingConcerns() {
     const newSection = document.getElementById('new-concerns-section');
     const processingSection = document.getElementById('processing-concerns-section');
     const finishedSection = document.getElementById('finished-concerns-section');
+    const revokedSection = document.getElementById('revoked-concerns-section');
     
-    if (newSection && processingSection && finishedSection) {
+    if (newSection && processingSection && finishedSection && revokedSection) {
         newSection.classList.add('hidden');
         processingSection.classList.remove('hidden');
         finishedSection.classList.add('hidden');
+        revokedSection.classList.add('hidden');
     }
     
     // Update active nav item
@@ -233,11 +240,13 @@ function showFinishedConcerns() {
     const newSection = document.getElementById('new-concerns-section');
     const processingSection = document.getElementById('processing-concerns-section');
     const finishedSection = document.getElementById('finished-concerns-section');
+    const revokedSection = document.getElementById('revoked-concerns-section');
     
-    if (newSection && processingSection && finishedSection) {
+    if (newSection && processingSection && finishedSection && revokedSection) {
         newSection.classList.add('hidden');
         processingSection.classList.add('hidden');
         finishedSection.classList.remove('hidden');
+        revokedSection.classList.add('hidden');
     }
     
     // Update active nav item
@@ -250,6 +259,29 @@ function showFinishedConcerns() {
     document.querySelector('.main-content-container').scrollIntoView({ 
         behavior: 'smooth', 
         block: 'start' 
+    });
+}
+
+function showRevokedConcerns() {
+    currentView = 'revoked';
+    clearSelectedConcern();
+    const newSection = document.getElementById('new-concerns-section');
+    const processingSection = document.getElementById('processing-concerns-section');
+    const finishedSection = document.getElementById('finished-concerns-section');
+    const revokedSection = document.getElementById('revoked-concerns-section');
+
+    if (newSection && processingSection && finishedSection && revokedSection) {
+        newSection.classList.add('hidden');
+        processingSection.classList.add('hidden');
+        finishedSection.classList.add('hidden');
+        revokedSection.classList.remove('hidden');
+    }
+
+    updateActiveNavItem('revoked');
+    loadConcerns('revoked');
+    document.querySelector('.main-content-container').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
     });
 }
 
@@ -331,6 +363,8 @@ function showLoadingIndicator(status) {
     let loadingId;
     if (status === 'resolved') {
         loadingId = 'finished-loading';
+    } else if (status === 'revoked') {
+        loadingId = 'revoked-loading';
     } else if (status === 'processing') {
         loadingId = 'processing-loading';
     } else {
@@ -350,6 +384,8 @@ function hideLoadingIndicator(status) {
     let loadingId;
     if (status === 'resolved') {
         loadingId = 'finished-loading';
+    } else if (status === 'revoked') {
+        loadingId = 'revoked-loading';
     } else if (status === 'processing') {
         loadingId = 'processing-loading';
     } else {
@@ -424,6 +460,9 @@ function displayConcerns(concerns, status) {
     if (status === 'resolved') {
         tbodyId = 'finished-concerns-tbody';
         category = 'finished';
+    } else if (status === 'revoked') {
+        tbodyId = 'revoked-concerns-tbody';
+        category = 'revoked';
     } else if (status === 'processing') {
         tbodyId = 'processing-concerns-tbody';
         category = 'processing';
@@ -518,7 +557,7 @@ function displayConcerns(concerns, status) {
     
     if (sortedConcerns.length === 0) {
         // Show empty state message
-        const colspan = status === 'resolved' ? '8' : (status === 'processing' ? '9' : '8');
+        const colspan = (status === 'resolved' || status === 'revoked') ? '8' : (status === 'processing' ? '9' : '8');
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
             <td colspan="${colspan}" style="text-align: center; padding: 2rem; color: #666;">
@@ -661,6 +700,18 @@ function createConcernRow(concern, status) {
             <div style="font-size: 0.85rem; color: #666; white-space: nowrap; text-align: left;">${timeStr}</div>
         </div>`;
     }
+
+    // Format revoked time (2 lines: date on top, time below)
+    let revokedTimeHtml = 'N/A';
+    if (status === 'revoked' && concern.revoked_at) {
+        const revokedDate = new Date(concern.revoked_at);
+        const dateStr = revokedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const timeStr = revokedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        revokedTimeHtml = `<div style="line-height: 1.4; white-space: nowrap; text-align: left;">
+            <div style="font-weight: 600; white-space: nowrap; text-align: left;">${dateStr}</div>
+            <div style="font-size: 0.85rem; color: #666; white-space: nowrap; text-align: left;">${timeStr}</div>
+        </div>`;
+    }
     
     // Action button HTML (Process/Resolve) - only for new and processing
     let actionButtonHtml = '';
@@ -669,6 +720,9 @@ function createConcernRow(concern, status) {
     } else if (status === 'processing') {
         if (canProcessOrResolveConcerns()) {
             actionButtonHtml = `
+                <button class="btn-action revoke-btn" onclick="revokeConcern('${concern.concern_id}')" title="Revoke Concern">
+                    <i class="fas fa-ban"></i> Revoke
+                </button>
                 <button class="btn-action resolve-btn" onclick="resolveConcern('${concern.concern_id}')" title="Resolve Concern">
                     <i class="fas fa-check"></i> Resolve
                 </button>
@@ -679,6 +733,9 @@ function createConcernRow(concern, status) {
     } else {
         if (canProcessOrResolveConcerns()) {
             actionButtonHtml = `
+                <button class="btn-action revoke-btn" onclick="revokeConcern('${concern.concern_id}')" title="Revoke Concern">
+                    <i class="fas fa-ban"></i> Revoke
+                </button>
                 <button class="btn-action processing-btn" onclick="moveToProcessing('${concern.concern_id}')" title="Move to Processing">
                     <i class="fas fa-clock"></i> Process
                 </button>
@@ -731,6 +788,21 @@ function createConcernRow(concern, status) {
                 </div>
             </td>
             <td>${resolvedTimeHtml}</td>
+        `;
+    } else if (status === 'revoked') {
+        row.innerHTML = `
+            <td>${dateTimeHtml}</td>
+            <td>${concern.reporter_name || 'N/A'}</td>
+            <td class="statement-cell" title="${concern.statement || 'N/A'}">${statementHtml}</td>
+            <td>${concern.location || 'N/A'}</td>
+            <td>${priorityBadgeHtml}</td>
+            <td>${concern.contact || 'N/A'}</td>
+            <td>
+                <div class="action-buttons-container">
+                    ${fullDetailsButtonHtml}
+                </div>
+            </td>
+            <td>${revokedTimeHtml}</td>
         `;
     } else if (status === 'processing') {
         // For processing: Action column, Processed Time at the end
@@ -1325,7 +1397,7 @@ async function applyBulkStatusChange(targetStatus) {
     }
 }
 
-async function sendConcernStatusUpdate(concernId, status) {
+async function sendConcernStatusUpdate(concernId, status, extraData = {}) {
     const response = await fetch('php/concerns.php', {
         method: 'PUT',
         credentials: 'same-origin',
@@ -1334,7 +1406,8 @@ async function sendConcernStatusUpdate(concernId, status) {
         },
         body: JSON.stringify({
             concern_id: concernId,
-            status: status
+            status: status,
+            ...extraData
         })
     });
 
@@ -1415,7 +1488,7 @@ function userHasConcernsFullActionRole() {
 /** Process/Resolve stay clickable after Session.disableTransactions() for admin + Concerns & Reporting. */
 function tagConcernsAdminSessionAllowedButtons() {
     if (!userHasConcernsFullActionRole()) return;
-    document.querySelectorAll('.btn-action.processing-btn, .btn-action.resolve-btn').forEach((btn) => {
+    document.querySelectorAll('.btn-action.processing-btn, .btn-action.resolve-btn, .btn-action.revoke-btn').forEach((btn) => {
         btn.classList.add('session-allowed');
     });
     const relProcess = document.getElementById('relatableProcessBtn');
@@ -1463,6 +1536,71 @@ async function resolveConcern(concernId) {
     } catch (error) {
         console.error('Error resolving concern:', error);
         showStatusModal('error', 'Error', 'Failed to connect to the server.');
+    }
+}
+
+async function revokeConcern(concernId) {
+    pendingRevokeConcernId = concernId;
+    openRevokeReasonModal();
+}
+
+function openRevokeReasonModal() {
+    const modal = document.getElementById('revokeReasonModal');
+    const input = document.getElementById('revokeReasonInput');
+    const statementEl = document.getElementById('revokeReasonStatement');
+    const confirmBtn = document.getElementById('revokeReasonConfirmBtn');
+    if (!modal || !input || !confirmBtn) return;
+    const concernData = concernsData.find(c => c.concern_id === pendingRevokeConcernId);
+    if (statementEl) {
+        const rawStatement = concernData && concernData.statement ? String(concernData.statement) : '-';
+        statementEl.textContent = rawStatement.length > 120 ? rawStatement.substring(0, 120) + '...' : rawStatement;
+    }
+    input.value = '';
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => input.focus(), 20);
+    confirmBtn.onclick = submitRevokeReason;
+}
+
+function closeRevokeReasonModal() {
+    const modal = document.getElementById('revokeReasonModal');
+    const input = document.getElementById('revokeReasonInput');
+    const statementEl = document.getElementById('revokeReasonStatement');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    if (input) input.value = '';
+    if (statementEl) statementEl.textContent = '-';
+    pendingRevokeConcernId = null;
+}
+
+async function submitRevokeReason() {
+    const concernId = pendingRevokeConcernId;
+    const input = document.getElementById('revokeReasonInput');
+    const confirmBtn = document.getElementById('revokeReasonConfirmBtn');
+    if (!concernId || !input) return;
+    const trimmedReason = String(input.value || '').trim();
+    if (!trimmedReason) {
+        showStatusModal('warning', 'Reason required', 'Please enter a reason for revoking this concern.');
+        input.focus();
+        return;
+    }
+    if (confirmBtn) confirmBtn.disabled = true;
+    try {
+        const result = await sendConcernStatusUpdate(concernId, 'revoked', { reason_revoke: trimmedReason });
+        if (result && result.success) {
+            closeRevokeReasonModal();
+            showStatusModal('success', 'Concern Revoked', 'Concern has been revoked successfully.');
+            loadConcerns(currentView);
+        } else {
+            showStatusModal('error', 'Error', result.message || 'Failed to revoke concern.');
+        }
+    } catch (error) {
+        console.error('Error revoking concern:', error);
+        showStatusModal('error', 'Error', 'Failed to connect to the server.');
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
     }
 }
 
@@ -1535,6 +1673,13 @@ function showConcernModal(concernData) {
             <p style="margin: 0; color: #333;">This concern has been successfully resolved.</p>
             ${concernData.formatted_resolved_date ? `<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;"><strong>Resolved on:</strong> ${concernData.formatted_resolved_date}</p>` : ''}
         </div>` : '';
+    const revokedHtml = concernData.status === 'revoked' ?
+        `<div class="resolution-details" style="background: rgba(220, 53, 69, 0.08); padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545; margin-top: 1rem;">
+            <h5 style="color: #dc3545; margin-bottom: 0.5rem;">Revoked Status</h5>
+            <p style="margin: 0; color: #333;">This concern has been revoked.</p>
+            ${concernData.formatted_revoked_date ? `<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;"><strong>Revoked on:</strong> ${concernData.formatted_revoked_date}</p>` : ''}
+            ${concernData.reason_revoke ? `<p style="margin: 0.5rem 0 0 0; color: #333; font-size: 0.95rem;"><strong>Reason:</strong> ${concernData.reason_revoke}</p>` : ''}
+        </div>` : '';
     
     modalBody.innerHTML = `
         <div class="concern-details">
@@ -1561,6 +1706,7 @@ function showConcernModal(concernData) {
                 <p style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff; margin: 0; line-height: 1.5;">${concernData.statement}</p>
             </div>
             ${resolutionHtml}
+            ${revokedHtml}
         </div>
     `;
     
@@ -1633,6 +1779,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const adminDropdown = document.getElementById('adminDropdown');
         const adminProfile = document.getElementById('adminProfile');
         const concernModal = document.getElementById('concernModal');
+        const revokeReasonModal = document.getElementById('revokeReasonModal');
         
         if (adminDropdown && adminDropdown.classList.contains('show')) {
             if (!(adminProfile.contains(e.target) || adminDropdown.contains(e.target))) {
@@ -1643,6 +1790,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (concernModal && concernModal.classList.contains('show')) {
             if (e.target === concernModal) {
                 closeConcernModal();
+            }
+        }
+        if (revokeReasonModal && revokeReasonModal.classList.contains('show')) {
+            if (e.target === revokeReasonModal) {
+                closeRevokeReasonModal();
             }
         }
         
@@ -1667,6 +1819,7 @@ document.addEventListener('DOMContentLoaded', function() {
             closeAdminDropdown();
             closeConcernModal();
             closeStatusModal();
+            closeRevokeReasonModal();
             closeImageModal();
             closeRelatableModal();
         }
@@ -1700,10 +1853,12 @@ function applyNavCounts(counts) {
     const newCountElement = document.getElementById('new-count');
     const processingCountElement = document.getElementById('processing-count');
     const finishedCountElement = document.getElementById('finished-count');
+    const revokedCountElement = document.getElementById('revoked-count');
     const totalCountElement = document.getElementById('total-concerns');
     if (newCountElement) newCountElement.textContent = counts.new ?? 0;
     if (processingCountElement) processingCountElement.textContent = counts.processing ?? 0;
     if (finishedCountElement) finishedCountElement.textContent = counts.resolved ?? 0;
+    if (revokedCountElement) revokedCountElement.textContent = counts.revoked ?? 0;
     if (totalCountElement) totalCountElement.textContent = counts.total ?? 0;
 }
 
@@ -1748,6 +1903,7 @@ async function updateCategoryCounts() {
             const newConcerns = allConcerns.filter(concern => concern.status === 'new').length;
             const processingConcerns = allConcerns.filter(concern => concern.status === 'processing').length;
             const finishedConcerns = allConcerns.filter(concern => concern.status === 'resolved').length;
+            const revokedConcerns = allConcerns.filter(concern => concern.status === 'revoked').length;
             const totalConcerns = allConcerns.length;
             
             console.log('Calculated counts - New:', newConcerns, 'Processing:', processingConcerns, 'Finished:', finishedConcerns, 'Total:', totalConcerns);
@@ -1755,6 +1911,7 @@ async function updateCategoryCounts() {
                 new: newConcerns,
                 processing: processingConcerns,
                 resolved: finishedConcerns,
+                revoked: revokedConcerns,
                 total: totalConcerns
             });
         } else {
@@ -1770,11 +1927,13 @@ function setAllCountsToZero() {
     const newCountElement = document.getElementById('new-count');
     const processingCountElement = document.getElementById('processing-count');
     const finishedCountElement = document.getElementById('finished-count');
+    const revokedCountElement = document.getElementById('revoked-count');
     const totalCountElement = document.getElementById('total-concerns');
     
     if (newCountElement) newCountElement.textContent = 0;
     if (processingCountElement) processingCountElement.textContent = 0;
     if (finishedCountElement) finishedCountElement.textContent = 0;
+    if (revokedCountElement) revokedCountElement.textContent = 0;
     if (totalCountElement) totalCountElement.textContent = 0;
     
     console.log('Set all counts to 0');

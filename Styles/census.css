@@ -556,7 +556,105 @@
     }
 }
 
+/* Add Resident + cascading filters (tabi sa kanan ng Add Resident) */
+.census-add-and-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.census-filter-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+/* Unang dropdown + pangalawang control: parehong lapad (11rem) */
+#censusFilterCategory.census-filter-select {
+    width: 9.5rem;
+    min-width: 9.5rem;
+    max-width: 9.5rem;
+    box-sizing: border-box;
+}
+
+.census-filter-select {
+    min-width: 9.5rem;
+    max-width: min(100%, 20rem);
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    background: #fff;
+    color: #0f172a;
+}
+
+.census-filter-sub-wrap {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+/* Pangalawang control: same width tulad ng unang dropdown (hindi lumalawak dahil sa mahahabang option text) */
+.census-filter-sub-wrap .census-filter-sub-field {
+    width: 9.5rem;
+    min-width: 9.5rem;
+    max-width: 9.5rem;
+    box-sizing: border-box;
+}
+
+.census-filter-sub-wrap[hidden] {
+    display: none !important;
+}
+
+.census-filter-search-btn {
+    padding: 0.55rem 1rem !important;
+    font-size: 0.9rem !important;
+}
+
+@media (max-width: 640px) {
+    .census-filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #censusFilterCategory.census-filter-select {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .census-filter-select {
+        max-width: 100%;
+    }
+
+    .census-filter-sub-wrap {
+        width: 100%;
+    }
+
+    .census-filter-sub-wrap .census-filter-sub-field {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .census-filter-search-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 @media print {
+    .census-add-and-filters,
+    .census-filter-bar {
+        display: none !important;
+    }
+
     .census-statistics {
         display: flex !important;
         justify-content: flex-end;

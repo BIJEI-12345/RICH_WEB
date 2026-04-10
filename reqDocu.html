@@ -118,6 +118,10 @@
                         <i class="fas fa-print"></i>
                         Finished
                     </button>
+                    <button class="tab-btn" data-tab="revoked" onclick="switchRequestTab('revoked')">
+                        <i class="fas fa-ban"></i>
+                        Revoked
+                    </button>
                 </div>
                 <div class="tab-sort-controls">
                     <!-- Search Box -->
@@ -632,8 +636,162 @@
                     </div>
                 </div>
                 <!-- End Finished Tab -->
+
+                <!-- Revoked Tab -->
+                <div class="tab-panel" id="revoked-tab">
+                    <div class="content-view new-requests-view active" id="revokedRequestsView">
+                        <div class="document-categories">
+                            <div class="document-category" data-category="barangay-id">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-id-card"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Barangay ID Form</h3>
+                                        <p>Revoked Barangay Identification Cards</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="revoked-barangayId-revoked">0</span>
+                                            <span class="stat-label">Revoked</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-ban"></i> Revoked Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="revoked-barangayId-revoked-cards"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="document-category" data-category="certification">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-certificate"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certification Form</h3>
+                                        <p>Revoked certification requests</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="revoked-certification-revoked">0</span>
+                                            <span class="stat-label">Revoked</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-ban"></i> Revoked Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="revoked-certification-revoked-cards"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="document-category" data-category="coe">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-briefcase"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Certificate of Employment</h3>
+                                        <p>Revoked employment certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="revoked-coe-revoked">0</span>
+                                            <span class="stat-label">Revoked</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-ban"></i> Revoked Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="revoked-coe-revoked-cards"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="document-category" data-category="clearance">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Clearance Form</h3>
+                                        <p>Revoked clearance certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="revoked-clearance-revoked">0</span>
+                                            <span class="stat-label">Revoked</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-ban"></i> Revoked Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="revoked-clearance-revoked-cards"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="document-category" data-category="indigency">
+                                <div class="category-header">
+                                    <div class="category-icon">
+                                        <i class="fas fa-heart"></i>
+                                    </div>
+                                    <div class="category-info">
+                                        <h3>Indigency Form</h3>
+                                        <p>Revoked indigency certificates</p>
+                                    </div>
+                                    <div class="category-stats">
+                                        <span class="stat-item">
+                                            <span class="stat-number" id="revoked-indigency-revoked">0</span>
+                                            <span class="stat-label">Revoked</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="status-sections">
+                                    <div class="status-section">
+                                        <div class="section-header">
+                                            <h4><i class="fas fa-ban"></i> Revoked Requests</h4>
+                                        </div>
+                                        <div class="request-cards" id="revoked-indigency-revoked-cards"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- End Revoked Tab -->
             </div>
             <!-- End Tab Content -->
+        </div>
+    </div>
+
+    <!-- Revoke Reason Modal -->
+    <div class="status-modal" id="revokeReasonModal" aria-hidden="true">
+        <div class="status-dialog revoke-reason-dialog">
+            <div class="status-content">
+                <h4>Revoke Request</h4>
+                <p class="revoke-statement-line"><strong>Request:</strong> <span id="revokeReasonStatement">-</span></p>
+                <p>Ilagay ang dahilan kung bakit ire-revoke ang request:</p>
+                <textarea id="revokeReasonInput" class="revoke-reason-input" rows="4" placeholder="Type reason here..."></textarea>
+            </div>
+            <div class="status-actions revoke-reason-actions">
+                <button class="btn cancel-btn" type="button" onclick="closeRevokeReasonModal()">Cancel</button>
+                <button class="btn ok-btn" type="button" id="revokeReasonConfirmBtn">Confirm Revoke</button>
+            </div>
         </div>
     </div>
 

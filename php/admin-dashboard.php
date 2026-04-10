@@ -334,9 +334,9 @@ switch($method) {
         $datetime = trim($_POST['datetime'] ?? '');
         $image_path = '';
         
-        // Handle image upload if provided
+        // Handle image upload if provided (paths relative to this script, not CWD)
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = '../uploads/announcements/';
+            $upload_dir = __DIR__ . '/../uploads/announcements/';
             if (!is_dir($upload_dir)) {
                 mkdir($upload_dir, 0755, true);
             }
@@ -393,8 +393,8 @@ switch($method) {
             // Validate image paths - remove invalid/missing images
             foreach ($announcements as &$announcement) {
                 if (!empty($announcement['image'])) {
-                    // Check if image file exists
-                    $imagePath = '../' . $announcement['image'];
+                    // Check if image file exists (same base path as upload)
+                    $imagePath = __DIR__ . '/../' . str_replace(['\\', '//'], '/', $announcement['image']);
                     if (!file_exists($imagePath) || !is_file($imagePath)) {
                         // Image doesn't exist, set to empty
                         $announcement['image'] = '';

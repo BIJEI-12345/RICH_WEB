@@ -780,6 +780,319 @@
     }
 }
 
+/* Bar charts below analytics tables — axis + grid + heights from scale (not equal flex) */
+.analytics-table-chart {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e2e8f0;
+    --chart-plot-h: 220px;
+}
+
+.table-chart-heading {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.table-chart-viz {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0.35rem;
+    width: 100%;
+}
+
+.table-chart-y-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+    flex-shrink: 0;
+    padding: 0.25rem 0;
+    align-self: center;
+}
+
+.table-chart-y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--chart-plot-h);
+    flex-shrink: 0;
+    min-width: 2rem;
+    padding-right: 0.25rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #64748b;
+    text-align: right;
+    line-height: 1;
+}
+
+.table-chart-y-axis span {
+    display: block;
+    transform: translateY(0.35em);
+}
+
+.table-chart-y-axis span:first-child {
+    transform: translateY(0);
+}
+
+.table-chart-plot-wrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.table-chart-plot {
+    position: relative;
+    height: var(--chart-plot-h);
+    border-left: 2px solid #64748b;
+    border-bottom: 2px solid #64748b;
+    border-radius: 0 2px 0 0;
+    background: #fafbfc;
+}
+
+.table-chart-grid-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    --n: 5;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(100% / var(--grid-lines, 5) - 1px),
+        rgba(148, 163, 184, 0.45) calc(100% / var(--grid-lines, 5) - 1px),
+        rgba(148, 163, 184, 0.45) calc(100% / var(--grid-lines, 5))
+    );
+}
+
+.table-chart-bar-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 0.35rem;
+    padding: 0 0.4rem 0 0.25rem;
+}
+
+.table-chart-bar-slot {
+    flex: 1;
+    min-width: 0;
+    max-width: 5.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+}
+
+.table-chart-bar-fill {
+    width: 100%;
+    max-width: 3.25rem;
+    border-radius: 6px 6px 2px 2px;
+    min-height: 0;
+    height: calc(var(--bar-pct, 0) * 1%);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.2rem;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.table-chart-bar-fill:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+}
+
+.table-chart-bar-value {
+    line-height: 1.2;
+}
+
+.table-chart-bar-fill--doc-month {
+    background: linear-gradient(180deg, #7dd3fc 0%, #0ea5e9 100%);
+}
+
+.table-chart-bar-fill--doc-year {
+    background: linear-gradient(180deg, #93c5fd 0%, #2563eb 100%);
+}
+
+.table-chart-label {
+    font-size: 0.65rem;
+    color: #475569;
+    text-align: center;
+    line-height: 1.2;
+    margin-top: 0.35rem;
+    max-width: 5.5rem;
+    word-break: break-word;
+}
+
+.table-chart-x-title {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+}
+
+.table-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.table-chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.table-chart-legend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.table-chart-legend-swatch.month {
+    background: linear-gradient(180deg, #7dd3fc, #0ea5e9);
+}
+
+.table-chart-legend-swatch.year {
+    background: linear-gradient(180deg, #93c5fd, #2563eb);
+}
+
+/* Document chart: groups as columns along shared Y scale */
+.table-chart-bar-layer--documents {
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-chart-doc-group--viz {
+    flex: 1 1 88px;
+    min-width: 76px;
+    max-width: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+}
+
+.table-chart-doc-pair-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.25rem;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.table-chart-bar-slot--pair {
+    max-width: none;
+    flex: 1;
+}
+
+.table-chart-bar-slot--pair .table-chart-bar-fill {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.table-chart-doc-group--viz .table-chart-doc-name {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #334155;
+    text-align: center;
+    line-height: 1.15;
+    margin-top: 0.35rem;
+    min-height: 2.1em;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Analytics — by sitio (pagkatapos ng tatlong pangunahing graph) */
+.analytics-sitio-section .sitio-analytics-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+
+.analytics-sitio-section .sitio-select-wide {
+    flex: 1 1 200px;
+    min-width: min(100%, 220px);
+    max-width: 100%;
+    /* Gitna lang ang label ng napiling sitio sa dropdown (closed + list) */
+    text-align: center;
+    text-align-last: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.analytics-sitio-section .sitio-select-wide option {
+    text-align: center;
+}
+
+.analytics-sitio-section .sitio-step-btn {
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+}
+
+.sitio-graph-type-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem 1.25rem;
+    margin-bottom: 0.85rem;
+    padding: 0.5rem 0;
+}
+
+.sitio-graph-type-label {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    min-width: 10rem;
+    text-align: center;
+}
+
+.sitio-chart-outer {
+    margin-top: 0;
+}
+
+.sitio-chart-empty {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+    font-style: italic;
+}
+
 .analytics-tables-section {
     display: flex;
     flex-direction: column;
@@ -927,6 +1240,18 @@
     .analytics-users-table th,
     .analytics-users-table td {
         padding: 0.5rem 0.75rem;
+    }
+
+    .table-chart-viz {
+        flex-wrap: wrap;
+    }
+
+    .table-chart-bar-layer--documents {
+        padding-bottom: 0.15rem;
+    }
+
+    .table-chart-doc-group--viz {
+        min-width: 70px;
     }
 }
 

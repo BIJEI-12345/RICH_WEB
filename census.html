@@ -57,10 +57,33 @@
                         <i class="fas fa-print"></i>
                         Print Data
                     </button>
+                    <div class="census-add-and-filters">
                     <button type="button" class="action-btn add-resident-btn" id="addResidentBtn" onclick="openAddCensusModal()">
                         <i class="fas fa-user-plus"></i>
                         Add Resident
                     </button>
+                    <div class="census-filter-bar" id="censusFilterBar" aria-label="Filter census records">
+                        <select id="censusFilterSitio" class="census-filter-select" title="Filter by sitio">
+                            <option value="">All Sitio</option>
+                        </select>
+                        <select id="censusFilterCategory" class="census-filter-select" title="Unang filter">
+                            <option value="">Filter by…</option>
+                            <option value="age">Age</option>
+                            <option value="beneficiaries">Beneficiaries</option>
+                            <option value="non_beneficiaries">Non beneficiaries</option>
+                            <option value="solo_parent">Solo parent</option>
+                            <option value="pwds">PWDs</option>
+                        </select>
+                        <div class="census-filter-sub-wrap" id="censusFilterSubWrap" hidden>
+                            <select id="censusFilterSub" class="census-filter-select census-filter-sub-field" title="Pangalawang filter"></select>
+                            <input type="text" id="censusFilterSoloInput" class="census-filter-select census-filter-sub-field" placeholder="Optional: higit pang hanap sa status/relation…" title="Solo parent — optional na keyword pagkatapos ng widowed" hidden autocomplete="off" />
+                            <button type="button" class="action-btn census-filter-search-btn" id="censusFilterSearchBtn">
+                                <i class="fas fa-search"></i>
+                                Search
+                            </button>
+                        </div>
+                    </div>
+                    </div>
                 </div>
 
                 <!-- Search Bar -->
@@ -210,7 +233,7 @@
                             <option value="BALTAZAR">BALTAZAR</option>
                             <option value="BIAK NA BATO">BIAK NA BATO</option>
                             <option value="CALLE ONSE/SAMPAGUITA">CALLE ONSE/SAMPAGUITA</option>
-                            <option value="UPPER COC">UPPER COC</option>
+                            <option value="COC">COC</option>
                             <option value="CRUSHER HIGHWAY">CRUSHER HIGHWAY</option>
                             <option value="INNER CRUSHER">INNER CRUSHER</option>
                             <option value="LOOBAN 1">LOOBAN 1</option>
@@ -225,6 +248,7 @@
                             <option value="RIVERSIDE">RIVERSIDE</option>
                             <option value="SETTLING">SETTLING</option>
                             <option value="SPAR">SPAR</option>
+                            <option value="UPPER">UPPER</option>
                             <option value="ALINSANGAN">ALINSANGAN</option>
                             <option value="RCD">RCD</option>
                             <option value="BRIA PHASE 1">BRIA PHASE 1</option>

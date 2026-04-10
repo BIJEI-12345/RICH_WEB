@@ -42,6 +42,28 @@ function safeImageData($imageData) {
     return $imageData;
 }
 
+function ensure_doc_request_revoke_columns($connection, $tableName) {
+    $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $tableName);
+    if ($safeTable === '') {
+        return;
+    }
+
+    $columns = [];
+    $result = $connection->query("SHOW COLUMNS FROM `$safeTable`");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $columns[] = strtolower($row['Field']);
+        }
+    }
+
+    if (!in_array('revoked_at', $columns, true)) {
+        $connection->query("ALTER TABLE `$safeTable` ADD COLUMN revoked_at DATETIME NULL");
+    }
+    if (!in_array('reason_revoke', $columns, true)) {
+        $connection->query("ALTER TABLE `$safeTable` ADD COLUMN reason_revoke TEXT NULL");
+    }
+}
+
 try {
     // Include database configuration
     require_once 'config.php';
@@ -89,6 +111,7 @@ try {
             $table = $input['table'] ?? '';
             $id = $input['id'] ?? '';
             $status = $input['status'] ?? '';
+            $reasonRevoke = trim((string)($input['reason_revoke'] ?? ''));
             
             if ($action !== 'update_status' || !$table || !$id || !$status) {
                 throw new Exception('Missing required parameters');
@@ -113,6 +136,7 @@ try {
             ];
             
             $actualTable = $tableMap[$table];
+            ensure_doc_request_revoke_columns($connection, $actualTable);
             
             // Update status with timestamp tracking
             // Get current time using PHP timezone (Philippine time)
@@ -138,6 +162,15 @@ try {
                 }
                 
                 $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
+            } elseif ($normalizedStatus === 'Revoked') {
+                $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
+                $stmt = $connection->prepare($sql);
+
+                if (!$stmt) {
+                    throw new Exception('Failed to prepare revoke statement: ' . $connection->error);
+                }
+
+                $stmt->bind_param('sssi', $normalizedStatus, $currentTime, $reasonRevoke, $id);
             } else {
                 // Regular status update without timestamp
                 $sql = "UPDATE $actualTable SET status = ? WHERE id = ?";
@@ -320,6 +353,7 @@ try {
         echo json_encode(['requests' => []]);
         exit;
     }
+    ensure_doc_request_revoke_columns($connection, $tableName);
 
     // Fetch data based on table parameter
     switch ($table) {
@@ -388,7 +422,9 @@ try {
                         'status' => $row['status'] ?? 'New',
                         'submittedAt' => $row['submitted_at'] ?? $row['submittedAt'] ?? date('Y-m-d H:i:s'),
                         'processAt' => $row['process_at'] ?? $row['processAt'] ?? null,
-                        'finishAt' => $row['finish_at'] ?? $row['finishAt'] ?? null
+                        'finishAt' => $row['finish_at'] ?? $row['finishAt'] ?? null,
+                        'revoked_at' => $row['revoked_at'] ?? null,
+                        'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
                 }
                 error_log("Successfully processed " . count($requests) . " barangay ID requests");
@@ -462,6 +498,8 @@ try {
                             'submittedAt' => $submittedAt,
                             'processAt' => $processAt,
                             'finishAt' => $finishAt,
+                            'revoked_at' => $row['revoked_at'] ?? null,
+                            'reason_revoke' => $row['reason_revoke'] ?? '',
                             // Purpose-specific fields
                             'start_year' => $startYear,
                             'job_position' => $jobPosition,
@@ -494,7 +532,7 @@ try {
             $usedIdField = '';
             
             foreach ($possibleIdFields as $idField) {
-                $sql = "SELECT $idField, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, status, submitted_at, process_at, finish_at FROM coe_forms ORDER BY submitted_at DESC";
+            $sql = "SELECT $idField, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke FROM coe_forms ORDER BY submitted_at DESC";
                 $result = $connection->query($sql);
                 
                 if ($result !== false) {
@@ -536,14 +574,16 @@ try {
                         'status' => $row['status'] ?? 'New',
                         'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s'),
                         'processAt' => $row['process_at'] ?? null,
-                        'finishAt' => $row['finish_at'] ?? null
+                        'finishAt' => $row['finish_at'] ?? null,
+                        'revoked_at' => $row['revoked_at'] ?? null,
+                        'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
                 }
             }
             break;
             
         case 'clearance':
-            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, citizenship, purpose, valid_id, status, submitted_at, process_at, finish_at FROM clearance_forms ORDER BY submitted_at DESC";
+            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, citizenship, purpose, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke FROM clearance_forms ORDER BY submitted_at DESC";
             $result = $connection->query($sql);
             
             if ($result === false) {
@@ -576,14 +616,16 @@ try {
                         'status' => $row['status'] ?? 'New',
                         'submitted_at' => $row['submitted_at'] ?? date('Y-m-d H:i:s'),
                         'process_at' => $row['process_at'] ?? null,
-                        'finish_at' => $row['finish_at'] ?? null
+                        'finish_at' => $row['finish_at'] ?? null,
+                        'revoked_at' => $row['revoked_at'] ?? null,
+                        'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
                 }
             }
             break;
             
         case 'indigency':
-            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at, para_kay, `position`, hall_address, document_language FROM indigency_forms ORDER BY submitted_at DESC";
+            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke, para_kay, `position`, hall_address, document_language FROM indigency_forms ORDER BY submitted_at DESC";
             $result = $connection->query($sql);
             
             if ($result === false) {
@@ -614,6 +656,8 @@ try {
                         'submittedAt' => $row['submitted_at'] ?? date('Y-m-d H:i:s'),
                         'processAt' => $row['process_at'] ?? null,
                         'finishAt' => $row['finish_at'] ?? null,
+                        'revoked_at' => $row['revoked_at'] ?? null,
+                        'reason_revoke' => $row['reason_revoke'] ?? '',
                         'para_kay' => $row['para_kay'] ?? '',
                         'position' => $row['position'] ?? '',
                         'hall_address' => $row['hall_address'] ?? '',

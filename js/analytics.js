@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeRangeControls();
     setupScrollToTop();
     setupPrintButtons();
+    setupSitioAnalyticsControls();
 });
 
 function setupScrollToTop() {
@@ -196,6 +197,12 @@ function printTableWrapper(container, tableTitle) {
 }
 
 let analyticsPayload = null;
+/** Index sa `bySitio` array (0…23) */
+let sitioAnalyticsIndex = 0;
+/** 0 = Concerns, 1 = Emergency, 2 = Documents — arrow lang sa tatlong ito */
+let sitioGraphKind = 0;
+const SITIO_GRAPH_LABELS = ['Concerns', 'Emergency alerts', 'Document requests'];
+
 let currentSection = 'concerns';
 let currentRangeLabel = 'This month';
 let previousRangeLabel = '';
@@ -485,6 +492,9 @@ function populateAnalytics(data, period = 'month') {
     renderActivitySummaryTable(data, period);
     renderEmergencyAlertsTable(data, period);
     renderDocumentRequestsTable(data, period);
+    renderConcernsTableChart(data);
+    renderEmergencyTableChart(data);
+    renderDocumentRequestsTableChart(data);
     renderActiveUsersTable(data);
     renderJobseekerReportTable(data);
     
@@ -511,6 +521,8 @@ function populateAnalytics(data, period = 'month') {
     if (docYearList && data.documents?.year) {
         docYearList.innerHTML = renderDocumentBreakdown(data.documents.year);
     }
+
+    renderSitioAnalyticsPanel(data);
 }
 
 function renderGraph(data) {
@@ -918,6 +930,382 @@ function formatTableChange(diff) {
     if (diff === 0) return '—';
     if (diff > 0) return `🔺${diff}`;
     return `🔻${Math.abs(diff)}`;
+}
+
+function escapeChartText(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/** Round data max up to a readable axis top (e.g. 7→10, 23→25) so bars use real scale, not always 100%. */
+function niceAxisMax(dataMax) {
+    if (dataMax <= 0) return 1;
+    const exp = Math.floor(Math.log10(dataMax));
+    const pow10 = 10 ** exp;
+    const n = dataMax / pow10;
+    let nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+    let top = nice * pow10;
+    if (top < dataMax) {
+        const step = top;
+        top = Math.ceil(dataMax / step) * step;
+    }
+    return Math.max(top, 1);
+}
+
+function buildAxisTickLabels(axisMax, tickCount = 5) {
+    const ticks = [];
+    for (let i = tickCount; i >= 0; i--) {
+        const raw = (axisMax * i) / tickCount;
+        ticks.push(Number.isInteger(raw) ? raw : Math.round(raw * 100) / 100);
+    }
+    return ticks;
+}
+
+/**
+ * Proper bar chart: fixed plot height, Y-axis scale, grid; bar height = value / axisMax (not relative only to max bar).
+ */
+function renderTableBarChartRows(containerId, heading, bars, yAxisLabel = 'Count') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!bars || bars.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    const numericValues = bars.map(b => Number(b.value) || 0);
+    const dataMax = Math.max(...numericValues, 0);
+    const axisMax = niceAxisMax(dataMax);
+    const ticks = buildAxisTickLabels(axisMax, 5);
+    const tickHtml = ticks.map(t => `<span>${t.toLocaleString()}</span>`).join('');
+
+    const barHtml = bars.map((b, i) => {
+        const v = numericValues[i];
+        const pct = axisMax > 0 ? Math.min(100, (v / axisMax) * 100) : 0;
+        const bg = b.color || '#64748b';
+        const label = escapeChartText(b.label || '');
+        return `
+            <div class="table-chart-bar-slot">
+                <div class="table-chart-bar-fill" style="--bar-pct:${pct};background:${bg}" aria-label="${label}: ${v}">
+                    <span class="table-chart-bar-value">${v.toLocaleString()}</span>
+                </div>
+                <span class="table-chart-label">${label}</span>
+            </div>`;
+    }).join('');
+
+    container.innerHTML = `
+        <p class="table-chart-heading">${escapeChartText(heading)}</p>
+        <div class="table-chart-viz" role="img" aria-label="${escapeChartText(heading)}: ${bars.map((b, i) => `${b.label} ${numericValues[i]}`).join(', ')}">
+            <div class="table-chart-y-label">${escapeChartText(yAxisLabel)}</div>
+            <div class="table-chart-y-axis" aria-hidden="true">${tickHtml}</div>
+            <div class="table-chart-plot-wrap">
+                <div class="table-chart-plot">
+                    <div class="table-chart-grid-bg" style="--grid-lines:5"></div>
+                    <div class="table-chart-bar-layer">${barHtml}</div>
+                </div>
+                <p class="table-chart-x-title">Categories</p>
+            </div>
+        </div>`;
+}
+
+function renderConcernsTableChart(data) {
+    const monthData = data.concerns?.month || { reported: 0, resolved: 0 };
+    const yearData = data.concerns?.year || { reported: 0, resolved: 0 };
+    renderTableBarChartRows('concernsTableChart', 'Bar graph', [
+        { label: 'This month · Reported', value: monthData.reported || 0, color: '#3b82f6' },
+        { label: 'This month · Resolved', value: monthData.resolved || 0, color: '#22c55e' },
+        { label: 'This year · Reported', value: yearData.reported || 0, color: '#6366f1' },
+        { label: 'This year · Resolved', value: yearData.resolved || 0, color: '#14b8a6' }
+    ], 'Bilang');
+}
+
+function renderEmergencyTableChart(data) {
+    const monthData = data.emergencies?.month || { reported: 0, resolved: 0 };
+    const yearData = data.emergencies?.year || { reported: 0, resolved: 0 };
+    renderTableBarChartRows('emergencyTableChart', 'Bar graph', [
+        { label: 'This month · Reported', value: monthData.reported || 0, color: '#ec4899' },
+        { label: 'This month · Resolved', value: monthData.resolved || 0, color: '#a855f7' },
+        { label: 'This year · Reported', value: yearData.reported || 0, color: '#f97316' },
+        { label: 'This year · Resolved', value: yearData.resolved || 0, color: '#eab308' }
+    ], 'Bilang');
+}
+
+function renderDocumentRequestsTableChart(data) {
+    const container = document.getElementById('documentRequestsTableChart');
+    if (!container) return;
+
+    const monthData = data.documents?.month || {};
+    const yearData = data.documents?.year || {};
+    const docTypes = Object.keys(monthData).filter(key => key.toLowerCase() !== 'total');
+
+    if (docTypes.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const allValues = [];
+    docTypes.forEach(t => {
+        allValues.push(Number(monthData[t]) || 0, Number(yearData[t]) || 0);
+    });
+    allValues.push(Number(monthData.total) || 0, Number(yearData.total) || 0);
+    const dataMax = Math.max(...allValues, 0);
+    const axisMax = niceAxisMax(dataMax);
+    const ticks = buildAxisTickLabels(axisMax, 5);
+    const tickHtml = ticks.map(t => `<span>${t.toLocaleString()}</span>`).join('');
+
+    const barPct = v => (axisMax > 0 ? Math.min(100, ((Number(v) || 0) / axisMax) * 100) : 0);
+
+    const barPair = (monthCount, yearCount) => {
+        const mv = Number(monthCount) || 0;
+        const yv = Number(yearCount) || 0;
+        return `
+            <div class="table-chart-doc-pair-inner">
+                <div class="table-chart-bar-slot table-chart-bar-slot--pair">
+                    <div class="table-chart-bar-fill table-chart-bar-fill--doc-month" style="--bar-pct:${barPct(mv)}" aria-label="This month: ${mv}">
+                        <span class="table-chart-bar-value">${mv.toLocaleString()}</span>
+                    </div>
+                    <span class="table-chart-label">Month</span>
+                </div>
+                <div class="table-chart-bar-slot table-chart-bar-slot--pair">
+                    <div class="table-chart-bar-fill table-chart-bar-fill--doc-year" style="--bar-pct:${barPct(yv)}" aria-label="This year: ${yv}">
+                        <span class="table-chart-bar-value">${yv.toLocaleString()}</span>
+                    </div>
+                    <span class="table-chart-label">Year</span>
+                </div>
+            </div>`;
+    };
+
+    const typeBlocks = docTypes.map(type => `
+        <div class="table-chart-doc-group table-chart-doc-group--viz">
+            ${barPair(monthData[type], yearData[type])}
+            <span class="table-chart-doc-name">${escapeChartText(type)}</span>
+        </div>`).join('');
+
+    const totalBlock = `
+        <div class="table-chart-doc-group table-chart-doc-group--viz">
+            ${barPair(monthData.total, yearData.total)}
+            <span class="table-chart-doc-name">Total</span>
+        </div>`;
+
+    container.innerHTML = `
+        <p class="table-chart-heading">Bar graph</p>
+        <div class="table-chart-legend">
+            <span><i class="table-chart-legend-swatch month" aria-hidden="true"></i> This month</span>
+            <span><i class="table-chart-legend-swatch year" aria-hidden="true"></i> This year</span>
+        </div>
+        <div class="table-chart-viz table-chart-viz--documents" role="img" aria-label="Document requests by type">
+            <div class="table-chart-y-label">Bilang</div>
+            <div class="table-chart-y-axis" aria-hidden="true">${tickHtml}</div>
+            <div class="table-chart-plot-wrap table-chart-plot-wrap--documents">
+                <div class="table-chart-plot">
+                    <div class="table-chart-grid-bg" style="--grid-lines:5"></div>
+                    <div class="table-chart-bar-layer table-chart-bar-layer--documents">${typeBlocks}${totalBlock}</div>
+                </div>
+                <p class="table-chart-x-title">Document type</p>
+            </div>
+        </div>`;
+}
+
+function sitioListLength() {
+    return analyticsPayload?.bySitio?.length ?? 0;
+}
+
+function syncSitioSelectFromIndex() {
+    const sel = document.getElementById('analyticsSitioSelect');
+    const list = analyticsPayload?.bySitio;
+    if (!sel || !list?.length || !list[sitioAnalyticsIndex]) return;
+    sel.value = list[sitioAnalyticsIndex].sitio;
+}
+
+function setSitioAnalyticsSubtitle() {
+    const sub = document.getElementById('sitioAnalyticsSubtitle');
+    if (!sub || !analyticsPayload?.bySitio?.length) return;
+    const s = analyticsPayload.bySitio[sitioAnalyticsIndex]?.sitio || '';
+    const ml = analyticsPayload.documents?.monthLabel || '';
+    sub.textContent = ml
+        ? `Sitio: ${s} · Saklaw: ${ml} · Hinahanap ang sitio sa location (concerns/emergency) o address (documents).`
+        : `Sitio: ${s} · Hinahanap ang sitio sa location o address.`;
+}
+
+function updateSitioGraphTypeLabel() {
+    const el = document.getElementById('sitioGraphTypeLabel');
+    if (el) {
+        el.textContent = SITIO_GRAPH_LABELS[sitioGraphKind] ?? SITIO_GRAPH_LABELS[0];
+    }
+}
+
+function renderSitioDocumentChart(containerId, sitioName, monthData, yearData) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const month = monthData || {};
+    const year = yearData || {};
+    const docTypes = Object.keys(month).filter(key => key.toLowerCase() !== 'total');
+
+    if (docTypes.length === 0) {
+        container.innerHTML = `<p class="table-chart-heading">${escapeChartText(sitioName)} · Document requests</p><p class="sitio-chart-empty">Walang uri ng dokumento sa datos.</p>`;
+        return;
+    }
+
+    const allValues = [];
+    docTypes.forEach(t => {
+        allValues.push(Number(month[t]) || 0, Number(year[t]) || 0);
+    });
+    allValues.push(Number(month.total) || 0, Number(year.total) || 0);
+    const dataMax = Math.max(...allValues, 0);
+    const axisMax = niceAxisMax(dataMax);
+    const ticks = buildAxisTickLabels(axisMax, 5);
+    const tickHtml = ticks.map(t => `<span>${t.toLocaleString()}</span>`).join('');
+    const barPct = v => (axisMax > 0 ? Math.min(100, ((Number(v) || 0) / axisMax) * 100) : 0);
+
+    const barPair = (monthCount, yearCount) => {
+        const mv = Number(monthCount) || 0;
+        const yv = Number(yearCount) || 0;
+        return `
+            <div class="table-chart-doc-pair-inner">
+                <div class="table-chart-bar-slot table-chart-bar-slot--pair">
+                    <div class="table-chart-bar-fill table-chart-bar-fill--doc-month" style="--bar-pct:${barPct(mv)}" aria-label="This month: ${mv}">
+                        <span class="table-chart-bar-value">${mv.toLocaleString()}</span>
+                    </div>
+                    <span class="table-chart-label">Month</span>
+                </div>
+                <div class="table-chart-bar-slot table-chart-bar-slot--pair">
+                    <div class="table-chart-bar-fill table-chart-bar-fill--doc-year" style="--bar-pct:${barPct(yv)}" aria-label="This year: ${yv}">
+                        <span class="table-chart-bar-value">${yv.toLocaleString()}</span>
+                    </div>
+                    <span class="table-chart-label">Year</span>
+                </div>
+            </div>`;
+    };
+
+    const typeBlocks = docTypes.map(type => `
+        <div class="table-chart-doc-group table-chart-doc-group--viz">
+            ${barPair(month[type], year[type])}
+            <span class="table-chart-doc-name">${escapeChartText(type)}</span>
+        </div>`).join('');
+
+    const totalBlock = `
+        <div class="table-chart-doc-group table-chart-doc-group--viz">
+            ${barPair(month.total, year.total)}
+            <span class="table-chart-doc-name">Total</span>
+        </div>`;
+
+    container.innerHTML = `
+        <p class="table-chart-heading">${escapeChartText(sitioName)} · Document requests</p>
+        <div class="table-chart-legend">
+            <span><i class="table-chart-legend-swatch month" aria-hidden="true"></i> This month</span>
+            <span><i class="table-chart-legend-swatch year" aria-hidden="true"></i> This year</span>
+        </div>
+        <div class="table-chart-viz table-chart-viz--documents" role="img" aria-label="Document requests by sitio">
+            <div class="table-chart-y-label">Bilang</div>
+            <div class="table-chart-y-axis" aria-hidden="true">${tickHtml}</div>
+            <div class="table-chart-plot-wrap table-chart-plot-wrap--documents">
+                <div class="table-chart-plot">
+                    <div class="table-chart-grid-bg" style="--grid-lines:5"></div>
+                    <div class="table-chart-bar-layer table-chart-bar-layer--documents">${typeBlocks}${totalBlock}</div>
+                </div>
+                <p class="table-chart-x-title">Document type</p>
+            </div>
+        </div>`;
+}
+
+function renderSitioChartView() {
+    const list = analyticsPayload?.bySitio;
+    if (!list?.length) return;
+    const block = list[sitioAnalyticsIndex];
+    if (!block) return;
+    const sitio = block.sitio || '';
+
+    if (sitioGraphKind === 0) {
+        const monthData = block.concerns?.month || { reported: 0, resolved: 0 };
+        const yearData = block.concerns?.year || { reported: 0, resolved: 0 };
+        renderTableBarChartRows('sitioPerSitioChart', `${sitio} · Concerns`, [
+            { label: 'This month · Reported', value: monthData.reported || 0, color: '#3b82f6' },
+            { label: 'This month · Resolved', value: monthData.resolved || 0, color: '#22c55e' },
+            { label: 'This year · Reported', value: yearData.reported || 0, color: '#6366f1' },
+            { label: 'This year · Resolved', value: yearData.resolved || 0, color: '#14b8a6' }
+        ], 'Bilang');
+    } else if (sitioGraphKind === 1) {
+        const monthData = block.emergencies?.month || { reported: 0, resolved: 0 };
+        const yearData = block.emergencies?.year || { reported: 0, resolved: 0 };
+        renderTableBarChartRows('sitioPerSitioChart', `${sitio} · Emergency alerts`, [
+            { label: 'This month · Reported', value: monthData.reported || 0, color: '#ec4899' },
+            { label: 'This month · Resolved', value: monthData.resolved || 0, color: '#a855f7' },
+            { label: 'This year · Reported', value: yearData.reported || 0, color: '#f97316' },
+            { label: 'This year · Resolved', value: yearData.resolved || 0, color: '#eab308' }
+        ], 'Bilang');
+    } else {
+        renderSitioDocumentChart('sitioPerSitioChart', sitio, block.documents?.month, block.documents?.year);
+    }
+}
+
+function renderSitioAnalyticsPanel(data) {
+    const sub = document.getElementById('sitioAnalyticsSubtitle');
+    const chartEl = document.getElementById('sitioPerSitioChart');
+    const list = data?.bySitio;
+
+    if (!list || list.length === 0) {
+        if (sub) {
+            sub.textContent = 'Walang naka-load na datos ayon sa sitio (i-check ang analytics API).';
+        }
+        if (chartEl) chartEl.innerHTML = '';
+        return;
+    }
+
+    sitioAnalyticsIndex = Math.max(0, Math.min(sitioAnalyticsIndex, list.length - 1));
+    syncSitioSelectFromIndex();
+
+    setSitioAnalyticsSubtitle();
+
+    updateSitioGraphTypeLabel();
+    renderSitioChartView();
+}
+
+function setupSitioAnalyticsControls() {
+    const n = () => sitioListLength();
+
+    document.getElementById('sitioPrevBtn')?.addEventListener('click', () => {
+        const len = n();
+        if (len < 1) return;
+        sitioAnalyticsIndex = (sitioAnalyticsIndex - 1 + len) % len;
+        syncSitioSelectFromIndex();
+        renderSitioChartView();
+        setSitioAnalyticsSubtitle();
+    });
+
+    document.getElementById('sitioNextBtn')?.addEventListener('click', () => {
+        const len = n();
+        if (len < 1) return;
+        sitioAnalyticsIndex = (sitioAnalyticsIndex + 1) % len;
+        syncSitioSelectFromIndex();
+        renderSitioChartView();
+        setSitioAnalyticsSubtitle();
+    });
+
+    document.getElementById('analyticsSitioSelect')?.addEventListener('change', e => {
+        const v = e.target.value;
+        const list = analyticsPayload?.bySitio || [];
+        if (!v) return;
+        const idx = list.findIndex(x => x.sitio === v);
+        if (idx >= 0) {
+            sitioAnalyticsIndex = idx;
+            renderSitioChartView();
+            setSitioAnalyticsSubtitle();
+        }
+    });
+
+    document.getElementById('sitioGraphPrevBtn')?.addEventListener('click', () => {
+        sitioGraphKind = (sitioGraphKind + 2) % 3;
+        updateSitioGraphTypeLabel();
+        renderSitioChartView();
+    });
+
+    document.getElementById('sitioGraphNextBtn')?.addEventListener('click', () => {
+        sitioGraphKind = (sitioGraphKind + 1) % 3;
+        updateSitioGraphTypeLabel();
+        renderSitioChartView();
+    });
 }
 
 function formatTableChangeWithComparison(current, previous) {

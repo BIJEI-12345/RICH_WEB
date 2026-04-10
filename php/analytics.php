@@ -67,6 +67,141 @@ function fetchDocumentCounts(PDO $pdo, string $table, string $start, string $end
     return (int)$stmt->fetchColumn();
 }
 
+/** 24 sitios — pareho sa analytics / census dropdown */
+$analyticsSitioList = [
+    'AHUNIN', 'BALTAZAR', 'BIAK NA BATO', 'CALLE ONSE/SAMPAGUITA', 'COC', 'CRUSHER HIGHWAY',
+    'INNER CRUSHER', 'LOOBAN 1', 'LOOBAN 2', 'NABUS', 'OLD BARRIO NPC', 'OLD BARRIO 2',
+    'OLD BARRIO EXT', 'POBLACION', 'KADAYUNAN', 'MANGGAHAN', 'RIVERSIDE', 'SETTLING', 'SPAR',
+    'UPPER', 'ALINSANGAN', 'RCD', 'BRIA PHASE 1', 'BRIA PHASE 2',
+];
+
+/**
+ * Tugma ang naka-group na location/address key sa isang sitio (eksakto o substring).
+ */
+function analyticsLocationMatchesSitio(string $dbKey, string $sitio): bool {
+    $a = strtolower(trim($dbKey));
+    $b = strtolower(trim($sitio));
+    if ($a === '' || $b === '') {
+        return false;
+    }
+    if ($a === $b) {
+        return true;
+    }
+    return strpos($a, $b) !== false || strpos($b, $a) !== false;
+}
+
+/**
+ * @return array<string, array{total:int, resolved:int}>
+ */
+function fetchConcernLocationGroups(PDO $pdo, string $start, string $end): array {
+    $sql = "
+        SELECT LOWER(TRIM(COALESCE(location, ''))) AS k,
+               COUNT(*) AS total,
+               SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'resolved' THEN 1 ELSE 0 END) AS resolved
+        FROM concerns
+        WHERE date_and_time BETWEEN :s AND :e
+        GROUP BY k
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':s' => $start, ':e' => $end]);
+    $out = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = (string)($row['k'] ?? '');
+        $out[$k] = [
+            'total' => (int)($row['total'] ?? 0),
+            'resolved' => (int)($row['resolved'] ?? 0),
+        ];
+    }
+    return $out;
+}
+
+/**
+ * @return array<string, array{total:int, resolved:int}>
+ */
+function fetchEmergencyLocationGroups(PDO $pdo, string $start, string $end): array {
+    $sql = "
+        SELECT LOWER(TRIM(COALESCE(location, ''))) AS k,
+               COUNT(*) AS total,
+               SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'resolved' THEN 1 ELSE 0 END) AS resolved
+        FROM emergency_reports
+        WHERE date_and_time BETWEEN :s AND :e
+        GROUP BY k
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':s' => $start, ':e' => $end]);
+    $out = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = (string)($row['k'] ?? '');
+        $out[$k] = [
+            'total' => (int)($row['total'] ?? 0),
+            'resolved' => (int)($row['resolved'] ?? 0),
+        ];
+    }
+    return $out;
+}
+
+/**
+ * @return array<string, int> address key => count
+ */
+function fetchDocumentAddressGroups(PDO $pdo, string $table, string $start, string $end): array {
+    $cols = getColumnNames($pdo, $table);
+    $addrCol = findColumn($cols, ['sitio', 'location', 'address']);
+    if (!$addrCol) {
+        return [];
+    }
+    $sql = "
+        SELECT LOWER(TRIM(COALESCE(`{$addrCol}`, ''))) AS k, COUNT(*) AS c
+        FROM {$table}
+        WHERE submitted_at BETWEEN :s AND :e
+        GROUP BY k
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':s' => $start, ':e' => $end]);
+    $out = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = (string)($row['k'] ?? '');
+        $out[$k] = (int)($row['c'] ?? 0);
+    }
+    return $out;
+}
+
+/**
+ * @param array<string, array{total:int, resolved:int}> $groups
+ * @return array{reported:int, resolved:int}
+ */
+function aggregateConcernOrEmergencyGroupsForSitio(array $groups, string $sitio): array {
+    $reported = 0;
+    $resolved = 0;
+    foreach ($groups as $k => $row) {
+        if (!analyticsLocationMatchesSitio((string)$k, $sitio)) {
+            continue;
+        }
+        $reported += (int)($row['total'] ?? 0);
+        $resolved += (int)($row['resolved'] ?? 0);
+    }
+    return ['reported' => $reported, 'resolved' => $resolved];
+}
+
+/**
+ * @param array<string, array<string, int>> $mapsByLabel document label => key=>count
+ */
+function aggregateDocumentGroupsForSitio(array $mapsByLabel, string $sitio): array {
+    $out = [];
+    $sumTotal = 0;
+    foreach ($mapsByLabel as $label => $map) {
+        $n = 0;
+        foreach ($map as $k => $c) {
+            if (analyticsLocationMatchesSitio((string)$k, $sitio)) {
+                $n += (int)$c;
+            }
+        }
+        $out[$label] = $n;
+        $sumTotal += $n;
+    }
+    $out['total'] = $sumTotal;
+    return $out;
+}
+
 function getColumnNames(PDO $pdo, string $table): array {
     $stmt = $pdo->query("SHOW COLUMNS FROM {$table}");
     return $stmt ? array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field') : [];
@@ -284,6 +419,38 @@ $emergenciesDelta = [
 // For documents, compare total requests
 $documentsDelta = calculateDelta($documentsRange['total'], $documentsPrev['total'] ?? 0);
 
+// Grouped by location/address — isang round ng queries, tapos hatian per sitio sa PHP
+$concernsRangeGroups = fetchConcernLocationGroups($pdo, $rangeStart, $rangeEnd);
+$concernsYearGroups = fetchConcernLocationGroups($pdo, $yearStart, $yearEnd);
+$emergRangeGroups = fetchEmergencyLocationGroups($pdo, $rangeStart, $rangeEnd);
+$emergYearGroups = fetchEmergencyLocationGroups($pdo, $yearStart, $yearEnd);
+
+$docRangeMaps = [];
+$docYearMaps = [];
+foreach ($documentTables as $label => $table) {
+    $docRangeMaps[$label] = fetchDocumentAddressGroups($pdo, $table, $rangeStart, $rangeEnd);
+    $docYearMaps[$label] = fetchDocumentAddressGroups($pdo, $table, $yearStart, $yearEnd);
+}
+
+$bySitio = [];
+foreach ($analyticsSitioList as $sitio) {
+    $bySitio[] = [
+        'sitio' => $sitio,
+        'concerns' => [
+            'month' => aggregateConcernOrEmergencyGroupsForSitio($concernsRangeGroups, $sitio),
+            'year' => aggregateConcernOrEmergencyGroupsForSitio($concernsYearGroups, $sitio),
+        ],
+        'emergencies' => [
+            'month' => aggregateConcernOrEmergencyGroupsForSitio($emergRangeGroups, $sitio),
+            'year' => aggregateConcernOrEmergencyGroupsForSitio($emergYearGroups, $sitio),
+        ],
+        'documents' => [
+            'month' => aggregateDocumentGroupsForSitio($docRangeMaps, $sitio),
+            'year' => aggregateDocumentGroupsForSitio($docYearMaps, $sitio),
+        ],
+    ];
+}
+
 $data = [
     'users' => [
         'activeUsers' => $activeUsers,
@@ -314,7 +481,9 @@ $data = [
         'yearLabel' => $now->format('Y'),
         'previous' => $documentsPrev,
         'delta' => $documentsDelta
-    ]
+    ],
+    'bySitio' => $bySitio,
+    'sitioList' => $analyticsSitioList,
 ];
 $data['previousRangeLabel'] = $previousRangeLabel;
 $data['period'] = $period;

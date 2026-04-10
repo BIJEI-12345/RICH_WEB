@@ -766,14 +766,32 @@ body {
 .concerns-table th:nth-child(7) { width: 10%; } /* Action */
 .concerns-table th:nth-child(8) { width: 10%; }  /* Full Details */
 
+/* New + Processing: mas makitid ang Contact, mas malawak ang Action (may Process + Revoke) */
+#new-concerns-table th:nth-child(6) {
+    width: 8%;
+    min-width: 72px;
+    max-width: 7.5rem;
+}
+#new-concerns-table th:nth-child(7) {
+    width: 15%;
+    min-width: 11.5rem;
+}
+
 /* Column widths for Processing (9 columns: has Processed Time) */
 #processing-concerns-table th:nth-child(1) { width: 9%; } /* Date & Time */
 #processing-concerns-table th:nth-child(2) { width: auto; min-width: 100px; } /* Reporter Name */
 #processing-concerns-table th:nth-child(3) { width: 16%; } /* Statement */
 #processing-concerns-table th:nth-child(4) { width: 10%; } /* Location */
 #processing-concerns-table th:nth-child(5) { width: 9%; } /* Risk Level */
-#processing-concerns-table th:nth-child(6) { width: auto; min-width: 85px; } /* Contact */
-#processing-concerns-table th:nth-child(7) { width: 9%; } /* Action */
+#processing-concerns-table th:nth-child(6) {
+    width: 8%;
+    min-width: 72px;
+    max-width: 7.5rem;
+}
+#processing-concerns-table th:nth-child(7) {
+    width: 14%;
+    min-width: 11.5rem;
+}
 #processing-concerns-table th:nth-child(8) { width: 11%; } /* Full Details */
 #processing-concerns-table th:nth-child(9) { width: 9%; }  /* Processed Time */
 
@@ -786,6 +804,16 @@ body {
 #finished-concerns-table th:nth-child(6) { width: auto; min-width: 90px; } /* Contact */
 #finished-concerns-table th:nth-child(7) { width: 13%; } /* Full Details */
 #finished-concerns-table th:nth-child(8) { width: 10%; }  /* Resolved Time */
+
+/* Column widths for Revoked (8 columns: no Action, has Revoked Time) */
+#revoked-concerns-table th:nth-child(1) { width: 10%; } /* Date & Time */
+#revoked-concerns-table th:nth-child(2) { width: auto; min-width: 110px; } /* Reporter Name */
+#revoked-concerns-table th:nth-child(3) { width: 18%; } /* Statement */
+#revoked-concerns-table th:nth-child(4) { width: 11%; } /* Location */
+#revoked-concerns-table th:nth-child(5) { width: 10%; } /* Risk Level */
+#revoked-concerns-table th:nth-child(6) { width: auto; min-width: 90px; } /* Contact */
+#revoked-concerns-table th:nth-child(7) { width: 13%; } /* Full Details */
+#revoked-concerns-table th:nth-child(8) { width: 10%; }  /* Revoked Time */
 
 .concerns-table td {
     padding: 0.75rem 0.5rem;
@@ -824,17 +852,20 @@ body {
 
 /* Resolved Time and Processed Time columns - left align content */
 #processing-concerns-table td:nth-child(9),
-#finished-concerns-table td:nth-child(8) {
+#finished-concerns-table td:nth-child(8),
+#revoked-concerns-table td:nth-child(8) {
     text-align: left;
 }
 
 #processing-concerns-table td:nth-child(9) > div,
-#finished-concerns-table td:nth-child(8) > div {
+#finished-concerns-table td:nth-child(8) > div,
+#revoked-concerns-table td:nth-child(8) > div {
     text-align: left;
 }
 
 #processing-concerns-table td:nth-child(9) > div > div,
-#finished-concerns-table td:nth-child(8) > div > div {
+#finished-concerns-table td:nth-child(8) > div > div,
+#revoked-concerns-table td:nth-child(8) > div > div {
     text-align: left;
 }
 
@@ -866,7 +897,8 @@ body {
 
 #new-concerns-table td:nth-child(8),
 #processing-concerns-table td:nth-child(8),
-#finished-concerns-table td:nth-child(7) {
+#finished-concerns-table td:nth-child(7),
+#revoked-concerns-table td:nth-child(7) {
     white-space: nowrap;
     padding: 0.5rem 0.25rem;
     text-align: center;
@@ -878,7 +910,8 @@ body {
 #new-concerns-table tr.selected-concern td:nth-child(8)::after,
 #processing-concerns-table tr.selected-concern td:nth-child(7)::after,
 #processing-concerns-table tr.selected-concern td:nth-child(8)::after,
-#finished-concerns-table tr.selected-concern td:nth-child(7)::after {
+#finished-concerns-table tr.selected-concern td:nth-child(7)::after,
+#revoked-concerns-table tr.selected-concern td:nth-child(7)::after {
     display: none;
 }
 
@@ -891,7 +924,8 @@ body {
 
 #new-concerns-table td:nth-child(8) .action-buttons-container,
 #processing-concerns-table td:nth-child(8) .action-buttons-container,
-#finished-concerns-table td:nth-child(7) .action-buttons-container {
+#finished-concerns-table td:nth-child(7) .action-buttons-container,
+#revoked-concerns-table td:nth-child(7) .action-buttons-container {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -908,7 +942,8 @@ body {
 
 #new-concerns-table td:nth-child(8) .btn-action,
 #processing-concerns-table td:nth-child(8) .btn-action,
-#finished-concerns-table td:nth-child(7) .btn-action {
+#finished-concerns-table td:nth-child(7) .btn-action,
+#revoked-concerns-table td:nth-child(7) .btn-action {
     padding: 0.25rem 0.4rem;
     font-size: 0.75rem;
     min-height: 26px;
@@ -978,7 +1013,8 @@ body {
 
 /* Admin: row actions stay fully interactive (avoid global disabled/session styles looking like no access) */
 body.concerns-page-admin .action-buttons-container .btn-action.processing-btn,
-body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn {
+body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn,
+body.concerns-page-admin .action-buttons-container .btn-action.revoke-btn {
     opacity: 1;
     pointer-events: auto;
     cursor: pointer;
@@ -1296,6 +1332,17 @@ body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn {
     border-color: #495057;
 }
 
+.revoke-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #b52a37 100%);
+    color: white;
+    border: 1px solid #b52a37;
+}
+
+.revoke-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #9d2230 100%);
+    border-color: #9d2230;
+}
+
 .view-btn {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     color: white;
@@ -1317,6 +1364,17 @@ body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn {
 .action-buttons-container .btn-action:hover {
     background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
     border-color: #1e7e34;
+}
+
+/* Keep revoke button red even inside generic action container styles */
+.action-buttons-container .btn-action.revoke-btn {
+    background: linear-gradient(135deg, #dc3545 0%, #b52a37 100%);
+    border-color: #b52a37;
+}
+
+.action-buttons-container .btn-action.revoke-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #9d2230 100%);
+    border-color: #9d2230;
 }
 
 .relatable-btn {
@@ -1710,6 +1768,71 @@ body.concerns-page-admin .action-buttons-container .btn-action.resolve-btn {
     text-align: center;
     padding: 2rem;
     max-width: 400px;
+}
+
+.revoke-reason-dialog {
+    max-width: 760px;
+    width: 95%;
+    min-height: 420px;
+    text-align: left;
+    padding: 1.5rem 1.75rem;
+}
+
+.revoke-reason-input {
+    width: 100%;
+    margin-top: 0.45rem;
+    margin-bottom: 1.1rem;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    padding: 0.7rem 0.8rem;
+    font-family: inherit;
+    font-size: 0.97rem;
+    resize: vertical;
+    min-height: 150px;
+}
+
+.revoke-reason-input::placeholder {
+    color: #64748b;
+    opacity: 1;
+}
+
+.revoke-statement-line {
+    margin: 0.35rem 0 0.45rem;
+    color: #334155;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    background: #f8fafc;
+    border-left: 4px solid #2c5aa0;
+    padding: 0.55rem 0.65rem;
+    border-radius: 6px;
+}
+
+#revokeReasonStatement {
+    color: #111827;
+    font-weight: 500;
+}
+
+#revokeReasonModal .status-content h4 {
+    color: #1e3a5f;
+    font-size: 1.35rem;
+    margin-bottom: 0.35rem;
+}
+
+#revokeReasonModal .status-content p {
+    color: #475569;
+}
+
+#revokeReasonModal .status-content p:nth-of-type(2) {
+    color: #334155;
+    font-weight: 600;
+    margin-top: 0.35rem;
+    margin-bottom: 0.15rem;
+}
+
+.revoke-reason-actions {
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 0.85rem;
 }
 
 .status-icon {

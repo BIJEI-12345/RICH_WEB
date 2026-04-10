@@ -26,11 +26,19 @@ try {
         $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $imageData);
     }
     
-    // Google Vision API key - Load from config.php
-    $apiKey = defined('GOOGLE_VISION_API_KEY') ? GOOGLE_VISION_API_KEY : '';
-    if (empty($apiKey)) {
-        error_log("Error: GOOGLE_VISION_API_KEY is not configured");
-        throw new Exception('Google Vision API key is not configured');
+    // Optional: set GOOGLE_VISION_API_KEY in project root .env — if unset, use fallback coordinates only
+    $apiKey = trim(rich_env('GOOGLE_VISION_API_KEY'));
+    if ($apiKey === '') {
+        $fallbackSignatures = [
+            ['x' => 3, 'y' => 78, 'width' => 40, 'height'  => 12],
+            ['x' => 55, 'y' => 78, 'width' => 40, 'height' => 12]
+        ];
+        echo json_encode([
+            'success' => true,
+            'signatures' => $fallbackSignatures,
+            'fallback' => true
+        ]);
+        exit;
     }
     $apiUrl = 'https://vision.googleapis.com/v1/images:annotate?key=' . $apiKey;
     

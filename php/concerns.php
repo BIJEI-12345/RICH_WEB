@@ -814,6 +814,14 @@ try {
             if ($checkColumn->num_rows === 0) {
                 $connection->query("ALTER TABLE concerns ADD COLUMN risk_level VARCHAR(10) DEFAULT NULL");
             }
+            $checkRevokedColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'revoked_at'");
+            if ($checkRevokedColumn->num_rows === 0) {
+                $connection->query("ALTER TABLE concerns ADD COLUMN revoked_at DATETIME NULL");
+            }
+            $checkRevokeReasonColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'reason_revoke'");
+            if ($checkRevokeReasonColumn->num_rows === 0) {
+                $connection->query("ALTER TABLE concerns ADD COLUMN reason_revoke TEXT NULL");
+            }
             
             // Get concerns from concerns table with status filtering
             $status = isset($_GET['status']) ? $_GET['status'] : null;
@@ -821,13 +829,16 @@ try {
             if ($status) {
                 if ($status === 'resolved') {
                     // For resolved concerns, sort by resolved_at date (latest resolved first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
+                } else if ($status === 'revoked') {
+                    // For revoked concerns, sort by revoked_at date (latest revoked first)
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY revoked_at DESC LIMIT 100";
                 } else if ($status === 'processing') {
                     // For processing concerns, include process_at
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 } else {
                     // For other statuses, sort by original date_and_time (latest first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 }
                 $stmt = $connection->prepare($sql);
                 $stmt->bind_param('s', $status);
@@ -835,7 +846,7 @@ try {
                 $concerns = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             } else {
                 // For all concerns, sort by date_and_time (latest first)
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 100";
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 100";
                 $result = $connection->query($sql);
                 $concerns = $result->fetch_all(MYSQLI_ASSOC);
             }
@@ -944,6 +955,14 @@ try {
                 } else {
                     $concern['formatted_processed_date'] = null;
                 }
+
+                // Format the revoked date for display (AM/PM format)
+                if (isset($concern['revoked_at']) && $concern['revoked_at']) {
+                    $revokedDate = new DateTime($concern['revoked_at']);
+                    $concern['formatted_revoked_date'] = $revokedDate->format('M j, Y - g:i A');
+                } else {
+                    $concern['formatted_revoked_date'] = null;
+                }
                 
                 // Clean UTF-8 encoding issues (simplified to avoid timeout)
                 foreach ($concern as $key => $value) {
@@ -958,6 +977,7 @@ try {
                 COALESCE(SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END), 0) AS cnt_new,
                 COALESCE(SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END), 0) AS cnt_processing,
                 COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) AS cnt_resolved,
+                COALESCE(SUM(CASE WHEN status = 'revoked' THEN 1 ELSE 0 END), 0) AS cnt_revoked,
                 COUNT(*) AS cnt_total
                 FROM concerns";
             $countsRes = $connection->query($countsQuery);
@@ -966,6 +986,7 @@ try {
                 'new' => (int)($countsRow['cnt_new'] ?? 0),
                 'processing' => (int)($countsRow['cnt_processing'] ?? 0),
                 'resolved' => (int)($countsRow['cnt_resolved'] ?? 0),
+                'revoked' => (int)($countsRow['cnt_revoked'] ?? 0),
                 'total' => (int)($countsRow['cnt_total'] ?? 0),
             ];
             
@@ -1008,6 +1029,7 @@ try {
             $concernId = $input['concern_id'] ?? null;
             $newStatus = $input['status'] ?? null;
             $riskLevel = $input['risk_level'] ?? null;
+            $reasonRevoke = isset($input['reason_revoke']) ? trim((string)$input['reason_revoke']) : '';
             
             if ($concernId) {
                 // Extract the ID from concern_id (e.g., CON-001 -> 1)
@@ -1057,6 +1079,17 @@ try {
                         $stmt = $connection->prepare($sql);
                         // Store as DATETIME-safe format in Asia/Manila
                         $stmt->bind_param('ssi', $newStatus, $processedAt->format('Y-m-d H:i:s'), $id);
+                        $result = $stmt->execute();
+                    } elseif ($newStatus === 'revoked') {
+                        if ($reasonRevoke === '') {
+                            echo json_encode(['success' => false, 'message' => 'Reason for revoke is required']);
+                            break;
+                        }
+                        $revokedAt = new DateTime('now', new DateTimeZone(DEFAULT_TIMEZONE));
+                        $sql = "UPDATE concerns SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
+                        $stmt = $connection->prepare($sql);
+                        $revokedAtValue = $revokedAt->format('Y-m-d H:i:s');
+                        $stmt->bind_param('sssi', $newStatus, $revokedAtValue, $reasonRevoke, $id);
                         $result = $stmt->execute();
                     } else {
                         $sql = "UPDATE concerns SET status = ? WHERE id = ?";

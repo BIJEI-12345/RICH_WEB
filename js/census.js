@@ -6,9 +6,60 @@ let currentPage = 1;
 const itemsPerPage = 20;
 let censusStatistics = null;
 
+/** Cascading filter (Age, Beneficiaries, …) — applied bago ang text search */
+let censusFilterActive = false;
+let censusFilterCategory = '';
+let censusFilterSubValue = '';
+let censusFilterSitioValue = '';
+/** Mga distinct na string ng benepisyo / PWD para sa 2nd dropdown (index = option value) */
+let __censusBenefitList = [];
+let __censusPwdList = [];
+
+/**
+ * Life-course / developmental age brackets (hindi eksaktong Plato, pero katulad ng staged theory).
+ */
+const CENSUS_AGE_RANGES = [
+    { id: '0-1', label: 'Infant (0–1 taon)', min: 0, max: 1 },
+    { id: '1-3', label: 'Early childhood (1–3 taon)', min: 1, max: 3 },
+    { id: '4-5', label: 'Preschool / young child (4–5 taon)', min: 4, max: 5 },
+    { id: '6-12', label: 'School age / bata (6–12 taon)', min: 6, max: 12 },
+    { id: '13-17', label: 'Adolescent / teen (13–17 taon)', min: 13, max: 17 },
+    { id: '18-35', label: 'Young adult (18–35 taon)', min: 18, max: 35 },
+    { id: '36-59', label: 'Middle adult (36–59 taon)', min: 36, max: 59 },
+    { id: '60+', label: 'Senior / older adult (60 pataas)', min: 60, max: 150 }
+];
+
+const CENSUS_SITIO_OPTIONS = [
+    'AHUNIN',
+    'BALTAZAR',
+    'BIAK NA BATO',
+    'CALLE ONSE/SAMPAGUITA',
+    'COC',
+    'CRUSHER HIGHWAY',
+    'INNER CRUSHER',
+    'LOOBAN 1',
+    'LOOBAN 2',
+    'NABUS',
+    'OLD BARRIO NPC',
+    'OLD BARRIO 2',
+    'OLD BARRIO EXT',
+    'POBLACION',
+    'KADAYUNAN',
+    'MANGGAHAN',
+    'RIVERSIDE',
+    'SETTLING',
+    'SPAR',
+    'UPPER',
+    'ALINSANGAN',
+    'RCD',
+    'BRIA PHASE 1',
+    'BRIA PHASE 2'
+];
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadCensusData();
+    setupCensusFilterControls();
     const bd = document.getElementById('add_birthday');
     if (bd) {
         bd.addEventListener('change', updateAddAgeFromBirthdate);
@@ -53,7 +104,8 @@ async function loadCensusData() {
         
         if (data.success !== false && data.census !== undefined) {
             allCensusData = Array.isArray(data.census) ? data.census : [];
-            filteredCensusData = allCensusData;
+            buildCensusFilterOptionLists();
+            populateSitioFilterOptions();
             censusHouseholds = Array.isArray(data.households) ? data.households : [];
             populateHouseholdSelect();
             
@@ -62,7 +114,7 @@ async function loadCensusData() {
                 censusStatistics = data.statistics;
             }
             
-            renderCensusTable();
+            recomputeFilteredCensusData();
             
             // Update statistics display
             if (censusStatistics) {
@@ -723,6 +775,444 @@ function closeViewCensusModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
+function getMemberAgeYears(m) {
+    const raw = m.age;
+    if (raw !== undefined && raw !== null && raw !== '') {
+        const a = parseInt(String(raw).trim(), 10);
+        if (!Number.isNaN(a) && a >= 0 && a < 150) {
+            return a;
+        }
+    }
+    const bd = m.birthday || m.birth_date || m.birthDate;
+    if (!bd) {
+        return null;
+    }
+    try {
+        const d = new Date(bd);
+        if (Number.isNaN(d.getTime())) {
+            return null;
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const b = new Date(d);
+        b.setHours(0, 0, 0, 0);
+        let age = today.getFullYear() - b.getFullYear();
+        const md = today.getMonth() - b.getMonth();
+        if (md < 0 || (md === 0 && today.getDate() < b.getDate())) {
+            age--;
+        }
+        return age >= 0 ? age : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function getBenefitsStr(m) {
+    return String(m.barangay_supported_benefits || m.barangay_supported || m.benefits || '').trim();
+}
+
+function isBeneficiaryMember(m) {
+    const b = getBenefitsStr(m);
+    if (!b) {
+        return false;
+    }
+    const low = b.toLowerCase();
+    if (/^(none|n\/a|n\/a\.|wala|walang|no|no benefits|-)$/i.test(low)) {
+        return false;
+    }
+    return true;
+}
+
+function getDisabilityText(m) {
+    const d =
+        m.disabilities ||
+        m.disability ||
+        m.pwd ||
+        m.person_with_disability ||
+        m.has_disability ||
+        m.with_disability ||
+        '';
+    return String(d || '').trim();
+}
+
+function memberHasPwdRecord(m) {
+    const t = getDisabilityText(m);
+    if (t) {
+        return true;
+    }
+    const lowFields = ['pwd', 'disability', 'disabled', 'person_with_disability', 'has_disability', 'with_disability'];
+    for (const f of lowFields) {
+        const v = String(m[f] ?? '').toLowerCase().trim();
+        if (v && (v === 'yes' || v === 'y' || v === '1' || v === 'true' || v === 'pwd' || v.includes('disab'))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function normalizeSitio(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function populateSitioFilterOptions() {
+    const sitioSelect = document.getElementById('censusFilterSitio');
+    if (!sitioSelect) {
+        return;
+    }
+
+    const selected = sitioSelect.value || '';
+    const sitioSet = new Set(CENSUS_SITIO_OPTIONS);
+
+    allCensusData.forEach((house) => {
+        const houseSitio = String(house.sitio || '').trim();
+        if (houseSitio) {
+            sitioSet.add(houseSitio);
+        }
+        (house.members || []).forEach((member) => {
+            const memberSitio = String(member.sitio || '').trim();
+            if (memberSitio) {
+                sitioSet.add(memberSitio);
+            }
+        });
+    });
+
+    const sitioList = Array.from(sitioSet).sort((a, b) => a.localeCompare(b));
+    sitioSelect.innerHTML = '<option value="">All Sitio</option>';
+    sitioList.forEach((sitio) => {
+        const option = document.createElement('option');
+        option.value = sitio;
+        option.textContent = sitio;
+        sitioSelect.appendChild(option);
+    });
+
+    if (selected && sitioList.includes(selected)) {
+        sitioSelect.value = selected;
+    } else {
+        sitioSelect.value = '';
+        censusFilterSitioValue = '';
+    }
+}
+
+function applySitioFilter(houseDataList, selectedSitio) {
+    const targetSitio = normalizeSitio(selectedSitio);
+    if (!targetSitio) {
+        return houseDataList;
+    }
+
+    return houseDataList
+        .map((house) => {
+            const houseSitio = normalizeSitio(house.sitio);
+            const addressText = normalizeSitio(
+                `${house.address_display || ''} ${house.complete_address || ''} ${house.address || ''}`
+            );
+            // If selected sitio appears in address text, keep full household.
+            if (addressText.includes(targetSitio)) {
+                return house;
+            }
+            if (houseSitio === targetSitio) {
+                return house;
+            }
+            const members = (house.members || []).filter((member) => {
+                const memberSitio = normalizeSitio(member.sitio || house.sitio);
+                if (memberSitio === targetSitio) {
+                    return true;
+                }
+                const memberAddress = normalizeSitio(
+                    `${member.address || ''} ${member.complete_address || ''} ${house.address_display || ''} ${house.complete_address || ''}`
+                );
+                return memberAddress.includes(targetSitio);
+            });
+            return {
+                ...house,
+                members
+            };
+        })
+        .filter((house) => (house.members || []).length > 0);
+}
+
+function buildCensusFilterOptionLists() {
+    const benSet = new Set();
+    const pwdSet = new Set();
+    allCensusData.forEach(h => {
+        (h.members || []).forEach(m => {
+            const b = getBenefitsStr(m);
+            if (b && isBeneficiaryMember(m)) {
+                benSet.add(b);
+            }
+            const dt = getDisabilityText(m);
+            if (dt) {
+                pwdSet.add(dt);
+                dt.split(/[,;/|]+/).forEach(part => {
+                    const p = part.trim();
+                    if (p.length >= 2) {
+                        pwdSet.add(p);
+                    }
+                });
+            }
+        });
+    });
+    __censusBenefitList = Array.from(benSet).sort((a, b) => a.localeCompare(b));
+    __censusPwdList = Array.from(pwdSet).sort((a, b) => a.localeCompare(b));
+}
+
+function memberMatchesActiveFilter(m) {
+    if (!censusFilterActive || !censusFilterCategory) {
+        return true;
+    }
+    const cat = censusFilterCategory;
+    const sub = censusFilterSubValue;
+
+    if (cat === 'age') {
+        const age = getMemberAgeYears(m);
+        if (age === null || age === undefined) {
+            return false;
+        }
+        const range = CENSUS_AGE_RANGES.find(r => r.id === sub);
+        if (!range) {
+            return false;
+        }
+        return age >= range.min && age <= range.max;
+    }
+    if (cat === 'beneficiaries') {
+        if (sub === 'ben_any') {
+            return isBeneficiaryMember(m);
+        }
+        if (sub.startsWith('benidx:')) {
+            const i = parseInt(sub.slice(7), 10);
+            if (Number.isNaN(i) || !__censusBenefitList[i]) {
+                return false;
+            }
+            return getBenefitsStr(m) === __censusBenefitList[i];
+        }
+        return false;
+    }
+    if (cat === 'non_beneficiaries') {
+        return sub === 'non_all' && !isBeneficiaryMember(m);
+    }
+    if (cat === 'solo_parent') {
+        const cs = String(m.civil_status || m.civilStatus || '').toLowerCase();
+        const rel = String(m.relation_to_household || m.relationToHousehold || m.relation || '').toLowerCase();
+        const q = String(sub || '').trim().toLowerCase();
+        const isWidowed = cs.includes('widowed') || cs.includes('widow') || cs.includes('balo');
+        if (!q) {
+            return isWidowed;
+        }
+        return isWidowed && (cs.includes(q) || rel.includes(q));
+    }
+    if (cat === 'pwds') {
+        if (sub === 'pwd_any') {
+            return memberHasPwdRecord(m);
+        }
+        if (sub.startsWith('pwdidx:')) {
+            const i = parseInt(sub.slice(7), 10);
+            if (Number.isNaN(i) || !__censusPwdList[i]) {
+                return false;
+            }
+            const needle = __censusPwdList[i].toLowerCase();
+            const hay = getDisabilityText(m).toLowerCase();
+            return hay.includes(needle) || hay === needle;
+        }
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Kapag may specific na filter (edad, PWD, atbp.), sa folder ay matching members lang ang ipapakita.
+ */
+function sliceHousesToMatchingMembers(houseList, pred) {
+    return houseList
+        .map(h => ({
+            ...h,
+            members: (h.members || []).filter(pred)
+        }))
+        .filter(h => (h.members || []).length > 0);
+}
+
+function applyTextSearchFilter(houseDataList, searchTerm) {
+    if (!searchTerm) {
+        return houseDataList;
+    }
+    const term = searchTerm.toLowerCase();
+    return houseDataList.filter(houseData => {
+        const houseNo = String(houseData.house_no || '').toLowerCase();
+        const sitio = String(houseData.sitio || '').toLowerCase();
+        const address = String(houseData.complete_address || '').toLowerCase();
+        if (houseNo.includes(term) || sitio.includes(term) || address.includes(term)) {
+            return true;
+        }
+        if (houseData.members && Array.isArray(houseData.members)) {
+            return houseData.members.some(member =>
+                Object.values(member).some(value => {
+                    if (value === null || value === undefined) {
+                        return false;
+                    }
+                    return String(value).toLowerCase().includes(term);
+                })
+            );
+        }
+        return false;
+    });
+}
+
+function recomputeFilteredCensusData() {
+    let data = allCensusData;
+    if (censusFilterSitioValue) {
+        data = applySitioFilter(data, censusFilterSitioValue);
+    }
+    if (censusFilterActive && censusFilterCategory) {
+        data = sliceHousesToMatchingMembers(data, memberMatchesActiveFilter);
+    }
+    const term = (document.getElementById('searchInput') && document.getElementById('searchInput').value) || '';
+    const t = term.toLowerCase().trim();
+    if (t) {
+        data = applyTextSearchFilter(data, t);
+    }
+    filteredCensusData = data;
+    currentPage = 1;
+    renderCensusTable();
+}
+
+function populateCensusSubDropdown(cat) {
+    const sub = document.getElementById('censusFilterSub');
+    const wrap = document.getElementById('censusFilterSubWrap');
+    if (!sub || !wrap) {
+        return;
+    }
+    sub.innerHTML = '';
+    const soloInp = document.getElementById('censusFilterSoloInput');
+    if (soloInp) {
+        soloInp.hidden = true;
+        soloInp.value = '';
+    }
+    sub.hidden = false;
+
+    if (!cat) {
+        wrap.hidden = true;
+        return;
+    }
+
+    const addOpt = (value, label) => {
+        const o = document.createElement('option');
+        o.value = value;
+        o.textContent = label;
+        sub.appendChild(o);
+    };
+
+    if (cat === 'age') {
+        CENSUS_AGE_RANGES.forEach(r => addOpt(r.id, r.label));
+        wrap.hidden = false;
+        return;
+    }
+    if (cat === 'beneficiaries') {
+        addOpt('ben_any', 'Lahat ng may benepisyo');
+        __censusBenefitList.forEach((text, i) => {
+            const short = text.length > 70 ? `${text.slice(0, 67)}…` : text;
+            addOpt(`benidx:${i}`, short);
+        });
+        wrap.hidden = false;
+        return;
+    }
+    if (cat === 'non_beneficiaries') {
+        addOpt('non_all', 'Walang benepisyo / none / blangko');
+        wrap.hidden = false;
+        return;
+    }
+    if (cat === 'solo_parent') {
+        sub.hidden = true;
+        if (soloInp) {
+            soloInp.hidden = false;
+            soloInp.value = '';
+        }
+        wrap.hidden = false;
+        return;
+    }
+    if (cat === 'pwds') {
+        addOpt('pwd_any', 'Anumang PWD / may disabilities');
+        __censusPwdList.forEach((text, i) => {
+            const short = text.length > 70 ? `${text.slice(0, 67)}…` : text;
+            addOpt(`pwdidx:${i}`, short);
+        });
+        wrap.hidden = false;
+        return;
+    }
+
+    wrap.hidden = true;
+}
+
+function setupCensusFilterControls() {
+    const sitioEl = document.getElementById('censusFilterSitio');
+    const catEl = document.getElementById('censusFilterCategory');
+    const subEl = document.getElementById('censusFilterSub');
+    const btn = document.getElementById('censusFilterSearchBtn');
+    if (!sitioEl || !catEl || !subEl || !btn) {
+        return;
+    }
+
+    sitioEl.addEventListener('change', () => {
+        censusFilterSitioValue = sitioEl.value || '';
+        recomputeFilteredCensusData();
+    });
+
+    catEl.addEventListener('change', () => {
+        const cat = catEl.value;
+        censusFilterCategory = '';
+        censusFilterSubValue = '';
+        censusFilterActive = false;
+        if (!cat) {
+            document.getElementById('censusFilterSubWrap').hidden = true;
+            const si = document.getElementById('censusFilterSoloInput');
+            const sub = document.getElementById('censusFilterSub');
+            if (si) {
+                si.hidden = true;
+                si.value = '';
+            }
+            if (sub) {
+                sub.hidden = false;
+            }
+            recomputeFilteredCensusData();
+            return;
+        }
+        populateCensusSubDropdown(cat);
+        recomputeFilteredCensusData();
+    });
+
+    const soloInpEl = document.getElementById('censusFilterSoloInput');
+    const runCensusFilterSearch = () => {
+        const cat = catEl.value;
+        let subVal = '';
+        if (cat === 'solo_parent') {
+            subVal = (soloInpEl && soloInpEl.value.trim()) || '';
+        } else {
+            subVal = subEl.value;
+        }
+        if (!cat) {
+            censusFilterActive = false;
+            censusFilterCategory = '';
+            censusFilterSubValue = '';
+            recomputeFilteredCensusData();
+            return;
+        }
+        if (!subVal && cat !== 'solo_parent') {
+            return;
+        }
+        censusFilterCategory = cat;
+        censusFilterSubValue = subVal;
+        censusFilterActive = true;
+        recomputeFilteredCensusData();
+    };
+
+    btn.addEventListener('click', runCensusFilterSearch);
+    if (soloInpEl) {
+        soloInpEl.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runCensusFilterSearch();
+            }
+        });
+    }
+}
+
 // Search functions
 function toggleSearchBar() {
     const searchContainer = document.getElementById('searchContainer');
@@ -736,45 +1226,15 @@ function toggleSearchBar() {
 }
 
 function searchCensus() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-    
-    if (!searchTerm) {
-        filteredCensusData = allCensusData;
-    } else {
-        filteredCensusData = allCensusData.filter(houseData => {
-            // Search in house_no, sitio, complete_address
-            const houseNo = String(houseData.house_no || '').toLowerCase();
-            const sitio = String(houseData.sitio || '').toLowerCase();
-            const address = String(houseData.complete_address || '').toLowerCase();
-            
-            // Check if house matches
-            if (houseNo.includes(searchTerm) || sitio.includes(searchTerm) || address.includes(searchTerm)) {
-                return true;
-            }
-            
-            // Search in members
-            if (houseData.members && Array.isArray(houseData.members)) {
-                return houseData.members.some(member => {
-                    return Object.values(member).some(value => {
-                        if (value === null || value === undefined) return false;
-                        return String(value).toLowerCase().includes(searchTerm);
-                    });
-                });
-            }
-            
-            return false;
-        });
-    }
-    
-    currentPage = 1;
-    renderCensusTable();
+    recomputeFilteredCensusData();
 }
 
 function clearSearch() {
-    document.getElementById('searchInput').value = '';
-    filteredCensusData = allCensusData;
-    currentPage = 1;
-    renderCensusTable();
+    const input = document.getElementById('searchInput');
+    if (input) {
+        input.value = '';
+    }
+    recomputeFilteredCensusData();
 }
 
 // Pagination functions

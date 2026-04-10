@@ -61,6 +61,13 @@
                         <span class="nav-count" id="finished-count">0</span>
                     </a>
                 </li>
+                <li class="nav-item" data-category="revoked">
+                    <a href="#revoked" onclick="showRevokedConcerns()">
+                        <i class="fas fa-ban"></i>
+                        <span>Revoked</span>
+                        <span class="nav-count" id="revoked-count">0</span>
+                    </a>
+                </li>
             </ul>
             <div class="nav-footer">
                 <div class="nav-stats">
@@ -231,6 +238,49 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Revoked Concerns Section -->
+                <div class="concern-section hidden" id="revoked-concerns-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <h3><i class="fas fa-ban"></i> Revoked Concerns</h3>
+                            <p>Concerns revoked and no longer for action</p>
+                        </div>
+                        <div class="section-controls">
+                            <div class="section-control-group">
+                                <select class="sort-dropdown" id="revoked-sort" onchange="sortConcerns('revoked', this.value)">
+                                    <option value="latest">Latest</option>
+                                    <option value="oldest">Oldest</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="low">Low Risk</option>
+                                    <option value="no-risk">No Risk Level</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="loading-indicator" id="revoked-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading revoked concerns...</p>
+                        </div>
+                        <table class="concerns-table" id="revoked-concerns-table">
+                            <thead>
+                                <tr>
+                                    <th>Date<br>& Time</th>
+                                    <th>Reporter<br>Name</th>
+                                    <th>Statement</th>
+                                    <th>Location</th>
+                                    <th>Risk<br>Level</th>
+                                    <th>Contact</th>
+                                    <th>Full<br>Details</th>
+                                    <th>Revoked<br>Date & Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="revoked-concerns-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -266,6 +316,22 @@
             </div>
             <div class="status-actions">
                 <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revoke Reason Modal -->
+    <div class="status-modal" id="revokeReasonModal" aria-hidden="true">
+        <div class="status-dialog revoke-reason-dialog">
+            <div class="status-content">
+                <h4>Revoke Concern</h4>
+                <p class="revoke-statement-line"><strong>Statement:</strong> <span id="revokeReasonStatement">-</span></p>
+                <p>Ilagay ang dahilan kung bakit ire-revoke ang concern:</p>
+                <textarea id="revokeReasonInput" class="revoke-reason-input" rows="4" placeholder="Type reason here..."></textarea>
+            </div>
+            <div class="status-actions revoke-reason-actions">
+                <button class="btn cancel-btn" type="button" onclick="closeRevokeReasonModal()">Cancel</button>
+                <button class="btn ok-btn" type="button" id="revokeReasonConfirmBtn">Confirm Revoke</button>
             </div>
         </div>
     </div>

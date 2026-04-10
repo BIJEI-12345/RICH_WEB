@@ -69,16 +69,19 @@ function rich_env(string $key, ?string $default = null): string
     return (string) ($default ?? '');
 }
 
-// Database configuration - Load from .env (use rich_env: getenv() is unreliable after putenv() on many Linux PHP-FPM setups)
-define('DB_HOST', rich_env('DB_HOST_AWS', 'rich.cmxcoo6yc8nh.us-east-1.rds.amazonaws.com'));
+// Database — only from project root .env (no credentials in source). Keys: DB_HOST_AWS, DB_PORT_AWS, DB_USER_AWS, DB_PASS_AWS, DB_NAME_AWS
+define('DB_HOST', rich_env('DB_HOST_AWS'));
 define('DB_PORT', rich_env('DB_PORT_AWS', '3306'));
-define('DB_USER', rich_env('DB_USER_AWS', 'admin'));
-define('DB_PASS', rich_env('DB_PASS_AWS', '4mazonb33j4y!'));
-define('DB_NAME', rich_env('DB_NAME_AWS', 'rich_db'));
+define('DB_USER', rich_env('DB_USER_AWS'));
+define('DB_PASS', rich_env('DB_PASS_AWS'));
+define('DB_NAME', rich_env('DB_NAME_AWS'));
 
 // Function to get database connection (AWS RDS only)
 function getDatabaseConnection() {
     try {
+        if (trim((string) DB_HOST) === '' || trim((string) DB_USER) === '' || DB_NAME === '') {
+            throw new Exception('Database is not configured. In the project root .env set DB_HOST_AWS, DB_USER_AWS, DB_PASS_AWS, and DB_NAME_AWS. See .env.example.');
+        }
         $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
         if ($connection->connect_error) {
             throw new Exception("Database connection error: " . $connection->connect_error);
@@ -98,6 +101,9 @@ function getDatabaseConnection() {
 // Function to get PDO database connection (AWS RDS only)
 function getPDODatabaseConnection() {
     try {
+        if (trim((string) DB_HOST) === '' || trim((string) DB_USER) === '' || DB_NAME === '') {
+            throw new Exception('Database is not configured. In the project root .env set DB_HOST_AWS, DB_USER_AWS, DB_PASS_AWS, and DB_NAME_AWS. See .env.example.');
+        }
         $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
         $pdo = new PDO($dsn, DB_USER, DB_PASS, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -128,13 +134,13 @@ define('APP_VERSION', '1.0.0');
 define('UPLOAD_DIR', 'uploads/');
 define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
 
-// Email settings - Load from .env (use rich_env for Windows/XAMPP)
-define('SMTP_HOST', rich_env('SMTP_HOST', 'smtp.gmail.com'));
+// Email settings — only from .env (see .env.example). No SMTP secrets in source.
+define('SMTP_HOST', rich_env('SMTP_HOST'));
 define('SMTP_PORT', (int) rich_env('SMTP_PORT', '587'));
-define('SMTP_USERNAME', rich_env('SMTP_USERNAME', ''));
-define('SMTP_PASSWORD', rich_env('SMTP_PASSWORD', ''));
-define('SMTP_FROM_EMAIL', rich_env('SMTP_FROM_EMAIL', ''));
-define('SMTP_FROM_NAME', rich_env('SMTP_FROM_NAME', 'RICH Bigte'));
+define('SMTP_USERNAME', rich_env('SMTP_USERNAME'));
+define('SMTP_PASSWORD', rich_env('SMTP_PASSWORD'));
+define('SMTP_FROM_EMAIL', rich_env('SMTP_FROM_EMAIL'));
+define('SMTP_FROM_NAME', rich_env('SMTP_FROM_NAME'));
 // Set SMTP_SSL_VERIFY=false in .env if local XAMPP fails TLS (see php error log)
 $sslVerifyEnv = rich_env('SMTP_SSL_VERIFY', '');
 if ($sslVerifyEnv !== '') {
@@ -154,14 +160,6 @@ if (empty($groqApiKey)) {
     error_log("Warning: GROQ_API_KEY is not set in .env file");
 }
 define('GROQ_API_KEY', $groqApiKey);
-
-// Google Vision API settings for signature detection
-// Load from .env file, fallback to default key if not set
-$googleVisionApiKey = rich_env('GOOGLE_VISION_API_KEY', 'AIzaSyAy07Us2x_47apERSvCfPT5gHRsrrXrhjs');
-if (empty($googleVisionApiKey)) {
-    error_log("Warning: GOOGLE_VISION_API_KEY is not set in .env file, using default key");
-}
-define('GOOGLE_VISION_API_KEY', $googleVisionApiKey);
 
 /**
  * Ensure barangay_id_forms.height is VARCHAR for values like 5'8 (no "cm"/"foot" in stored data).
