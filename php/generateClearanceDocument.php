@@ -7,6 +7,7 @@ ini_set('log_errors', 1);
 
 // Include required files
 require_once 'config.php';
+require_once __DIR__ . '/generated_document_temp.php';
 require_once '../vendor/autoload.php';
 
 // Start output buffering to catch any unexpected output
@@ -136,10 +137,11 @@ try {
         // Clear any output buffer content
         ob_clean();
         
+        $tok = rich_register_temp_download($outputPath);
         echo json_encode([
             'success' => true,
             'message' => 'Clearance document generated successfully',
-            'download_url' => 'uploads/generated_documents/clearance/' . basename($outputPath)
+            'download_url' => rich_temp_download_public_url($tok)
         ]);
     } else {
         throw new Exception('Failed to generate clearance document');
@@ -286,17 +288,6 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
             throw new Exception("Template file is not readable: $templatePath");
         }
         
-        // Create output directory if it doesn't exist
-        $outputDir = '../uploads/generated_documents/clearance';
-        error_log("Output directory: $outputDir");
-        
-        if (!is_dir($outputDir)) {
-            error_log("Creating output directory...");
-            if (!mkdir($outputDir, 0755, true)) {
-                throw new Exception("Failed to create output directory: $outputDir");
-            }
-        }
-        
         // Generate unique filename based on purpose
         $timestamp = date('Y-m-d_H-i-s');
         
@@ -315,7 +306,7 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
         }
         
         $filename = $filenamePrefix . "_" . $data['last_name'] . "_" . $timestamp . ".docx";
-        $outputPath = $outputDir . '/' . $filename;
+        $outputPath = rich_temp_docx_path($filename);
         
         error_log("Output path: $outputPath");
         

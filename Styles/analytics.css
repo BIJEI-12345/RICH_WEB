@@ -2,19 +2,342 @@
 .main-content-container {
     width: 100%;
     margin: 0 auto;
-    padding: 1rem;
+    padding: 1rem 0;
     flex: 1;
     transition: margin-left 0.3s ease;
     background: transparent;
 }
 
 .main-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 1rem;
+    max-width: none;
+    margin: 0;
+    padding: 1rem 0;
     width: 100%;
     position: relative;
     z-index: 1;
+}
+
+/* Sidebar (tabs) outside main-content column; graphs load in main — flush to viewport left */
+.analytics-page-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 1rem 1.5rem 0;
+    box-sizing: border-box;
+}
+
+.analytics-sidebar-wrap {
+    display: flex;
+    flex: 0 0 260px;
+    max-width: 260px;
+    align-self: stretch;
+    transition: flex-basis 0.3s ease, max-width 0.3s ease, opacity 0.25s ease, margin 0.3s ease;
+}
+
+.analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap {
+    flex: 0 0 0;
+    max-width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+.analytics-sidebar-wrap .analytics-sidebar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100%;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, transparent 42%),
+        linear-gradient(165deg, rgba(44, 90, 160, 0.09) 0%, rgba(30, 58, 95, 0.05) 45%, rgba(226, 232, 240, 0.65) 100%);
+    border-radius: 0 16px 16px 0;
+    padding: 1rem 0.85rem 1.15rem 1rem;
+    border: 1px solid rgba(44, 90, 160, 0.2);
+    border-left: none;
+    box-shadow:
+        4px 6px 28px rgba(30, 58, 95, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    box-sizing: border-box;
+}
+
+.analytics-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: -1rem -0.85rem 0.85rem -1rem;
+    padding: 0.95rem 0.85rem 0.95rem 1rem;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 52%, #172554 100%);
+    border-radius: 0 16px 0 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 18px rgba(30, 58, 95, 0.28);
+}
+
+.analytics-sidebar-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.94);
+    margin: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.analytics-sidebar-hide-btn {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-sidebar-hide-btn:hover {
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.55);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.analytics-sidebar-inner {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.analytics-sidebar-show-btn {
+    flex: 0 0 42px;
+    width: 42px;
+    align-self: flex-start;
+    position: sticky;
+    top: 92px;
+    margin-top: 0.35rem;
+    height: 52px;
+    padding: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 12px 12px 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-left: none;
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 55%, #172554 100%);
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow:
+        0 6px 18px rgba(30, 58, 95, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    z-index: 5;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.analytics-sidebar-show-btn:hover {
+    background: linear-gradient(135deg, #3568b8 0%, #234a78 55%, #1e3a5f 100%);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow:
+        0 8px 22px rgba(30, 58, 95, 0.48),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.analytics-sidebar-show-btn:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.95);
+    outline-offset: 2px;
+}
+
+.analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-show-btn:not([hidden]) {
+    display: flex;
+}
+
+.analytics-main-column {
+    flex: 1;
+    min-width: 0;
+    padding-left: 1rem;
+}
+
+.analytics-page-layout.is-sidebar-collapsed .analytics-main-column {
+    padding-left: 0;
+}
+
+/* Desktop: sidebar fixed — hindi sumasama sa scroll ng main content */
+@media (min-width: 961px) {
+    .analytics-sidebar-wrap {
+        position: fixed;
+        left: 0;
+        top: 80px;
+        width: 260px;
+        max-width: 260px;
+        height: calc(100vh - 80px);
+        z-index: 50;
+        align-self: flex-start;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        flex: none;
+        transition:
+            transform 0.3s ease,
+            opacity 0.25s ease,
+            visibility 0.25s ease,
+            width 0.3s ease,
+            max-width 0.3s ease,
+            min-width 0.3s ease,
+            top 0.25s ease,
+            height 0.25s ease;
+    }
+
+    /* Collapsed: icon rail lang — visible pa rin ang mga tab icon sa gilid */
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap {
+        flex: none;
+        width: 52px;
+        max-width: 52px;
+        min-width: 52px;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        top: 124px;
+        height: calc(100vh - 124px);
+        transition:
+            width 0.3s ease,
+            max-width 0.3s ease,
+            min-width 0.3s ease,
+            top 0.25s ease,
+            height 0.25s ease;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-head {
+        display: none;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-sidebar {
+        padding: 0.45rem 0.2rem 0.65rem 0.15rem;
+        border-radius: 0 14px 14px 0;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-nav {
+        gap: 0.32rem;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-btn-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-btn {
+        position: relative;
+        justify-content: center;
+        padding: 0.5rem 0.15rem;
+        gap: 0;
+        border-radius: 10px;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-btn-icon {
+        width: 1.45rem;
+        font-size: 1.1rem;
+        margin: 0 auto;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-btn:hover:not(.is-active) {
+        transform: scale(1.06);
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap .analytics-tab-btn.is-active {
+        box-shadow:
+            inset 3px 0 0 rgba(255, 255, 255, 0.95),
+            0 4px 16px rgba(30, 58, 95, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .analytics-main-column {
+        margin-left: 260px;
+        width: auto;
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-left: 1rem;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-main-column {
+        margin-left: 52px;
+        padding-left: 1rem;
+    }
+
+    .analytics-sidebar-show-btn {
+        position: fixed;
+        left: 0;
+        top: 96px;
+        z-index: 51;
+        margin-top: 0;
+        align-self: auto;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-show-btn:not([hidden]) {
+        top: 80px;
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        height: 44px;
+        flex-basis: 44px;
+        border-radius: 0 12px 12px 0;
+        margin-top: 0;
+        box-shadow:
+            0 6px 18px rgba(30, 58, 95, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-show-btn:not([hidden]):hover {
+        box-shadow:
+            0 8px 22px rgba(30, 58, 95, 0.48),
+            inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    }
+}
+
+/* Stretch analytics area with viewport so sidebar matches main column height */
+.page-container > .main-content-container:has(#analyticsPageLayout) {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.page-container > .main-content-container:has(#analyticsPageLayout) .analytics-page-layout {
+    flex: 1 1 auto;
+    min-height: min(100%, calc(100vh - 100px));
 }
 
 /* Analytics Section - Interactive Cards */
@@ -112,7 +435,7 @@
     color: #0f172a;
 }
 
-.analytics-range-select {
+.analytics-control-group select {
     padding: 0.5rem 0.85rem;
     border-radius: 8px;
     border: 2px solid #2c5aa0;
@@ -124,12 +447,12 @@
     transition: all 0.3s ease;
 }
 
-.analytics-range-select:hover {
+.analytics-control-group select:hover {
     background: #f8f9fa;
     border-color: #1e3a5f;
 }
 
-.analytics-range-select:focus {
+.analytics-control-group select:focus {
     outline: none;
     border-color: #1e3a5f;
     box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
@@ -582,6 +905,329 @@
     margin-bottom: 1.25rem;
 }
 
+.analytics-census-summary .analytics-census-cards .analytics-card {
+    min-height: auto;
+    padding: 1rem 1.15rem;
+}
+
+.analytics-census-summary .analytics-census-cards .analytics-card--census-residents {
+    background: linear-gradient(145deg, #e0f2fe 0%, #bae6fd 55%, #7dd3fc 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(14, 165, 233, 0.45),
+        0 1px 3px rgba(14, 165, 233, 0.12);
+}
+
+.analytics-census-summary .analytics-census-cards .analytics-card--census-households {
+    background: linear-gradient(145deg, #f5f3ff 0%, #e9d5ff 55%, #ddd6fe 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(139, 92, 246, 0.4),
+        0 1px 3px rgba(124, 58, 237, 0.1);
+}
+
+.analytics-census-by-sitio-table th:last-child,
+.analytics-census-by-sitio-table td:last-child {
+    text-align: right;
+    width: 8rem;
+}
+
+.analytics-census-by-sitio-table tfoot th,
+.analytics-census-by-sitio-table tfoot td {
+    padding: 0.875rem 1rem;
+    border-top: 2px solid #cbd5e1;
+    background: #f1f5f9;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.analytics-census-by-sitio-table tfoot td {
+    text-align: right;
+}
+
+.analytics-census-subheading {
+    margin: 1.5rem 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.analytics-census-senior-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(255, 251, 235, 0.98) 0%, rgba(255, 237, 213, 0.75) 50%, rgba(254, 243, 199, 0.55) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+}
+
+.analytics-census-senior-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-senior-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-widowed-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(245, 243, 255, 0.98) 0%, rgba(237, 233, 254, 0.75) 50%, rgba(221, 214, 254, 0.55) 100%);
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+.analytics-census-widowed-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-widowed-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-employed-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(236, 253, 245, 0.98) 0%, rgba(209, 250, 229, 0.75) 50%, rgba(167, 243, 208, 0.45) 100%);
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.08);
+}
+
+.analytics-census-employed-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-employed-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-unemployed-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.75) 50%, rgba(253, 230, 138, 0.4) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+}
+
+.analytics-census-unemployed-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-unemployed-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-students-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.75) 50%, rgba(191, 219, 254, 0.45) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.analytics-census-students-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-students-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-pwd-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.75) 50%, rgba(191, 219, 254, 0.45) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.analytics-census-pwd-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-pwd-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-indigenous-section {
+    margin-top: 1.5rem;
+    padding: 1rem 1.15rem 1.2rem;
+    border-radius: 12px;
+    background: linear-gradient(165deg, rgba(240, 253, 250, 0.98) 0%, rgba(204, 251, 241, 0.75) 50%, rgba(153, 246, 228, 0.45) 100%);
+    border: 1px solid rgba(45, 212, 191, 0.45);
+    box-shadow: 0 2px 8px rgba(20, 184, 166, 0.08);
+}
+
+.analytics-census-indigenous-section .analytics-census-subheading {
+    margin-top: 0;
+}
+
+.analytics-census-indigenous-section .table-wrapper {
+    margin-bottom: 0;
+}
+
+.analytics-census-senior-note {
+    margin: 0 0 0.75rem;
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.analytics-census-demographics {
+    margin: 1.25rem 0 1.5rem;
+}
+
+.analytics-census-demographics-title {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.analytics-census-demographics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.analytics-census-demo-tile {
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-height: 4.5rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.analytics-census-demo-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #334155;
+    line-height: 1.25;
+}
+
+.analytics-census-demo-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Hiwa-hiwalay na kulay bawat seksyon */
+.analytics-census-demo-tile--senior {
+    background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
+    border-color: #fdba74;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--senior:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.22);
+}
+
+.analytics-census-demo-tile--senior:focus-visible {
+    outline: 2px solid #ea580c;
+    outline-offset: 2px;
+}
+
+.analytics-census-demo-tile--widowed {
+    background: linear-gradient(145deg, #f5f3ff 0%, #ede9fe 100%);
+    border-color: #c4b5fd;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--widowed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
+}
+
+.analytics-census-demo-tile--widowed:focus-visible {
+    outline: 2px solid #7c3aed;
+    outline-offset: 2px;
+}
+
+.analytics-census-demo-tile--employed {
+    background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+    border-color: #6ee7b7;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--employed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.22);
+}
+
+.analytics-census-demo-tile--employed:focus-visible {
+    outline: 2px solid #059669;
+    outline-offset: 2px;
+}
+
+.analytics-census-demo-tile--unemployed {
+    background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fcd34d;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--unemployed:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.22);
+}
+
+.analytics-census-demo-tile--unemployed:focus-visible {
+    outline: 2px solid #d97706;
+    outline-offset: 2px;
+}
+
+/* Students: parehong itsura ng PWD tile (as requested) — hiwalay na modifier para sa click / aria */
+.analytics-census-demo-tile--pwd,
+.analytics-census-demo-tile--students {
+    background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+    border-color: #93c5fd;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--pwd:hover,
+.analytics-census-demo-tile--students:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.22);
+}
+
+.analytics-census-demo-tile--pwd:focus-visible,
+.analytics-census-demo-tile--students:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.analytics-census-demo-tile--ip {
+    background: linear-gradient(145deg, #f0fdfa 0%, #ccfbf1 100%);
+    border-color: #5eead4;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.analytics-census-demo-tile--ip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(20, 184, 166, 0.22);
+}
+
+.analytics-census-demo-tile--ip:focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 2px;
+}
+
 .analytics-card .card-value {
     font-size: 1.4rem;
 }
@@ -771,13 +1417,732 @@
         grid-template-columns: 1fr;
     }
 
-    .analytics-sidebar {
+    .analytics-layout .analytics-sidebar {
         order: 2;
     }
 
-    .analytics-main-area {
+    .analytics-layout .analytics-main-area {
         order: 1;
     }
+}
+
+/* Bar / Pie toggle + pie chart (tulad ng table chart styling) */
+.analytics-chart-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+    padding: 0.5rem 0 0.15rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.analytics-chart-toolbar-primary {
+    display: flex;
+    flex-wrap: wrap;
+    /* flex-start: pantay ang itaas ng Bar/Pie, filters, at pie block (hindi flex-end na nag-aangat ng mataas na column) */
+    align-items: flex-start;
+    gap: 0.65rem 1rem;
+}
+
+/* Parehong distansya sa pagitan ng field–field: flex gap lamang (walang margin-left:auto na sumisira sa sukat) */
+.analytics-chart-toolbar-primary > .pie-chart-extra {
+    align-self: flex-start;
+}
+
+.sitio-chart-toolbar {
+    margin-top: 0.35rem;
+    padding-top: 0.4rem;
+    border-top: none;
+}
+
+.chart-type-toggle {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.chart-type-toggle .chart-type-btn {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+}
+
+.chart-type-toggle .chart-type-btn.is-active {
+    background: linear-gradient(135deg, #1e3a5f, #2c5aa0);
+    color: #fff;
+    border-color: rgba(44, 90, 160, 0.35);
+}
+
+.chart-type-toggle .chart-type-btn.is-active:hover {
+    filter: brightness(1.05);
+    color: #fff;
+}
+
+/* Document requests — Bar / Pie visibility (pareho pwede naka-on) */
+.chart-visibility-toggle {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.chart-visibility-toggle .chart-visibility-btn {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.75rem;
+}
+
+.chart-visibility-toggle .chart-visibility-btn.is-active {
+    background: linear-gradient(135deg, #1e3a5f, #2c5aa0);
+    color: #fff;
+    border-color: rgba(44, 90, 160, 0.35);
+}
+
+.chart-visibility-toggle .chart-visibility-btn.is-active:hover {
+    filter: brightness(1.05);
+    color: #fff;
+}
+
+.chart-visibility-toggle .chart-visibility-btn:not(.is-active) {
+    opacity: 0.65;
+}
+
+.document-requests-charts-box {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.document-requests-charts-box .doc-chart-host--hidden {
+    display: none !important;
+}
+
+.document-requests-chart-sub {
+    margin: 0 0 0.65rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.document-requests-chart-sub.doc-year-hbar-chart__meta {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.document-requests-filter-hint {
+    margin: 0.35rem 0 0.5rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #475569;
+    background: rgba(241, 245, 249, 0.9);
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.document-requests-filter-hint strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.table-chart-viz--documents-sitio .table-chart-doc-hscroll-inner,
+.table-chart-viz--concerns-sitio-stack .table-chart-doc-hscroll-inner {
+    min-width: min(100%, 2400px);
+}
+
+/* Emergency Reports bar — parehong shell tulad ng Concerns (documents plot, scroll, value sa ibabaw ng bar) */
+.table-chart-viz--emergency-bar .table-chart-doc-hscroll-inner {
+    min-width: 100%;
+}
+
+.table-chart-viz--emergency-bar .table-chart-bar-layer--documents {
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.table-chart-viz--emergency-bar .table-chart-bar-slot--emergency-metric {
+    flex: 1 1 4.5rem;
+    max-width: 6rem;
+}
+
+.table-chart-bar-fill.table-chart-bar-fill--emergency-metric {
+    padding-top: 0;
+    color: transparent;
+    text-shadow: none;
+}
+
+/* Emergency: 12 buwan — mas makitid na columns + scroll tulad ng Concerns Jan–Dec */
+.table-chart-viz--emergency-bar.table-chart-viz--emergency-monthly .table-chart-doc-hscroll-inner {
+    min-width: min(100%, 52rem);
+}
+
+.table-chart-viz--emergency-bar.table-chart-viz--emergency-monthly .table-chart-bar-layer--documents {
+    gap: 0.25rem;
+    justify-content: space-between;
+}
+
+.table-chart-viz--emergency-bar.table-chart-viz--emergency-monthly .table-chart-bar-slot--emergency-metric {
+    flex: 1 1 2.25rem;
+    max-width: 3.5rem;
+    min-width: 2rem;
+}
+
+.table-chart-viz--emergency-bar.table-chart-viz--emergency-monthly .concerns-year-vbar-chart__bar-fill {
+    max-width: 100%;
+}
+
+.pie-chart-extra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 1rem;
+}
+
+.pie-chart-extra--documents {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    width: auto;
+    max-width: 100%;
+    padding-top: 0;
+}
+
+/* Document requests pie: gap 0.35rem tulad ng Document type / Sitio; checkbox sa column 2 */
+#documentsPieExtra.pie-chart-extra--documents {
+    display: grid;
+    grid-template-columns: max-content minmax(9.5rem, 13.5rem);
+    column-gap: 0.35rem;
+    row-gap: 0.35rem;
+    align-items: center;
+    width: auto;
+    max-width: min(100%, 21rem);
+}
+
+#documentsPieExtra .documents-pie-metric-field {
+    display: contents;
+}
+
+#documentsPieExtra .documents-pie-metric-field > span {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+#documentsPieExtra #documentsPieMetric {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    max-width: 13.5rem;
+    box-sizing: border-box;
+}
+
+.pie-chart-extra--stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: min(100%, 22rem);
+    max-width: 100%;
+}
+
+.analytics-chart-toolbar-primary > .pie-chart-extra--stacked {
+    align-items: stretch;
+}
+
+.pie-chart-subcontrols {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 1rem;
+    padding: 0.4rem 0 0.1rem;
+    border-top: 1px dashed #e2e8f0;
+}
+
+/* Concerns pie: isang stack — mas makitid ang mga dropdown (hindi full bleed) */
+#concernsPieExtra.pie-chart-extra--stacked {
+    width: auto;
+    max-width: min(100%, 21rem);
+}
+
+/* Tulad ng documents / toolbar: gap 0.35rem; iisang grid — max-content label column, pantay ang dropdowns */
+#concernsPieExtra .concerns-pie-stack {
+    display: grid;
+    grid-template-columns: max-content minmax(9.5rem, 13.5rem);
+    column-gap: 0.35rem;
+    row-gap: 0.4rem;
+    align-items: center;
+    width: auto;
+    max-width: min(100%, 21rem);
+}
+
+/* Show row: sariling grid (label = gitna ng dropdown lamang) */
+#concernsPieExtra .concerns-pie-row:not(#concernsPieSitioTopWrap) {
+    display: contents;
+}
+
+#concernsPieExtra #concernsPieSitioTopWrap {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    grid-template-rows: auto auto;
+    row-gap: 0.35rem;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+#concernsPieExtra #concernsPieSitioTopWrap .concerns-pie-label {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+}
+
+#concernsPieExtra #concernsPieSitioTopWrap .concerns-pie-control-slot {
+    display: contents;
+}
+
+#concernsPieExtra #concernsPieSitioTopWrap #concernsPieSitioTop {
+    grid-column: 2;
+    grid-row: 1;
+}
+
+@supports not (grid-template-columns: subgrid) {
+    #concernsPieExtra #concernsPieSitioTopWrap {
+        grid-template-columns: max-content minmax(9.5rem, 13.5rem);
+    }
+}
+
+#concernsPieExtra .concerns-pie-label {
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+#concernsPieExtra #concernsPieSitioTop,
+#concernsPieExtra #concernsPieSitioMetric {
+    width: 100%;
+    min-width: 0;
+    max-width: 13.5rem;
+    box-sizing: border-box;
+}
+
+#concernsPieExtra .concerns-pie-control-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    min-width: 0;
+    max-width: 13.5rem;
+    width: 100%;
+}
+
+#concernsPieExtra .concerns-pie-control-slot .concerns-pie-select {
+    width: 100%;
+    min-width: 9.5rem;
+    max-width: 13.5rem;
+    box-sizing: border-box;
+}
+
+#concernsPieExtra .concerns-pie-sep {
+    grid-column: 1 / -1;
+    margin: 0.1rem 0 0;
+    border: none;
+    border-top: 1px dashed #e2e8f0;
+    height: 0;
+}
+
+#concernsPieExtra:has(#concernsPieSitioMetricWrap[hidden]) .concerns-pie-sep {
+    display: none;
+}
+
+.analytics-chart-toolbar-field,
+.pie-chart-extra--stacked .pie-chart-toolbar-field {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: #475569;
+}
+
+/* [hidden] dapat manalo laban sa display:inline-flex sa itaas */
+.analytics-chart-toolbar-field[hidden],
+.pie-chart-extra--stacked .pie-chart-toolbar-field[hidden] {
+    display: none !important;
+}
+
+.analytics-chart-toolbar-field > span,
+.pie-chart-extra--stacked .pie-chart-toolbar-field > span {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.analytics-chart-toolbar-field select,
+.pie-chart-extra--stacked .pie-chart-toolbar-field select {
+    min-width: 9.5rem;
+    max-width: 100%;
+    font-size: 0.78rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
+    border: 2px solid #2c5aa0;
+    background: #fff;
+    color: #2c5aa0;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.analytics-chart-toolbar-field select:hover,
+.pie-chart-extra--stacked .pie-chart-toolbar-field select:hover {
+    background: #f8f9fa;
+    border-color: #1e3a5f;
+}
+
+.analytics-chart-toolbar-field select:focus,
+.pie-chart-extra--stacked .pie-chart-toolbar-field select:focus {
+    outline: none;
+    border-color: #1e3a5f;
+    box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+}
+
+.concerns-sitio-toolbar-field {
+    align-items: flex-start;
+}
+
+.concerns-sitio-control-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+}
+
+.concerns-sitio-control-slot #concernsSitioFilter {
+    width: 100%;
+}
+
+.table-chart-pie-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.table-chart-pie-layout--documents {
+    align-items: flex-start;
+}
+
+.table-chart-pie-plot-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 1.5rem;
+    width: 100%;
+}
+
+.table-chart-pie-legend-col {
+    flex: 1 1 200px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 0.45rem;
+}
+
+.table-chart-pie-legend-col .table-chart-pie-legend-list {
+    flex: 0 1 auto;
+    width: 100%;
+    margin-top: 0.35rem;
+}
+
+.table-chart-pie-legend-meta--count-first {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.table-chart-pie-legend-meta--count-first .table-chart-pie-legend-val {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.table-chart-pie-legend-pct {
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 500;
+}
+
+/* Salaysay sa ilalim ng Document Request pie (kabuuang datos + nangungunang kategorya/sitio) */
+.table-chart-pie-interpretation {
+    flex: 0 0 100%;
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.65rem 0.75rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+.table-chart-pie-interpretation p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: #334155;
+    text-align: left;
+}
+
+.table-chart-pie-interpretation p + p {
+    margin-top: 0.45rem;
+}
+
+.table-chart-pie-interpretation-sitio-head {
+    margin: 0.5rem 0 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.table-chart-pie-interpretation-sitio-note {
+    margin: 0.35rem 0 0;
+    font-size: 0.78rem;
+    color: #64748b;
+}
+
+.table-chart-pie-interpretation-sitios {
+    margin: 0.25rem 0 0.35rem;
+    padding-left: 1.15rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.table-chart-pie-interpretation-sitios li {
+    margin-bottom: 0.35rem;
+}
+
+.table-chart-pie-interpretation-sitios li:last-child {
+    margin-bottom: 0;
+}
+
+.table-chart-pie-interpretation strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.table-chart-pie-interpretation-categories,
+.table-chart-bar-interpretation-categories {
+    margin: 0.35rem 0 0;
+    padding-left: 1.15rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.table-chart-pie-interpretation-categories li,
+.table-chart-bar-interpretation-categories li {
+    margin-bottom: 0.4rem;
+}
+
+.table-chart-pie-interpretation-categories li:last-child,
+.table-chart-bar-interpretation-categories li:last-child {
+    margin-bottom: 0;
+}
+
+/* Document bar graph — below table-chart-plot-wrap--documents
+ * Sa column flex, huwag gumamit ng flex-basis: 100% — main axis ay height, maaaring mag-overlap. */
+.table-chart-bar-interpretation {
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-top: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
+.table-chart-bar-interpretation p {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: #334155;
+    text-align: left;
+    max-width: 100%;
+}
+
+.table-chart-bar-interpretation .table-chart-bar-interpretation__lead {
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+.table-chart-bar-interpretation p:last-of-type {
+    margin-bottom: 0;
+}
+
+.table-chart-bar-interpretation strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.table-chart-pie-disk {
+    width: min(220px, 92vw);
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+    border: 2px solid #e2e8f0;
+}
+
+/* Document Requests: SVG donut — solid palette (bar graph), gitna + % sa slice */
+.table-chart-pie-disk--donut-svg {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 50%;
+    filter: drop-shadow(0 4px 18px rgba(15, 23, 42, 0.1));
+}
+
+.table-chart-pie-disk--donut-svg .table-chart-pie-donut-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    transform-origin: center center;
+    animation: tableChartDonutPopIn 0.68s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+
+.table-chart-pie-donut-hole {
+    pointer-events: none;
+}
+
+.table-chart-pie-donut-center {
+    pointer-events: none;
+}
+
+@keyframes tableChartDonutPopIn {
+    from {
+        opacity: 0;
+        transform: scale(0.86);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.table-chart-pie-donut-slice {
+    opacity: 0;
+    animation: tableChartDonutSliceIn 0.44s ease forwards;
+    cursor: pointer;
+    transform-origin: 50px 50px;
+    transition: transform 0.22s cubic-bezier(0.34, 1.45, 0.64, 1), filter 0.22s ease;
+}
+
+.table-chart-pie-donut-slice-path {
+    transition: filter 0.22s ease;
+}
+
+/* Hover: “pop” palabas mula sa gitna + shadow — gaya ng reference */
+.table-chart-pie-donut-slice:hover {
+    transform: scale(1.075);
+    filter: drop-shadow(5px 10px 16px rgba(15, 23, 42, 0.32));
+    z-index: 2;
+}
+
+.table-chart-pie-donut-slice:hover .table-chart-pie-donut-slice-pct {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+/* Pangalan ng sitio / kategorya — lumalabas lang kapag naka-hover (malinaw kasama ng pop effect) */
+.table-chart-pie-donut-slice-hover-label {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    paint-order: stroke fill;
+    stroke: #ffffff;
+    stroke-width: 0.35px;
+}
+
+.table-chart-pie-donut-slice:hover .table-chart-pie-donut-slice-hover-label {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .table-chart-pie-donut-slice {
+        transition: none;
+    }
+
+    .table-chart-pie-donut-slice:hover {
+        transform: none;
+        filter: brightness(1.06);
+    }
+}
+
+@keyframes tableChartDonutSliceIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.table-chart-pie-legend-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+.table-chart-pie-legend-item {
+    display: grid;
+    grid-template-columns: 11px minmax(7.5rem, 1fr) auto;
+    align-items: baseline;
+    column-gap: 0.5rem;
+    font-size: 0.78rem;
+    color: #334155;
+    margin-bottom: 0.4rem;
+    line-height: 1.25;
+}
+
+.table-chart-pie-legend-label {
+    min-width: 0;
+    word-break: break-word;
+}
+
+.table-chart-pie-legend-meta {
+    margin-left: 0;
+    justify-self: end;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: #64748b;
+    font-size: 0.74rem;
+}
+
+.table-chart-pie-legend-val {
+    color: #334155;
+    font-weight: 600;
+}
+
+.table-chart-pie-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.table-chart-pie-layout--documents .table-chart-pie-swatch {
+    box-shadow: inset 0 0 0 1.5px rgba(30, 41, 59, 0.55);
+    border-radius: 4px;
 }
 
 /* Bar charts below analytics tables — axis + grid + heights from scale (not equal flex) */
@@ -786,6 +2151,95 @@
     padding-top: 1.25rem;
     border-top: 1px solid #e2e8f0;
     --chart-plot-h: 220px;
+}
+
+.table-chart-viz--documents,
+.table-chart-viz--documents-sitio {
+    align-items: flex-start;
+}
+
+.table-chart-viz--documents {
+    --chart-plot-h: 220px;
+}
+
+/* Year metric: 12 buwan sa Y-axis — mas mataas na plot */
+.table-chart-viz--documents-year-y {
+    --chart-plot-h: 300px;
+}
+
+/* 12 row = 12 band sa table-chart-grid-bg (--grid-lines:12); January sa ibaba */
+.table-chart-y-axis.table-chart-y-axis--day-increment.table-chart-y-axis--year-months {
+    display: grid;
+    grid-template-rows: repeat(12, minmax(0, 1fr));
+    justify-content: normal;
+    justify-items: end;
+    align-content: stretch;
+    height: var(--chart-plot-h);
+    box-sizing: border-box;
+    min-width: 4.25rem;
+    font-size: 0.56rem;
+    font-weight: 500;
+    line-height: 1.1;
+}
+
+.table-chart-y-axis.table-chart-y-axis--day-increment.table-chart-y-axis--year-months span {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 0;
+    width: 100%;
+    white-space: nowrap;
+    transform: none;
+}
+
+/* January (huling span): band sa ibaba = simula ng Jan (calendar month duration) */
+.table-chart-y-axis.table-chart-y-axis--day-increment.table-chart-y-axis--year-months span:last-child {
+    align-items: flex-end;
+}
+
+/*
+ * Year metric: bar layer = parehong taas/grid bands (12 calendar months).
+ * Bar mula sa ibaba = cumulative year count sa timeline na nagsisimula Jan 1.
+ */
+.table-chart-viz--documents-year-y .table-chart-plot.table-chart-plot--documents-bars {
+    display: flex;
+}
+
+.table-chart-bar-layer--documents[data-doc-metric='year'] {
+    align-items: stretch;
+    align-content: stretch;
+}
+
+.table-chart-bar-layer--documents[data-doc-metric='year'] .table-chart-doc-group--bars {
+    min-height: 0;
+    justify-content: flex-end;
+}
+
+.table-chart-bar-layer--documents[data-doc-metric='year'] .table-chart-doc-pair-inner {
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.table-chart-bar-layer--documents[data-doc-metric='year'] .table-chart-bar-slot,
+.table-chart-bar-layer--documents[data-doc-metric='year'] .table-chart-bar-slot--pair {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+.analytics-chart-toolbar + .analytics-table-chart {
+    margin-top: 0.35rem;
+    padding-top: 0.65rem;
+}
+
+.sitio-chart-toolbar + .analytics-table-chart.sitio-chart-outer {
+    margin-top: 0.25rem;
+    padding-top: 0.5rem;
 }
 
 .table-chart-heading {
@@ -841,12 +2295,46 @@
     transform: translateY(0);
 }
 
+/* Document requests: 6 na day tick, pantay — tumutugma sa --grid-lines:5 */
+.table-chart-y-axis--day-increment {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 1.75rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    line-height: 1.15;
+}
+
+.table-chart-y-axis--day-increment span {
+    display: block;
+    transform: translateY(0.15em);
+}
+
+.table-chart-y-axis--day-increment span:first-child {
+    transform: translateY(0);
+}
+
 .table-chart-plot-wrap {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+}
+
+/* Stack: document plot + bar interpretation — fills row beside Y-axis */
+.table-chart-doc-plot-stack {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.table-chart-doc-plot-stack > .table-chart-plot-wrap {
+    flex: 0 0 auto;
+    width: 100%;
 }
 
 .table-chart-plot {
@@ -856,6 +2344,70 @@
     border-bottom: 2px solid #64748b;
     border-radius: 0 2px 0 0;
     background: #fafbfc;
+}
+
+/* Document bar: grid+bars = plot lang; category labels sa ilalim ng X-axis; iisang h-scroll */
+.table-chart-doc-hscroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-chart-doc-hscroll-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.table-chart-plot.table-chart-plot--documents-bars {
+    display: flex;
+    flex-direction: column;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.table-chart-plot.table-chart-plot--documents-bars .table-chart-bar-layer.table-chart-bar-layer--documents {
+    position: relative;
+    inset: auto;
+    flex: 1 1 0;
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+}
+
+.table-chart-doc-x-labels {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding: 0.25rem 0.4rem 0 0.25rem;
+    box-sizing: border-box;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.table-chart-doc-x-labels .table-chart-doc-name {
+    flex: 1 1 88px;
+    min-width: 76px;
+    max-width: 130px;
+    margin: 0;
+    padding: 0;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #0f172a;
+    text-align: center;
+    line-height: 1.15;
+    word-break: break-word;
+    display: block;
 }
 
 .table-chart-grid-bg {
@@ -921,12 +2473,34 @@
     line-height: 1.2;
 }
 
-.table-chart-bar-fill--doc-month {
-    background: linear-gradient(180deg, #7dd3fc 0%, #0ea5e9 100%);
+/* Document requests: numero sa ibabaw ng bar (hindi sa loob ng gradient) */
+.table-chart-bar-doc-stack {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
 }
 
-.table-chart-bar-fill--doc-year {
-    background: linear-gradient(180deg, #93c5fd 0%, #2563eb 100%);
+.table-chart-bar-value--doc-above {
+    flex-shrink: 0;
+    margin-bottom: 0.2rem;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    text-align: center;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+/* Document requests: fixed gradient bawat uri (inline mula sa analytics.js — getDocumentTypeGradient) */
+.table-chart-bar-fill--doc-type {
+    background-size: 100% 100%;
+    padding-top: 0;
+    display: block;
 }
 
 .table-chart-label {
@@ -978,19 +2552,577 @@
     background: linear-gradient(180deg, #93c5fd, #2563eb);
 }
 
+.table-chart-legend-swatch.resolved {
+    background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+.table-chart-legend-swatch.unresolved {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.table-chart-legend-swatch.revoked {
+    background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+/* Concerns: stacked bar — kalahati ng lapad ng column, gitna */
+.table-chart-doc-group--concerns-stacked .table-chart-bar-doc-stack {
+    width: 100%;
+    max-width: 100%;
+    align-items: center;
+}
+
+.table-chart-bar-slot--concerns-stack {
+    max-width: none;
+    width: 100%;
+    flex: 1 1 auto;
+    align-self: stretch;
+    align-items: center;
+}
+
+.concerns-stacked-bar {
+    width: 50%;
+    max-width: 50%;
+    margin-inline: auto;
+    height: calc(var(--bar-pct, 0) * 1%);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.concerns-stacked-bar:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.03);
+}
+
+.concerns-stacked-bar__segment {
+    min-height: 0;
+    flex: 0 1 auto;
+    cursor: default;
+}
+
+/* Verde: bilang mula sa DB kung `status` = resolved (analytics.php → bySitio.concerns.*.resolved). */
+.concerns-stacked-bar__segment--resolved {
+    background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+/* Pula: bilang mula sa DB kung `status` = new o processing (bySitio.concerns.*.processing). */
+.concerns-stacked-bar__segment--unresolved {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+#concernsStackedBarSegmentTooltip.concerns-stacked-bar-tooltip {
+    position: fixed;
+    z-index: 10050;
+    pointer-events: none;
+    min-width: 9rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.94);
+    color: #f1f5f9;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.35);
+    transform: translate(-50%, -100%);
+    margin-top: -4px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+#concernsStackedBarSegmentTooltip.concerns-stacked-bar-tooltip.concerns-stacked-bar-tooltip--below {
+    transform: translate(-50%, 0);
+    margin-top: 4px;
+}
+
+.concerns-stacked-bar-tooltip__heading {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: #f8fafc;
+    margin: -0.05rem 0 0.4rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    text-align: center;
+}
+
+.concerns-stacked-bar-tooltip__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+}
+
+.concerns-stacked-bar-tooltip__row span {
+    color: #cbd5e1;
+    font-weight: 500;
+}
+
+.concerns-stacked-bar-tooltip__row strong {
+    font-variant-numeric: tabular-nums;
+    color: #f8fafc;
+}
+
+.table-chart-doc-group--concerns-stacked {
+    min-width: 76px;
+}
+
+/* Sitio column: stacked + revoked (pareho ng year Jan–Dec) */
+.table-chart-doc-group--concerns-sitio-pair {
+    min-width: 7.5rem;
+}
+
+.concerns-sitio-stack-revoke-pair {
+    width: 100%;
+    min-height: 0;
+}
+
+/* Sitio view: revoked bar width should match stacked bar width (50%). */
+.concerns-sitio-revoked-bar {
+    width: 50% !important;
+    max-width: 50% !important;
+    margin-inline: auto;
+}
+
+/* Yearly document bar: grouped horizontal — buwan (Y) · count (X) */
+.doc-year-hbar-chart__meta {
+    margin-top: -0.35rem;
+}
+
+/* Concerns year scope: Jan–Dec — vertical columns (reported + resolved na magkatabi) */
+.table-chart-viz--concerns-year-vbar {
+    --chart-plot-h: 280px;
+    align-items: flex-start;
+    margin-top: 0.35rem;
+    width: 100%;
+}
+
+.table-chart-viz--concerns-year-vbar .concerns-year-vbar-chart__plot {
+    width: 100%;
+    min-width: min(100%, 52rem);
+}
+
+.table-chart-bar-layer.concerns-year-vbar-chart__layer {
+    justify-content: space-between;
+    gap: 0.2rem;
+    padding: 0 0.35rem 0 0.25rem;
+    min-width: 42rem;
+}
+
+.concerns-year-vbar-chart__month-group {
+    flex: 1 1 0;
+    min-width: 1.75rem;
+    max-width: 4.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    height: 100%;
+    min-height: 0;
+}
+
+.concerns-year-vbar-chart__pair {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.concerns-year-vbar-chart__pair .concerns-year-vbar-chart__bar-slot {
+    flex: 1 1 48%;
+    min-width: 0;
+    max-width: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    height: 100%;
+}
+
+.concerns-year-vbar-chart__bar-fill.table-chart-bar-fill {
+    max-width: none;
+    width: 100%;
+    min-width: 0;
+    font-size: 0.62rem;
+    padding-top: 0.15rem;
+}
+
+/* Year chart: stacked column (parehong kulay/tooltip tulad ng sitio stacked bar) */
+.doc-year-hbar-chart__legend--concerns-year {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.1rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.74rem;
+    color: #475569;
+}
+
+.doc-year-hbar-chart__legend-swatch--stack-red {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.doc-year-hbar-chart__legend-swatch--stack-green {
+    background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+.doc-year-hbar-chart__legend-swatch--revoked {
+    background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.1);
+}
+
+.concerns-year-vbar-chart__pair .table-chart-bar-doc-stack {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    align-items: center;
+}
+
+.concerns-year-vbar-chart__bar-fill.concerns-year-vbar-chart__bar-fill--stacked {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    padding-top: 0;
+    overflow: hidden;
+    background: transparent !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    border-radius: 8px 8px 2px 2px;
+}
+
+.concerns-year-vbar-chart__bar-fill--stacked .concerns-stacked-bar__segment {
+    /* Manipis na slice: may hit area para sa custom tooltip (unresolved / resolved). */
+    min-height: 2px;
+}
+
+.concerns-year-vbar-chart__bar-fill.concerns-year-vbar-chart__bar-fill--revoked.concerns-year-vbar-chart__bar-revoked-tooltip {
+    cursor: default;
+}
+
+.concerns-year-vbar-chart__bar-fill.concerns-year-vbar-chart__bar-fill--revoked {
+    padding-top: 0;
+    display: block;
+    background: linear-gradient(135deg, #7f8c8d, #95a5a6) !important;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    color: #f8fafc;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.doc-year-hbar-chart {
+    margin-top: 0.35rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.doc-year-hbar-chart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.65rem;
+    font-size: 0.74rem;
+    color: #475569;
+}
+
+.doc-year-hbar-chart__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.doc-year-hbar-chart__legend-swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+    background-size: 100% 100%;
+}
+
+.doc-year-hbar-chart__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Document requests — This year: tabs (All + January … December) sa itaas ng month rows */
+.doc-year-hbar-chart__month-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.45rem;
+    align-items: center;
+    margin: 0.45rem 0 0.25rem;
+    padding: 0.35rem 0 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.doc-year-hbar-chart__month-tab {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.38rem 0.55rem;
+    border-radius: 7px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    line-height: 1.2;
+    font-family: inherit;
+}
+
+.doc-year-hbar-chart__month-tab:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.doc-year-hbar-chart__month-tab--active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.doc-year-hbar-chart__month-tab:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+/* Bawat buwan: label + panel na may 5 na hiwalay na strip (isa bawat doc type), parehong X-scale */
+.doc-year-hbar-chart__month-block {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.35rem 0.5rem;
+    align-items: stretch;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.doc-year-hbar-chart__month-label-col {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.15rem;
+}
+
+.doc-year-hbar-chart__month {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #0f172a;
+    text-align: right;
+    line-height: 1.2;
+}
+
+.doc-year-hbar-chart__month-panel {
+    position: relative;
+    min-width: 0;
+}
+
+/* Legacy: grid na nasa panel; ngayon nasa bawat bar-track para makita ang sukat */
+.doc-year-hbar-chart__track-grid.doc-year-hbar-chart__track-grid--block {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    --xs: var(--x-segments, 5);
+    background-image: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(100% / var(--xs) - 1px),
+        rgba(148, 163, 184, 0.38) calc(100% / var(--xs) - 1px),
+        rgba(148, 163, 184, 0.38) calc(100% / var(--xs))
+    );
+    border-radius: 2px;
+}
+
+.doc-year-hbar-chart__month-stack {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 2px 0;
+    --xs: var(--x-segments, 5);
+}
+
+/* 0–100% ng axis max (hindi raw count) — tugma sa lapad ng bar; eksaktong count sa strip-value */
+.doc-year-hbar-chart__value-scale {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.15rem;
+    margin-top: 0.35rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.62rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #64748b;
+    min-width: 0;
+}
+
+.doc-year-hbar-chart__value-scale span {
+    flex: 1 0 auto;
+    text-align: center;
+    min-width: 1.2rem;
+    line-height: 1.2;
+}
+
+.doc-year-hbar-chart__value-scale span:first-child {
+    text-align: left;
+}
+
+.doc-year-hbar-chart__value-scale span:last-child {
+    text-align: right;
+}
+
+.doc-year-hbar-chart__value-scale--dense {
+    font-size: 0.56rem;
+    gap: 0.08rem;
+    letter-spacing: -0.02em;
+}
+
+.doc-year-hbar-chart__value-scale--dense span {
+    min-width: 1rem;
+}
+
+.doc-year-hbar-chart__value-scale--percent span {
+    min-width: 0.75rem;
+}
+
+.doc-year-hbar-chart__cat-strip {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 0;
+}
+
+/* Eksaktong bilang kada uri — hindi lang visual bar (naiiba ang 1 vs 2 kahit magkalapit ang lapad) */
+.doc-year-hbar-chart__strip-value {
+    flex-shrink: 0;
+    min-width: 1.5rem;
+    text-align: right;
+    font-size: 0.75rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+/* Buong lapad = 0…axisMax; vertical grid sa track = pantay na value interval (tugma sa xTicks) */
+.doc-year-hbar-chart__bar-track {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    height: 12px;
+    box-sizing: border-box;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.28);
+    background-color: rgba(241, 245, 249, 0.95);
+    background-image: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(100% / var(--xs, 5) - 1px),
+        rgba(148, 163, 184, 0.5) calc(100% / var(--xs, 5) - 1px),
+        rgba(148, 163, 184, 0.5) calc(100% / var(--xs, 5))
+    );
+}
+
+.doc-year-hbar-chart__bar {
+    height: 100%;
+    min-width: 0;
+    border-radius: 2px 4px 4px 2px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+    box-sizing: border-box;
+    background-size: 100% 100%;
+    position: relative;
+    z-index: 1;
+}
+
+.doc-year-hbar-chart__x-title {
+    margin: 0.4rem 0 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-align: center;
+}
+
+/* Year horizontal bar — monthly totals + per-type breakdown */
+.doc-year-hbar-interpretation {
+    margin-top: 0.85rem;
+    padding: 0.65rem 0.75rem;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow-wrap: break-word;
+}
+
+.doc-year-hbar-interpretation p {
+    margin: 0 0 0.55rem;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: #334155;
+}
+
+.doc-year-hbar-interpretation strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.doc-year-hbar-interpretation-months {
+    margin: 0;
+    padding-left: 1.15rem;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.doc-year-hbar-interpretation-months li {
+    margin-bottom: 0.45rem;
+}
+
+.doc-year-hbar-interpretation-months li:last-child {
+    margin-bottom: 0;
+}
+
+/*
+ * Document Requests: itago ang year H-bar + vertical bar interpretations kapag naka-on ang
+ * Pie chart sa toolbar — .is-active sa .chart-visibility-btn[data-doc-chart-visibility="pie"].
+ * Kapag pinatay ang Pie, mawawala ang :has at lalabas ulit ang interpretation.
+ */
+.analytics-table-container:has([data-doc-chart-visibility="pie"].is-active)
+    #documentRequestsBarHost
+    .doc-year-hbar-interpretation,
+.analytics-table-container:has([data-doc-chart-visibility="pie"].is-active)
+    #documentRequestsBarHost
+    .table-chart-bar-interpretation {
+    display: none !important;
+}
+
 /* Document chart: groups as columns along shared Y scale */
 .table-chart-bar-layer--documents {
     align-items: stretch;
     justify-content: flex-start;
     gap: 0.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    min-height: 0;
 }
 
-.table-chart-doc-group--viz {
+.table-chart-doc-group--bars {
     flex: 1 1 88px;
     min-width: 76px;
     max-width: 130px;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -1005,7 +3137,7 @@
     justify-content: center;
     gap: 0.25rem;
     width: 100%;
-    flex: 1;
+    flex: 1 1 0;
     min-height: 0;
 }
 
@@ -1017,20 +3149,6 @@
 .table-chart-bar-slot--pair .table-chart-bar-fill {
     max-width: 100%;
     min-width: 0;
-}
-
-.table-chart-doc-group--viz .table-chart-doc-name {
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: #334155;
-    text-align: center;
-    line-height: 1.15;
-    margin-top: 0.35rem;
-    min-height: 2.1em;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    flex-shrink: 0;
 }
 
 /* Analytics — by sitio (pagkatapos ng tatlong pangunahing graph) */
@@ -1064,22 +3182,89 @@
     padding-right: 0.65rem;
 }
 
-.sitio-graph-type-nav {
+/* Tatlong card na sunod-sunod pababa (hindi magkatabing landscape columns) */
+.sitio-charts-row {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem 1.25rem;
-    margin-bottom: 0.85rem;
-    padding: 0.5rem 0;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+    margin-top: 0.25rem;
 }
 
-.sitio-graph-type-label {
-    font-size: 0.95rem;
+.sitio-chart-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: rgba(248, 250, 252, 0.65);
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    padding: 0.65rem 0.5rem 0.5rem;
+}
+
+.sitio-chart-column-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.82rem;
     font-weight: 700;
-    color: #0f172a;
-    min-width: 10rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #334155;
     text-align: center;
+}
+
+.sitio-chart-column .sitio-chart-outer {
+    flex: 1 1 auto;
+}
+
+/* Document chart sa loob ng By sitio card — sumasakto sa lapad, walang horizontal scroll */
+.sitio-chart-column .table-chart-bar-layer--documents {
+    overflow-x: hidden;
+    justify-content: space-between;
+    gap: 0.2rem;
+    padding-left: 0.15rem;
+    padding-right: 0.15rem;
+}
+
+.sitio-chart-column .table-chart-doc-hscroll {
+    overflow-x: hidden;
+}
+
+.sitio-chart-column .table-chart-doc-x-labels {
+    gap: 0.2rem;
+    padding-left: 0.15rem;
+    padding-right: 0.15rem;
+}
+
+.sitio-chart-column .table-chart-doc-group--bars {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+}
+
+.sitio-chart-column .table-chart-doc-x-labels .table-chart-doc-name {
+    font-size: 0.54rem;
+    line-height: 1.12;
+    letter-spacing: 0.02em;
+    word-break: break-word;
+    hyphens: auto;
+}
+
+.sitio-chart-column .table-chart-bar-slot--pair .table-chart-label {
+    font-size: 0.58rem;
+}
+
+.sitio-chart-column .table-chart-bar-slot--pair .table-chart-bar-value {
+    font-size: 0.62rem;
+}
+
+.sitio-chart-column .table-chart-legend {
+    gap: 0.35rem 0.65rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.68rem;
+}
+
+.sitio-chart-column .analytics-table-chart {
+    margin-top: 0.35rem;
+    padding-top: 0.5rem;
 }
 
 .sitio-chart-outer {
@@ -1094,24 +3279,254 @@
 }
 
 .analytics-tables-section {
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     margin-top: 1.5rem;
+    padding: 1rem 1rem 1.25rem;
+    background: linear-gradient(135deg, #1e3a5f, #2c5aa0);
 }
 
 .analytics-table-container {
     background: rgba(255, 255, 255, 0.8);
     border-radius: 16px;
     padding: 1.5rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 6px 20px rgba(0, 44, 109, 1.5);
     border: 1px solid rgba(44, 90, 160, 0.05);
     transition: all 0.3s ease;
 }
 
 .analytics-table-container:hover {
-    box-shadow: 0 6px 20px rgba(44, 90, 160, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 44, 109, 1.12);
     transform: translateY(-2px);
+}
+
+/* Tabs live in .analytics-sidebar; main column shows .analytics-tab-main */
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.analytics-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.72rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.88rem;
+    line-height: 1.25;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-tab-btn:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a5f;
+}
+
+.analytics-tab-btn.is-active {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%);
+    color: #ffffff;
+    border-color: #1e3a5f;
+    box-shadow: 0 4px 14px rgba(30, 58, 95, 0.28);
+}
+
+.analytics-tab-btn-icon {
+    flex-shrink: 0;
+    width: 1.35rem;
+    text-align: center;
+    opacity: 0.95;
+}
+
+.analytics-tab-btn.is-active .analytics-tab-btn-icon {
+    color: #ffffff;
+}
+
+/* Sidebar tabs: mas mataas ang specificity dito kaysa sa .is-active sa itaas — dapat i-override ang active/hover */
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(44, 90, 160, 0.18);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn:hover:not(.is-active) {
+    background: linear-gradient(180deg, #eff6ff 0%, #e0f2fe 100%);
+    border-color: rgba(44, 90, 160, 0.45);
+    color: #0f172a;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.18);
+    transform: translateX(2px);
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn:hover:not(.is-active) .analytics-tab-btn-icon {
+    color: #2c5aa0;
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 55%, #172554 100%);
+    color: #ffffff;
+    border-color: #1e3a5f;
+    font-weight: 700;
+    box-shadow:
+        0 6px 18px rgba(30, 58, 95, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transform: none;
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active .analytics-tab-btn-icon,
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active .analytics-tab-btn-text {
+    color: #ffffff;
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active .analytics-tab-btn-icon {
+    opacity: 1;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active:hover {
+    background: linear-gradient(135deg, #3568b8 0%, #234a78 55%, #1e3a5f 100%);
+    color: #ffffff;
+    box-shadow:
+        0 8px 22px rgba(30, 58, 95, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active:hover .analytics-tab-btn-icon,
+.analytics-sidebar-wrap .analytics-sidebar .analytics-tab-btn.is-active:hover .analytics-tab-btn-text {
+    color: #ffffff;
+}
+
+.analytics-tab-main {
+    width: 100%;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 14px;
+    padding: 1rem 1.1rem 1.25rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.analytics-tab-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.analytics-tab-placeholder[hidden] {
+    display: none !important;
+}
+
+.analytics-tab-placeholder-text {
+    margin: 0;
+    max-width: 28rem;
+    font-size: 0.98rem;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.analytics-tab-placeholder-text i {
+    margin-right: 0.35rem;
+    color: #94a3b8;
+}
+
+.analytics-tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.analytics-tab-panel[hidden] {
+    display: none !important;
+}
+
+.analytics-secondary-grid--in-documents-tab {
+    margin-top: 0;
+}
+
+@media (max-width: 960px) {
+    .analytics-page-layout {
+        flex-direction: column;
+        padding: 0 0.75rem 1.25rem 0;
+    }
+
+    .analytics-sidebar-wrap {
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        height: auto !important;
+        z-index: auto !important;
+        transform: none !important;
+        visibility: visible !important;
+        flex: 0 0 auto !important;
+        max-width: none !important;
+        width: 100%;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        overflow: visible !important;
+    }
+
+    .analytics-page-layout.is-sidebar-collapsed .analytics-sidebar-wrap {
+        display: none;
+    }
+
+    .analytics-sidebar-wrap .analytics-sidebar {
+        min-height: auto;
+        border-radius: 16px;
+        border-left: 1px solid rgba(44, 90, 160, 0.2);
+    }
+
+    .analytics-sidebar-wrap .analytics-sidebar .analytics-sidebar-head {
+        border-radius: 16px 16px 0 0;
+    }
+
+    .analytics-main-column {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
+    }
+
+    .analytics-sidebar-show-btn {
+        position: relative !important;
+        left: auto !important;
+        top: auto;
+        align-self: center;
+        margin: 0 0 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        width: auto;
+        min-width: 160px;
+        padding: 0 1rem;
+    }
+
+    .analytics-sidebar .analytics-tab-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .analytics-tab-btn {
+        flex: 1 1 calc(50% - 0.35rem);
+        min-width: 140px;
+    }
 }
 
 .table-header {
@@ -1144,6 +3559,135 @@
 
 .table-wrapper {
     overflow-x: auto;
+}
+
+/* Jobseeker report: visible rows, card-like frame (radius + background) */
+.table-wrapper--jobseeker {
+    border-radius: 12px;
+    /* Huwag `overflow: hidden` — tinatanggal nito ang horizontal scrollbar ng malapad na table */
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+#jobseekerReportTable {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #ffffff;
+}
+
+#jobseekerReportTable thead,
+#jobseekerReportTableHead tr {
+    background: linear-gradient(180deg, #f1f5f9 0%, #e8eef4 100%);
+}
+
+#jobseekerReportTable thead th,
+#jobseekerReportTableHead th {
+    border-bottom: 2px solid #cbd5e1;
+}
+
+#jobseekerReportTable tbody,
+#jobseekerReportTableBody {
+    visibility: visible;
+    opacity: 1;
+    background: #f8fafc;
+}
+
+#jobseekerReportTable tbody tr {
+    background: #ffffff;
+}
+
+#jobseekerReportTable tbody tr:nth-child(even) {
+    background: #f1f5f9;
+}
+
+#jobseekerReportTable tbody tr:hover {
+    background: #e0f2fe;
+}
+
+#jobseekerReportTable tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Emergency Reports — AI buod sa ilalim ng bar plot (Groq; GROQ_API_KEY_EMERGENCY) */
+.table-chart-bar-interpretation--emergency-ai .table-chart-bar-interpretation__emergency-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+/* Heat map — buod (volume + araw na may intensity) sa ilalim ng scale note */
+.emergency-heatmap-ai-slot {
+    margin-top: 0.65rem;
+    max-width: 100%;
+}
+
+.emergency-heatmap-ai-slot__loading,
+.emergency-heatmap-ai-slot__err {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.emergency-heatmap-ai-slot__err {
+    color: #b91c1c;
+}
+
+.emergency-heatmap--calendar-mosaic .table-chart-bar-interpretation--emergency-heatmap {
+    margin-top: 0.35rem;
+    max-width: 100%;
+}
+
+.table-chart-bar-interpretation--emergency-heatmap .table-chart-bar-interpretation__emergency-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.table-chart-bar-interpretation__heatmap-sub {
+    margin: 0.65rem 0 0.35rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.table-chart-bar-interpretation__heatmap-list {
+    margin: 0 0 0 1.1rem;
+    padding: 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.table-chart-bar-interpretation__heatmap-list li {
+    margin-bottom: 0.35rem;
+}
+
+.table-chart-bar-interpretation__heatmap-list li:last-child {
+    margin-bottom: 0;
+}
+
+.table-chart-bar-interpretation__heatmap-day {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.table-chart-bar-interpretation__heatmap-more {
+    list-style: none;
+    margin-left: -1.1rem;
+    color: #64748b;
+    font-size: 0.74rem;
 }
 
 .analytics-comparison-table,
@@ -1246,12 +3790,40 @@
         flex-wrap: wrap;
     }
 
-    .table-chart-bar-layer--documents {
-        padding-bottom: 0.15rem;
+    /* Buong lapad ang plot + interpretation pag nag-wrap ang viz — iwas overlap */
+    .table-chart-viz--documents .table-chart-doc-plot-stack,
+    .table-chart-viz--documents-sitio .table-chart-doc-plot-stack {
+        flex: 1 1 100%;
+        min-width: 0;
+        max-width: 100%;
     }
 
-    .table-chart-doc-group--viz {
+    .table-chart-bar-interpretation {
+        margin-top: 0.55rem;
+        padding: 0.55rem 0.6rem;
+        font-size: 0.78rem;
+    }
+
+    .table-chart-doc-x-labels {
+        padding-bottom: 0.1rem;
+    }
+
+    .table-chart-doc-group--bars {
         min-width: 70px;
+    }
+
+    .table-chart-doc-x-labels .table-chart-doc-name {
+        min-width: 70px;
+    }
+
+    .analytics-chart-toolbar-primary > .pie-chart-extra {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .analytics-chart-toolbar-primary > .pie-chart-extra--stacked {
+        width: 100%;
+        max-width: 100%;
     }
 }
 
@@ -1403,5 +3975,321 @@
         width: 36px;
         height: 36px;
     }
+}
+
+/* Emergency Alerts — heat map (replaces pie) */
+.emergency-heatmap {
+    margin-top: 0.5rem;
+    width: 100%;
+    max-width: 42rem;
+}
+
+.emergency-heatmap__scale-note {
+    margin: 0.5rem 0 0;
+    font-size: 0.72rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+.emergency-heatmap__scale-note strong {
+    color: #334155;
+    font-weight: 600;
+}
+
+.emergency-heatmap__grid--period {
+    display: grid;
+    grid-template-columns: minmax(5.5rem, 0.9fr) 1fr 1fr;
+    gap: 3px;
+    align-items: stretch;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.emergency-heatmap__cell {
+    padding: 0.45rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    min-height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: 6px;
+}
+
+.emergency-heatmap__cell--corner {
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.emergency-heatmap__cell--colhead,
+.emergency-heatmap__cell--rowhead {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.7rem;
+}
+
+.emergency-heatmap__cell--rowhead.emergency-heatmap__cell--sitio {
+    text-align: left;
+    justify-content: flex-start;
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emergency-heatmap__scroll {
+    max-height: 18rem;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.emergency-heatmap__grid--sitio {
+    display: flex;
+    flex-direction: column;
+    min-width: min(100%, 24rem);
+}
+
+.emergency-heatmap__headrow {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1.1fr) 1fr 1fr;
+    gap: 3px;
+    background: #f8fafc;
+}
+
+.emergency-heatmap__row {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1.1fr) 1fr 1fr;
+    gap: 3px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.emergency-heatmap--sitio .emergency-heatmap__cell--corner {
+    text-align: left;
+    justify-content: flex-start;
+}
+
+/* Emergency — Jan–Dec calendar heat map */
+.emergency-heatmap--calendar {
+    max-width: 100%;
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.25rem;
+}
+
+.emergency-heatmap__calendar-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #c7ddff;
+}
+
+.emergency-heatmap__grid--calendar {
+    display: grid;
+    grid-template-columns: minmax(5.25rem, 6.5rem) repeat(12, minmax(2rem, 1fr));
+    gap: 2px;
+    padding: 2px;
+    min-width: min(100%, 52rem);
+    box-sizing: border-box;
+    
+}
+
+.emergency-heatmap__cell--calendar-corner {
+    background: #64748b;
+    color: #f8fafc !important;
+    font-weight: 700;
+    font-size: 0.72rem;
+}
+
+.emergency-heatmap--calendar .emergency-heatmap__cell--colhead.emergency-heatmap__cell--month {
+    background: #e2e8f0;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 0.62rem;
+    padding: 0.3rem 0.15rem;
+    letter-spacing: 0.02em;
+}
+
+.emergency-heatmap__cell--calendar-row {
+    background: #f1f5f9;
+    color: #334155;
+    font-weight: 700;
+    font-size: 0.68rem;
+    justify-content: flex-start;
+    padding-left: 0.45rem;
+}
+
+.emergency-heatmap__cell--calendar {
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    min-height: 2rem;
+    padding: 0.3rem 0.2rem;
+}
+
+/* Emergency — calendar mosaic: month title, Sun–Sat, rounded cells, warm scale, white gutters */
+.emergency-heatmap--calendar-mosaic {
+    max-width: 100%;
+    background: #1ab55f50;
+    border-radius: 12px;
+    padding: 1rem 1rem 0.65rem;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+}
+
+.emergency-heatmap__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #000000;
+}
+
+.emergency-heatmap__toolbar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.emergency-heatmap__toolbar-label span:first-child {
+    color: #000000;
+}
+
+.emergency-heatmap__toolbar-select {
+    min-width: 9.5rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    cursor: pointer;
+}
+
+.emergency-heatmap__toolbar-select:hover {
+    border-color: #94a3b8;
+}
+
+.emergency-heatmap__toolbar-select:focus {
+    outline: none;
+    border-color: #64748b;
+    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.25);
+}
+
+.emergency-heatmap__toolbar-year {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.04em;
+}
+
+.emergency-heatmap__mosaic-month-title {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 0.85rem;
+    letter-spacing: 0.03em;
+}
+
+.emergency-heatmap__mosaic-wrap {
+    width: 100%;
+    max-width: 36rem;
+    margin: 0 auto;
+}
+
+.emergency-heatmap__mosaic-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.emergency-heatmap__weekday-head {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #64748b;
+    padding: 0.15rem 0;
+}
+
+.emergency-heatmap__mosaic-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    grid-auto-rows: minmax(2.75rem, auto);
+}
+
+.emergency-heatmap__mosaic-cell--data {
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-height: 2.75rem;
+    box-sizing: border-box;
+    line-height: 1.2;
+}
+
+.emergency-heatmap__mosaic-cell--empty {
+    border-radius: 10px;
+    min-height: 2.75rem;
+    background: transparent;
+    pointer-events: none;
+}
+
+.emergency-heatmap__mosaic-cell--peak {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #b91c1c;
+    z-index: 1;
+}
+
+.emergency-heatmap__intensity-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    margin-top: 0.85rem;
+}
+
+.emergency-heatmap__intensity-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #7c2d12;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.emergency-heatmap__intensity-bar {
+    width: min(17rem, 62vw);
+    height: 0.65rem;
+    border-radius: 999px;
+    border: 1px solid #fcd34d;
+    background: linear-gradient(90deg, #fef3c7 0%, #fcd34d 35%, #fb923c 68%, #dc2626 100%);
+}
+
+.emergency-heatmap__scale-note--mosaic {
+    margin-top: 0.55rem;
+}
+
+.emergency-heatmap__scale-note--blue {
+    margin-top: 0.45rem;
+}
+
+.emergency-heatmap__scale-note--blue strong {
+    font-weight: 600;
+    color: #334155;
 }
 

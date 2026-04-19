@@ -9,6 +9,7 @@ ob_start();
 
 // Include database configuration
 require_once 'config.php';
+require_once __DIR__ . '/generated_document_temp.php';
 
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
@@ -877,21 +878,15 @@ try {
     }
     
     $filename = 'BRGY_ID_' . $fullName . '_' . date('Y-m-d_H-i-s') . '.docx';
-    $outputDir = __DIR__ . '/../uploads/generated_documents/barangay_id/';
+    $fullOutputPath = rich_temp_docx_path($filename);
     
     // Debug template path
     error_log("generateBarangayIdDocument: Template path: " . $templatePath);
     error_log("generateBarangayIdDocument: Template exists: " . (file_exists($templatePath) ? 'YES' : 'NO'));
     error_log("generateBarangayIdDocument: Template readable: " . (is_readable($templatePath) ? 'YES' : 'NO'));
-    $fullOutputPath = $outputDir . $filename;
     
     // Include PDF conversion function
     require_once __DIR__ . '/convertDocxToPdf.php';
-    
-    // Create output directory if it doesn't exist
-    if (!is_dir($outputDir)) {
-        mkdir($outputDir, 0755, true);
-    }
     
     // Check if template exists
     if (!file_exists($templatePath)) {
@@ -937,9 +932,8 @@ try {
         
         error_log("generateBarangayIdDocument: File verification successful - Size: " . $fileSize . " bytes");
         
-        // Keep DOCX file (no PDF conversion)
         $finalFilename = $filename;
-        $finalDownloadUrl = 'uploads/generated_documents/barangay_id/' . $filename;
+        $finalDownloadUrl = rich_temp_download_public_url(rich_register_temp_download($fullOutputPath));
         
         // Update the request status to Processing, set process_at datetime, and save BID if not already in database (using PHP timezone)
         $currentTime = date('Y-m-d H:i:s');

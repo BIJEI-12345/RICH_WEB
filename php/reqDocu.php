@@ -144,7 +144,12 @@ try {
             
             if ($normalizedStatus === 'Processing') {
                 // Set status to Processing and update process_at timestamp (using PHP timezone)
-                $sql = "UPDATE $actualTable SET status = ?, process_at = ? WHERE id = ?";
+                // certification_forms: is_permanent = 1 for jobseeker (retained after retention cleanup), 0 otherwise
+                if ($actualTable === 'certification_forms') {
+                    $sql = "UPDATE $actualTable SET status = ?, process_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                } else {
+                    $sql = "UPDATE $actualTable SET status = ?, process_at = ? WHERE id = ?";
+                }
                 $stmt = $connection->prepare($sql);
                 
                 if (!$stmt) {
@@ -154,7 +159,11 @@ try {
                 $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
             } elseif ($normalizedStatus === 'Finished') {
                 // Set status to Finished and update finish_at timestamp (using PHP timezone)
-                $sql = "UPDATE $actualTable SET status = ?, finish_at = ? WHERE id = ?";
+                if ($actualTable === 'certification_forms') {
+                    $sql = "UPDATE $actualTable SET status = ?, finish_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                } else {
+                    $sql = "UPDATE $actualTable SET status = ?, finish_at = ? WHERE id = ?";
+                }
                 $stmt = $connection->prepare($sql);
                 
                 if (!$stmt) {
@@ -163,7 +172,11 @@ try {
                 
                 $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
             } elseif ($normalizedStatus === 'Revoked') {
-                $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
+                if ($actualTable === 'certification_forms') {
+                    $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                } else {
+                    $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
+                }
                 $stmt = $connection->prepare($sql);
 
                 if (!$stmt) {
@@ -173,7 +186,11 @@ try {
                 $stmt->bind_param('sssi', $normalizedStatus, $currentTime, $reasonRevoke, $id);
             } else {
                 // Regular status update without timestamp
-                $sql = "UPDATE $actualTable SET status = ? WHERE id = ?";
+                if ($actualTable === 'certification_forms') {
+                    $sql = "UPDATE $actualTable SET status = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                } else {
+                    $sql = "UPDATE $actualTable SET status = ? WHERE id = ?";
+                }
                 $stmt = $connection->prepare($sql);
                 
                 if (!$stmt) {

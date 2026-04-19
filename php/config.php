@@ -161,6 +161,13 @@ if (empty($groqApiKey)) {
 }
 define('GROQ_API_KEY', $groqApiKey);
 
+// Groq key para sa AI interpretation ng Emergency Reports (analytics + emergency page) — opsyonal na hiwalay sa concerns
+$emergencyGraphGroqKey = trim(rich_env('EMERGENCY_GRAPH_GROQ_API_KEY', ''));
+define('EMERGENCY_GRAPH_GROQ_API_KEY', $emergencyGraphGroqKey);
+// Mula sa .env: unahin ang EMERGENCY_GRAPH_GROQ_API_KEY; kung blanko, fallback sa GROQ_API_KEY
+$groqEmergencyResolved = $emergencyGraphGroqKey !== '' ? $emergencyGraphGroqKey : trim($groqApiKey);
+define('GROQ_API_KEY_EMERGENCY', $groqEmergencyResolved);
+
 /**
  * Ensure barangay_id_forms.height is VARCHAR for values like 5'8 (no "cm"/"foot" in stored data).
  */

@@ -2,11 +2,9 @@
 let allCensusData = [];
 let filteredCensusData = [];
 let censusHouseholds = [];
-let currentPage = 1;
-const itemsPerPage = 20;
 let censusStatistics = null;
 
-/** Cascading filter (Age, Beneficiaries, …) — applied bago ang text search */
+/** Cascading filter (benefits, PWDs, employed/unemployed, …) — applied bago ang text search */
 let censusFilterActive = false;
 let censusFilterCategory = '';
 let censusFilterSubValue = '';
@@ -14,20 +12,8 @@ let censusFilterSitioValue = '';
 /** Mga distinct na string ng benepisyo / PWD para sa 2nd dropdown (index = option value) */
 let __censusBenefitList = [];
 let __censusPwdList = [];
-
-/**
- * Life-course / developmental age brackets (hindi eksaktong Plato, pero katulad ng staged theory).
- */
-const CENSUS_AGE_RANGES = [
-    { id: '0-1', label: 'Infant (0–1 taon)', min: 0, max: 1 },
-    { id: '1-3', label: 'Early childhood (1–3 taon)', min: 1, max: 3 },
-    { id: '4-5', label: 'Preschool / young child (4–5 taon)', min: 4, max: 5 },
-    { id: '6-12', label: 'School age / bata (6–12 taon)', min: 6, max: 12 },
-    { id: '13-17', label: 'Adolescent / teen (13–17 taon)', min: 13, max: 17 },
-    { id: '18-35', label: 'Young adult (18–35 taon)', min: 18, max: 35 },
-    { id: '36-59', label: 'Middle adult (36–59 taon)', min: 36, max: 59 },
-    { id: '60+', label: 'Senior / older adult (60 pataas)', min: 60, max: 150 }
-];
+/** Snapshot ng lahat ng option sa pangalawang dropdown — para sa pag-filter habang nagta-type */
+let __censusSubAllOptions = [];
 
 const CENSUS_SITIO_OPTIONS = [
     'AHUNIN',
@@ -56,10 +42,81 @@ const CENSUS_SITIO_OPTIONS = [
     'BRIA PHASE 2'
 ];
 
+const CENSUS_SIDEBAR_KEY = 'censusSidebarCollapsed';
+
+function setupCensusSidebarCollapse() {
+    const layout = document.getElementById('censusPageLayout');
+    const hideBtn = document.getElementById('censusSidebarHide');
+    const showBtn = document.getElementById('censusSidebarShow');
+    if (!layout || !hideBtn || !showBtn) return;
+
+    function applyCollapsed(collapsed) {
+        layout.classList.toggle('is-sidebar-collapsed', collapsed);
+        hideBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        showBtn.hidden = !collapsed;
+        showBtn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+        try {
+            localStorage.setItem(CENSUS_SIDEBAR_KEY, collapsed ? '1' : '0');
+        } catch (e) {
+            /* ignore */
+        }
+        requestAnimationFrame(() => {
+            updateCensusScrollToTopVisibility();
+        });
+    }
+
+    let collapsed = false;
+    try {
+        collapsed = localStorage.getItem(CENSUS_SIDEBAR_KEY) === '1';
+    } catch (e) {
+        collapsed = false;
+    }
+    applyCollapsed(collapsed);
+
+    hideBtn.addEventListener('click', () => applyCollapsed(true));
+    showBtn.addEventListener('click', () => applyCollapsed(false));
+}
+
+const CENSUS_SCROLL_TOP_THRESHOLD = 200;
+
+function updateCensusScrollToTopVisibility() {
+    const scrollEl = document.getElementById('censusMainScroll');
+    const btn = document.getElementById('censusScrollToTop');
+    if (!scrollEl || !btn) {
+        return;
+    }
+    if (scrollEl.scrollTop > CENSUS_SCROLL_TOP_THRESHOLD) {
+        btn.classList.add('show');
+    } else {
+        btn.classList.remove('show');
+    }
+}
+
+function setupCensusScrollToTop() {
+    const scrollEl = document.getElementById('censusMainScroll');
+    const btn = document.getElementById('censusScrollToTop');
+    if (!scrollEl || !btn) {
+        return;
+    }
+    scrollEl.addEventListener(
+        'scroll',
+        () => {
+            updateCensusScrollToTopVisibility();
+        },
+        { passive: true }
+    );
+    btn.addEventListener('click', () => {
+        scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    updateCensusScrollToTopVisibility();
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadCensusData();
     setupCensusFilterControls();
+    setupCensusSidebarCollapse();
+    setupCensusScrollToTop();
     const bd = document.getElementById('add_birthday');
     if (bd) {
         bd.addEventListener('change', updateAddAgeFromBirthdate);
@@ -115,11 +172,6 @@ async function loadCensusData() {
             }
             
             recomputeFilteredCensusData();
-            
-            // Update statistics display
-            if (censusStatistics) {
-                updateStatistics(censusStatistics);
-            }
         } else {
             const errorMsg = data.error || 'Unknown error';
             console.error('API error:', errorMsg);
@@ -131,16 +183,108 @@ async function loadCensusData() {
     }
 }
 
-// Render census table - now displays as folders grouped by house_no and family
+/** Kapag may piniling uri mula sa kaliwang tabs (hindi "ALL"), flat na listahan ng resident — walang folder */
+function censusUsesFlatMemberListView() {
+    return !!censusFilterCategory;
+}
+
+/** DB `indigenous` TINYINT(1): 1 = Yes, 0 = No */
+function formatIndigenousYesNo(member) {
+    const v = member && member.indigenous;
+    if (v === 1 || v === '1' || v === true) return 'Yes';
+    if (v === 0 || v === '0' || v === false) return 'No';
+    return '—';
+}
+
+/** Parehong field extraction para sa folder member row at flat table row */
+function getCensusMemberDisplayFields(member, houseData) {
+    const addressDisplay = houseData.address_display || houseData.complete_address || houseData.address || 'Unknown';
+    const sitioLabel = (houseData.sitio || '').trim();
+    const addressForTable = sitioLabel ? `${sitioLabel} — ${addressDisplay}` : addressDisplay;
+    const firstName = member.first_name || member.firstname || member.firstName || '';
+    const middleName = member.middle_name || member.middlename || member.middleName || '';
+    const lastName = member.last_name || member.lastname || member.lastName || '';
+    const suffix = member.suffix || '';
+    const age = member.age || '';
+    const sex = member.sex || member.gender || '';
+    const birthday = member.birthday || member.birth_date || member.birthDate || '';
+    const civilStatus = member.civil_status || member.civilStatus || member.civilstatus || '';
+    const contact =
+        member.contact_number ||
+        member.contact ||
+        member.contactNumber ||
+        member.phone ||
+        member.phone_number ||
+        member.phoneNumber ||
+        member.mobile ||
+        member.mobile_number ||
+        member.mobileNumber ||
+        '';
+    const occupation = member.occupation || member.job || member.employment || member.work || '';
+    const placeOfWork = member.place_of_work || member.placeOfWork || member.place_of_employment || '';
+    const relation = member.relation_to_household || member.relationToHousehold || member.relation || '';
+    const benefits = member.barangay_supported_benefits || member.barangay_supported || member.benefits || '';
+    const recordStatusRaw = String(member.status != null ? member.status : 'Censused').trim() || 'Censused';
+    const isBlocked = recordStatusRaw === 'Blocked';
+    const disabilities = getDisabilitiesColumnText(member);
+    let fullName = 'Unknown';
+    if (lastName && firstName) {
+        const nameParts = [lastName + ','];
+        if (firstName) nameParts.push(firstName);
+        if (middleName) nameParts.push(middleName);
+        if (suffix) nameParts.push(suffix);
+        fullName = nameParts.join(' ');
+    } else if (lastName) {
+        fullName = lastName;
+    } else if (firstName) {
+        fullName = firstName;
+    }
+    const rowId = member.id != null && member.id !== '' ? Number(member.id) : 0;
+    return {
+        addressForTable,
+        fullName,
+        birthdayFmt: birthday ? formatDate(birthday) : '-',
+        ageStr: age !== '' && age != null ? String(age) : '-',
+        sex: sex ? escapeHtml(sex) : '-',
+        relation: relation ? escapeHtml(relation) : '-',
+        civilStatus: civilStatus ? escapeHtml(civilStatus) : '-',
+        recordStatus: escapeHtml(recordStatusRaw),
+        isBlocked,
+        contact: contact ? escapeHtml(contact) : '-',
+        occupationShort: occupation
+            ? escapeHtml(occupation.length > 12 ? occupation.substring(0, 12) + '...' : occupation)
+            : '-',
+        placeOfWorkShort: placeOfWork
+            ? escapeHtml(placeOfWork.length > 15 ? placeOfWork.substring(0, 15) + '...' : placeOfWork)
+            : '-',
+        disabilitiesShort: disabilities
+            ? escapeHtml(disabilities.length > 15 ? disabilities.substring(0, 15) + '...' : disabilities)
+            : '-',
+        benefitsShort: benefits
+            ? escapeHtml(benefits.length > 15 ? benefits.substring(0, 15) + '...' : benefits)
+            : '-',
+        indigenousShort: escapeHtml(formatIndigenousYesNo(member)),
+        rowId
+    };
+}
+
+// Render census table - folders ("ALL") o flat na listahan (anumang kaliwang filter maliban sa ALL)
 function renderCensusTable() {
     const tbody = document.getElementById('census-body');
     const thead = document.getElementById('censusTableHead');
-    const tableContainer = document.querySelector('.table-container');
+    const tableContainer = document.querySelector('#censusTable')?.closest('.table-container');
+    const censusTable = document.getElementById('censusTable');
     
     if (filteredCensusData.length === 0) {
         // Add empty class to stretch the container
         if (tableContainer) {
             tableContainer.classList.add('empty');
+        }
+        if (censusTable) {
+            censusTable.classList.remove('census-table--flat');
+        }
+        if (tableContainer) {
+            tableContainer.classList.remove('census-list-flat');
         }
         // Clear the loading header
         thead.innerHTML = '<tr></tr>';
@@ -153,7 +297,11 @@ function renderCensusTable() {
                 </td>
             </tr>
         `;
-        updatePaginationInfo();
+        const statisticsDivEmpty = document.getElementById('censusStatistics');
+        if (statisticsDivEmpty) {
+            statisticsDivEmpty.style.display = 'none';
+        }
+        updateCensusScrollToTopVisibility();
         return;
     }
     
@@ -161,14 +309,89 @@ function renderCensusTable() {
     if (tableContainer) {
         tableContainer.classList.remove('empty');
     }
-    
-    // Clear table header since we're using folder structure
+
+    const useFlat = censusUsesFlatMemberListView();
+
+    if (censusTable) {
+        censusTable.classList.toggle('census-table--flat', useFlat);
+    }
+    if (tableContainer) {
+        tableContainer.classList.toggle('census-list-flat', useFlat);
+    }
+
+    if (useFlat) {
+        const allRefs = [];
+        filteredCensusData.forEach((houseData, hi) => {
+            (houseData.members || []).forEach((member, mi) => {
+                allRefs.push({ houseData, hi, mi, member });
+            });
+        });
+        const pageRefs = allRefs;
+
+        thead.innerHTML = `
+            <tr>
+                <th>Address</th>
+                <th>Name</th>
+                <th>Birthdate</th>
+                <th>Age</th>
+                <th>Sex</th>
+                <th>Indigenous (IP)</th>
+                <th>Relation</th>
+                <th>Civil status</th>
+                <th>Status</th>
+                <th>Contact</th>
+                <th>Occupation</th>
+                <th>Place of Work</th>
+                <th>Disabilities</th>
+                <th>Benefits</th>
+                <th class="census-flat-actions-col">Action</th>
+            </tr>
+        `;
+
+        let flatHtml = '';
+        pageRefs.forEach(({ houseData, hi, mi, member }) => {
+            const f = getCensusMemberDisplayFields(member, houseData);
+            const actions =
+                f.rowId > 0
+                    ? `<span class="member-action-btns">
+                        <button type="button" class="member-block-btn" title="Block resident" aria-label="Block resident" ${f.isBlocked ? 'disabled' : ''} onclick="blockCensusMember(${f.rowId}, event)"><i class="fas fa-ban"></i></button>
+                        <button type="button" class="member-remove-btn" title="Archive resident" aria-label="Archive resident" onclick="removeCensusMember(${f.rowId}, event)"><i class="fas fa-trash-alt"></i></button>
+                        </span>`
+                    : '';
+            flatHtml += `
+                <tr class="census-flat-member-row" onclick="viewCensusMember(${hi}, ${mi})">
+                    <td class="census-flat-address">${escapeHtml(f.addressForTable)}</td>
+                    <td>${escapeHtml(f.fullName)}</td>
+                    <td>${f.birthdayFmt === '-' ? '-' : escapeHtml(String(f.birthdayFmt))}</td>
+                    <td>${f.ageStr === '-' ? '-' : escapeHtml(f.ageStr)}</td>
+                    <td>${f.sex}</td>
+                    <td>${f.indigenousShort}</td>
+                    <td>${f.relation}</td>
+                    <td>${f.civilStatus}</td>
+                    <td>${f.recordStatus}</td>
+                    <td>${f.contact}</td>
+                    <td>${f.occupationShort}</td>
+                    <td>${f.placeOfWorkShort}</td>
+                    <td>${f.disabilitiesShort}</td>
+                    <td>${f.benefitsShort}</td>
+                    <td class="census-flat-actions" onclick="event.stopPropagation()">${actions}</td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = flatHtml;
+
+        const statisticsDiv = document.getElementById('censusStatistics');
+        if (statisticsDiv) {
+            statisticsDiv.style.display = 'flex';
+        }
+        updateCensusScrollToTopVisibility();
+        return;
+    }
+
+    // Folder view (ALL tab / walang category filter sa kaliwa)
     thead.innerHTML = '<tr></tr>';
-    
-    // Calculate pagination for houses
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const pageData = filteredCensusData.slice(startIndex, endIndex);
+
+    const pageData = filteredCensusData;
     
     // Create folder structure HTML
     let html = '';
@@ -180,7 +403,7 @@ function renderCensusTable() {
         const sitioBadge = sitioLabel
             ? `<span class="sitio-badge">${escapeHtml(sitioLabel)}</span>`
             : '';
-        const houseId = `house-${startIndex + houseIndex}`;
+        const houseId = `house-${houseIndex}`;
         
         // Create house folder with address as label
         html += `
@@ -202,7 +425,9 @@ function renderCensusTable() {
                                                     <div class="member-row-cell">Birthdate</div>
                                                     <div class="member-row-cell">Age</div>
                                                     <div class="member-row-cell">Sex</div>
+                                                    <div class="member-row-cell">Indigenous (IP)</div>
                                                     <div class="member-row-cell">Relation</div>
+                                                    <div class="member-row-cell">Civil status</div>
                                                     <div class="member-row-cell">Status</div>
                                                     <div class="member-row-cell">Contact</div>
                                                     <div class="member-row-cell">Occupation</div>
@@ -230,10 +455,9 @@ function renderCensusTable() {
                                                     const relation = member.relation_to_household || member.relationToHousehold || member.relation || '';
                                                     // Use barangay_supported or barangay_supported_benefits
                                                     const benefits = member.barangay_supported_benefits || member.barangay_supported || member.benefits || '';
-                                                    // Get status field
-                                                    const status = member.status || '';
-                                                    // Get disabilities field - check various possible field names
-                                                    const disabilities = member.disability || member.disabled || member.disabilities || member.pwd || member.person_with_disability || member.has_disability || member.with_disability || '';
+                                                    const recordStatus = String(member.status != null ? member.status : 'Censused').trim() || 'Censused';
+                                                    const indigenousLabel = formatIndigenousYesNo(member);
+                                                    const disabilities = getDisabilitiesColumnText(member);
                                                     
                                                     // Format: Last Name, First Name Middle Name Suffix
                                                     let fullName = 'Unknown';
@@ -251,20 +475,25 @@ function renderCensusTable() {
                                                     
                                                     const rowId = member.id != null && member.id !== '' ? Number(member.id) : 0;
                                                     return `
-                                                        <div class="member-row" onclick="viewCensusMember(${startIndex + houseIndex}, ${memberIndex})">
+                                                        <div class="member-row" onclick="viewCensusMember(${houseIndex}, ${memberIndex})">
                                                             <div class="member-row-cell member-name-cell">${escapeHtml(fullName)}</div>
                                                             <div class="member-row-cell member-birthday-cell">${birthday ? formatDate(birthday) : '-'}</div>
                                                             <div class="member-row-cell member-age-cell">${age !== '' && age != null ? escapeHtml(String(age)) : '-'}</div>
                                                             <div class="member-row-cell member-sex-cell">${sex ? escapeHtml(sex) : '-'}</div>
+                                                            <div class="member-row-cell member-indigenous-cell">${escapeHtml(indigenousLabel)}</div>
                                                             <div class="member-row-cell member-relation-cell">${relation ? escapeHtml(relation) : '-'}</div>
-                                                            <div class="member-row-cell member-status-cell">${civilStatus ? escapeHtml(civilStatus) : '-'}</div>
+                                                            <div class="member-row-cell member-civil-status-cell">${civilStatus ? escapeHtml(civilStatus) : '-'}</div>
+                                                            <div class="member-row-cell member-status-cell">${escapeHtml(recordStatus)}</div>
                                                             <div class="member-row-cell member-contact-cell">${contact ? escapeHtml(contact) : '-'}</div>
                                                             <div class="member-row-cell member-occupation-cell">${occupation ? escapeHtml(occupation.length > 12 ? occupation.substring(0, 12) + '...' : occupation) : '-'}</div>
                                                             <div class="member-row-cell member-workplace-cell">${placeOfWork ? escapeHtml(placeOfWork.length > 15 ? placeOfWork.substring(0, 15) + '...' : placeOfWork) : '-'}</div>
                                                             <div class="member-row-cell member-disabilities-cell">${disabilities ? escapeHtml(disabilities.length > 15 ? disabilities.substring(0, 15) + '...' : disabilities) : '-'}</div>
                                                             <div class="member-row-cell member-benefits-cell">${benefits ? escapeHtml(benefits.length > 15 ? benefits.substring(0, 15) + '...' : benefits) : '-'}</div>
                                                             <div class="member-row-cell member-actions-cell" onclick="event.stopPropagation()">
-                                                                ${rowId > 0 ? `<button type="button" class="member-remove-btn" title="Remove resident" aria-label="Remove resident" onclick="removeCensusMember(${rowId}, event)"><i class="fas fa-trash-alt"></i></button>` : ''}
+                                                                ${rowId > 0 ? `<span class="member-action-btns">
+                                                                <button type="button" class="member-block-btn" title="Block resident" aria-label="Block resident" ${recordStatus === 'Blocked' ? 'disabled' : ''} onclick="blockCensusMember(${rowId}, event)"><i class="fas fa-ban"></i></button>
+                                                                <button type="button" class="member-remove-btn" title="Archive resident" aria-label="Archive resident" onclick="removeCensusMember(${rowId}, event)"><i class="fas fa-trash-alt"></i></button>
+                                                                </span>` : ''}
                                                             </div>
                                                         </div>
                                                     `;
@@ -278,20 +507,12 @@ function renderCensusTable() {
     });
     
     tbody.innerHTML = html;
-    
-    // Update pagination info
-    updatePaginationInfo();
-    
-    // Show statistics on last page
-    const totalPages = Math.ceil(filteredCensusData.length / itemsPerPage);
-    const statisticsDiv = document.getElementById('censusStatistics');
-    if (statisticsDiv) {
-        if (currentPage === totalPages && totalPages > 0) {
-            statisticsDiv.style.display = 'block';
-        } else {
-            statisticsDiv.style.display = 'none';
-        }
+
+    const statisticsDivFolder = document.getElementById('censusStatistics');
+    if (statisticsDivFolder) {
+        statisticsDivFolder.style.display = 'flex';
     }
+    updateCensusScrollToTopVisibility();
 }
 
 // Update statistics display
@@ -305,6 +526,46 @@ function updateStatistics(stats) {
     if (statMale) statMale.textContent = stats.male || 0;
     if (statFemale) statFemale.textContent = stats.female || 0;
     if (statDisabilities) statDisabilities.textContent = stats.with_disabilities || 0;
+}
+
+/** Kapag may filter tab (PWD, atbp.), i-sync ang stats bar sa filteredCensusData — hindi sa buong database. */
+function refreshCensusStatisticsBar() {
+    const statisticsDiv = document.getElementById('censusStatistics');
+    if (!statisticsDiv || statisticsDiv.style.display === 'none') {
+        return;
+    }
+    if (!censusFilterActive || !censusFilterCategory) {
+        if (censusStatistics) {
+            updateStatistics(censusStatistics);
+        }
+        return;
+    }
+    let total = 0;
+    let male = 0;
+    let female = 0;
+    let pwd = 0;
+    filteredCensusData.forEach((h) => {
+        (h.members || []).forEach((m) => {
+            total++;
+            const sex = String(m.sex || m.gender || '').toLowerCase();
+            if (sex === 'male' || sex === 'm') {
+                male++;
+            } else if (sex === 'female' || sex === 'f') {
+                female++;
+            }
+            if (memberDisabilitiesColumnHasValue(m)) {
+                pwd++;
+            }
+        });
+    });
+    const statTotal = document.getElementById('statTotal');
+    const statMale = document.getElementById('statMale');
+    const statFemale = document.getElementById('statFemale');
+    const statDisabilities = document.getElementById('statDisabilities');
+    if (statTotal) statTotal.textContent = String(total);
+    if (statMale) statMale.textContent = String(male);
+    if (statFemale) statFemale.textContent = String(female);
+    if (statDisabilities) statDisabilities.textContent = String(pwd);
 }
 
 function populateHouseholdSelect() {
@@ -435,11 +696,12 @@ async function submitAddCensus(event) {
     }
 
     const btn = document.getElementById('addCensusSubmitBtn');
-    const hhRaw = document.getElementById('addCensusHousehold').value;
-    const censusIdPayload = hhRaw === '' ? 0 : parseInt(hhRaw, 10);
+    const hhRaw = document.getElementById('addCensusHousehold').value.trim();
+    /** Empty or "0" = bagong household; otherwise CEN-00001 mula sa dropdown. */
+    const censusIdPayload = hhRaw === '' || hhRaw === '0' ? '' : hhRaw;
     const payload = {
         action: 'add',
-        census_id: Number.isNaN(censusIdPayload) ? 0 : censusIdPayload,
+        census_id: censusIdPayload,
         first_name: document.getElementById('add_first_name').value.trim(),
         last_name: document.getElementById('add_last_name').value.trim(),
         middle_name: document.getElementById('add_middle_name').value.trim(),
@@ -455,7 +717,8 @@ async function submitAddCensus(event) {
         relation_to_household: document.getElementById('add_relation_to_household').value.trim(),
         house_no: document.getElementById('add_house_no').value.trim(),
         street: document.getElementById('add_street').value.trim(),
-        sitio: document.getElementById('add_sitio').value.trim()
+        sitio: document.getElementById('add_sitio').value.trim(),
+        indigenous: document.getElementById('add_indigenous')?.checked ? 1 : 0
     };
 
     if (btn) {
@@ -497,6 +760,57 @@ async function submitAddCensus(event) {
         }
     } finally {
         if (btn) btn.disabled = false;
+    }
+}
+
+async function blockCensusMember(id, ev) {
+    if (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+    const n = parseInt(id, 10);
+    if (!n || Number.isNaN(n)) return;
+
+    let confirmed = false;
+    if (typeof Swal !== 'undefined' && Swal.fire) {
+        const result = await Swal.fire({
+            title: 'Block this resident?',
+            html: 'Their <strong>census record status</strong> will be set to <strong>Blocked</strong> (with timestamp). They can still be archived later.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, block',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#b9770e',
+            cancelButtonColor: '#6c757d',
+            focusCancel: true,
+            reverseButtons: true
+        });
+        confirmed = result.isConfirmed === true;
+    } else {
+        confirmed = confirm('Mark this resident as Blocked on the census?');
+    }
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch('php/census.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ action: 'block', id: n })
+        });
+        if (response.status === 403) {
+            alert('Please log in or you do not have permission to block census records.');
+            return;
+        }
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.success === false) {
+            alert(data.error || 'Could not block resident.');
+            return;
+        }
+        await loadCensusData();
+    } catch (e) {
+        console.error(e);
+        alert('Could not block resident. Please try again.');
     }
 }
 
@@ -653,10 +967,19 @@ function viewCensusRecordByMember(member) {
             return;
         }
         
+        let displayText = 'N/A';
+        if (lowerKey === 'indigenous') {
+            displayText = formatIndigenousYesNo(member);
+        } else if (value !== null && value !== undefined && value !== '') {
+            displayText = String(value);
+        } else if (value === 0 || value === '0') {
+            displayText = '0';
+        }
+
         html += `
             <div class="view-field">
                 <label>${formatColumnName(key)}</label>
-                <div class="field-value">${escapeHtml(value || 'N/A')}</div>
+                <div class="field-value">${escapeHtml(displayText)}</div>
             </div>
         `;
     });
@@ -670,8 +993,18 @@ function viewCensusRecordByMember(member) {
 
 // Format column names for display
 function formatColumnName(key) {
-    if (String(key).toLowerCase() === 'birthday') {
+    const k = String(key).toLowerCase();
+    if (k === 'birthday') {
         return 'Birthdate';
+    }
+    if (k === 'status') {
+        return 'Status';
+    }
+    if (k === 'civil_status') {
+        return 'Civil status';
+    }
+    if (k === 'indigenous') {
+        return 'Indigenous (IP)';
     }
     // Convert snake_case to Title Case
     let formatted = key
@@ -775,38 +1108,6 @@ function closeViewCensusModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
-function getMemberAgeYears(m) {
-    const raw = m.age;
-    if (raw !== undefined && raw !== null && raw !== '') {
-        const a = parseInt(String(raw).trim(), 10);
-        if (!Number.isNaN(a) && a >= 0 && a < 150) {
-            return a;
-        }
-    }
-    const bd = m.birthday || m.birth_date || m.birthDate;
-    if (!bd) {
-        return null;
-    }
-    try {
-        const d = new Date(bd);
-        if (Number.isNaN(d.getTime())) {
-            return null;
-        }
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const b = new Date(d);
-        b.setHours(0, 0, 0, 0);
-        let age = today.getFullYear() - b.getFullYear();
-        const md = today.getMonth() - b.getMonth();
-        if (md < 0 || (md === 0 && today.getDate() < b.getDate())) {
-            age--;
-        }
-        return age >= 0 ? age : null;
-    } catch (e) {
-        return null;
-    }
-}
-
 function getBenefitsStr(m) {
     return String(m.barangay_supported_benefits || m.barangay_supported || m.benefits || '').trim();
 }
@@ -823,6 +1124,192 @@ function isBeneficiaryMember(m) {
     return true;
 }
 
+function getOccupationStr(m) {
+    const direct = String(m.occupation || m.job || m.employment || m.work || '').trim();
+    if (direct) {
+        return direct;
+    }
+    const obj = m || {};
+    for (const k of Object.keys(obj)) {
+        if (/occupation|employment|work_status|job_title|hanapbuhay/i.test(k)) {
+            const v = obj[k];
+            if (v != null && String(v).trim() !== '') {
+                return String(v).trim();
+            }
+        }
+    }
+    return '';
+}
+
+/** May trabaho kung may makabuluhang lugar ng trabaho kahit blangko ang occupation (karaniwan sa census) */
+function hasMeaningfulPlaceOfWork(m) {
+    const p = String(m.place_of_work || m.placeOfWork || m.place_of_employment || '').trim().toLowerCase();
+    if (!p) {
+        return false;
+    }
+    if (/^(none|n\/a|n\/a\.|wala|walang|no|-|\.{1,3})$/i.test(p)) {
+        return false;
+    }
+    return true;
+}
+
+/** Walang trabaho / blangko / obvious na unemployed */
+function isMemberUnemployed(m) {
+    if (hasMeaningfulPlaceOfWork(m)) {
+        return false;
+    }
+    const occ = getOccupationStr(m).toLowerCase();
+    if (!occ) {
+        return true;
+    }
+    if (/^(none|n\/a|n\/a\.|wala|walang|no|-|\.{1,3})$/i.test(occ)) {
+        return true;
+    }
+    if (/\bunemployed\b|walang\s+trabaho|walang\s+hanapbuhay|not\s+employed|no\s+work\b/i.test(occ)) {
+        return true;
+    }
+    return false;
+}
+
+function isMemberEmployed(m) {
+    if (hasMeaningfulPlaceOfWork(m)) {
+        return true;
+    }
+    return !isMemberUnemployed(m);
+}
+
+/** Teksto mula sa DB column na `occupation` lamang (Employed tab). */
+function getOccupationColumnText(m) {
+    if (!m || !Object.prototype.hasOwnProperty.call(m, 'occupation')) {
+        return '';
+    }
+    const v = m.occupation;
+    if (v === null || v === undefined) {
+        return '';
+    }
+    return String(v).trim();
+}
+
+/**
+ * Employed tab: kasama lang kung ang `occupation` ay nagpapakita ng employed (may salitang "employed"),
+ * hindi "Unemployed" / placeholder. Hal. "Employed", "Self-employed", "Student | Employed".
+ */
+function memberOccupationColumnIsEmployedStatus(m) {
+    const raw = getOccupationColumnText(m);
+    if (raw === '') {
+        return false;
+    }
+    const t = raw.toLowerCase();
+    if (/\bunemployed\b|walang\s+trabaho|not\s+employed|no\s+work|^n\/a$|^none$|^-$|^wala$/i.test(t)) {
+        return false;
+    }
+    return /\bemployed\b/i.test(raw);
+}
+
+/**
+ * Unemployed tab: `occupation` column lang — kasama kung ang status ay unemployed (may salitang "unemployed" o katumbas).
+ * Hindi kasama ang blangko; hindi kasama kung malinaw na "employed" lang (hindi "unemployed").
+ */
+function memberOccupationColumnIsUnemployedStatus(m) {
+    const raw = getOccupationColumnText(m);
+    if (raw === '') {
+        return false;
+    }
+    const t = raw.toLowerCase();
+    if (/\bemployed\b/i.test(raw) && !/\bunemployed\b/i.test(raw)) {
+        return false;
+    }
+    return /\bunemployed\b|walang\s+trabaho|walang\s+hanapbuhay|not\s+employed|no\s+work\b/i.test(t);
+}
+
+/**
+ * Students tab: `occupation` column lang — kasama kung ang status ay student (hal. "Student", "estudyante", "pupil").
+ */
+function memberOccupationColumnIsStudentStatus(m) {
+    const raw = getOccupationColumnText(m);
+    if (raw === '') {
+        return false;
+    }
+    const t = raw.toLowerCase();
+    if (/\bnot\s+a\s+student\b|\bnon-?student\b/i.test(t)) {
+        return false;
+    }
+    return /\bstudent\b|\bestudyante\b|\bpupil\b|studyante/i.test(t);
+}
+
+/** Edad mula sa field na `age` o sa birthday — para sa senior / iba pang filter */
+function getMemberAgeYears(m) {
+    const raw = m.age;
+    if (raw !== undefined && raw !== null && raw !== '') {
+        const num = parseInt(String(raw).replace(/[^\d]/g, ''), 10);
+        if (!Number.isNaN(num) && num >= 0 && num < 150) {
+            return num;
+        }
+    }
+    const bdRaw =
+        m.birthday ||
+        m.birth_date ||
+        m.birthDate ||
+        m.birthdate ||
+        m.date_of_birth ||
+        m.dateOfBirth;
+    if (!bdRaw) {
+        return null;
+    }
+    const s = String(bdRaw).trim();
+    let d = null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        d = new Date(s.slice(0, 10) + 'T12:00:00');
+    } else if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(s)) {
+        const parts = s.split(/[\/\-]/);
+        const a = parseInt(parts[0], 10);
+        const b = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        if (a > 12) {
+            d = new Date(y, b - 1, a, 12, 0, 0, 0);
+        } else if (b > 12) {
+            d = new Date(y, a - 1, b, 12, 0, 0, 0);
+        } else {
+            d = new Date(y, a - 1, b, 12, 0, 0, 0);
+        }
+    } else {
+        d = new Date(s.replace(' ', 'T'));
+    }
+    if (!d || Number.isNaN(d.getTime())) {
+        return null;
+    }
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const b = new Date(d);
+        b.setHours(0, 0, 0, 0);
+        let age = today.getFullYear() - b.getFullYear();
+        const md = today.getMonth() - b.getMonth();
+        if (md < 0 || (md === 0 && today.getDate() < b.getDate())) {
+            age--;
+        }
+        return age >= 0 ? age : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/** PH: senior citizen discount — 60 pataas */
+const SENIOR_CITIZEN_MIN_AGE = 60;
+
+function isMemberSeniorCitizen(m) {
+    const age = getMemberAgeYears(m);
+    if (age === null || age === undefined) {
+        return false;
+    }
+    return age >= SENIOR_CITIZEN_MIN_AGE;
+}
+
+/** Legacy: dating broad search; Students tab ay `memberOccupationColumnIsStudentStatus` (occupation column) na. */
+function isMemberStudent(m) {
+    return memberOccupationColumnIsStudentStatus(m);
+}
+
 function getDisabilityText(m) {
     const d =
         m.disabilities ||
@@ -835,19 +1322,62 @@ function getDisabilityText(m) {
     return String(d || '').trim();
 }
 
-function memberHasPwdRecord(m) {
-    const t = getDisabilityText(m);
-    if (t) {
+/** Teksto mula sa DB column na `disabilities` lamang (para sa PWD tab / filter). */
+function getDisabilitiesColumnText(m) {
+    if (!m || !Object.prototype.hasOwnProperty.call(m, 'disabilities')) {
+        return '';
+    }
+    const v = m.disabilities;
+    if (v === null || v === undefined) {
+        return '';
+    }
+    const s = String(v).trim();
+    if (s === '' || /^null$/i.test(s)) {
+        return '';
+    }
+    return s;
+}
+
+/**
+ * Hindi itinuturing na PWD ang placeholder sa DB (hal. "None", "N/A") — dapat hindi lumabas sa PWD filter.
+ */
+function censusDisabilitiesMeansNoDisability(text) {
+    const t = String(text || '').trim().toLowerCase();
+    if (t === '') {
         return true;
     }
-    const lowFields = ['pwd', 'disability', 'disabled', 'person_with_disability', 'has_disability', 'with_disability'];
-    for (const f of lowFields) {
-        const v = String(m[f] ?? '').toLowerCase().trim();
-        if (v && (v === 'yes' || v === 'y' || v === '1' || v === 'true' || v === 'pwd' || v.includes('disab'))) {
-            return true;
-        }
+    if (t === 'null') {
+        return true;
+    }
+    if (
+        t === 'none' ||
+        t === 'n/a' ||
+        t === 'na' ||
+        t === '-' ||
+        t === '—' ||
+        t === 'no' ||
+        t === 'walang' ||
+        t === 'wala' ||
+        t === 'no disability' ||
+        t === 'walang disability' ||
+        t === 'without disability'
+    ) {
+        return true;
     }
     return false;
+}
+
+/** PWD tab: may tunay na disability text (hindi None / N/A / blangko). */
+function memberDisabilitiesColumnHasValue(m) {
+    const s = getDisabilitiesColumnText(m);
+    if (s === '') {
+        return false;
+    }
+    return !censusDisabilitiesMeansNoDisability(s);
+}
+
+function memberHasPwdRecord(m) {
+    return memberDisabilitiesColumnHasValue(m);
 }
 
 function normalizeSitio(value) {
@@ -939,12 +1469,12 @@ function buildCensusFilterOptionLists() {
             if (b && isBeneficiaryMember(m)) {
                 benSet.add(b);
             }
-            const dt = getDisabilityText(m);
-            if (dt) {
+            const dt = getDisabilitiesColumnText(m);
+            if (dt && !censusDisabilitiesMeansNoDisability(dt)) {
                 pwdSet.add(dt);
                 dt.split(/[,;/|]+/).forEach(part => {
                     const p = part.trim();
-                    if (p.length >= 2) {
+                    if (p.length >= 2 && !censusDisabilitiesMeansNoDisability(p)) {
                         pwdSet.add(p);
                     }
                 });
@@ -959,20 +1489,12 @@ function memberMatchesActiveFilter(m) {
     if (!censusFilterActive || !censusFilterCategory) {
         return true;
     }
+    if (censusFilterSubValue === '__no_match__') {
+        return false;
+    }
     const cat = censusFilterCategory;
     const sub = censusFilterSubValue;
 
-    if (cat === 'age') {
-        const age = getMemberAgeYears(m);
-        if (age === null || age === undefined) {
-            return false;
-        }
-        const range = CENSUS_AGE_RANGES.find(r => r.id === sub);
-        if (!range) {
-            return false;
-        }
-        return age >= range.min && age <= range.max;
-    }
     if (cat === 'beneficiaries') {
         if (sub === 'ben_any') {
             return isBeneficiaryMember(m);
@@ -1001,7 +1523,7 @@ function memberMatchesActiveFilter(m) {
     }
     if (cat === 'pwds') {
         if (sub === 'pwd_any') {
-            return memberHasPwdRecord(m);
+            return memberDisabilitiesColumnHasValue(m);
         }
         if (sub.startsWith('pwdidx:')) {
             const i = parseInt(sub.slice(7), 10);
@@ -1009,10 +1531,22 @@ function memberMatchesActiveFilter(m) {
                 return false;
             }
             const needle = __censusPwdList[i].toLowerCase();
-            const hay = getDisabilityText(m).toLowerCase();
+            const hay = getDisabilitiesColumnText(m).toLowerCase();
             return hay.includes(needle) || hay === needle;
         }
         return false;
+    }
+    if (cat === 'employed') {
+        return memberOccupationColumnIsEmployedStatus(m);
+    }
+    if (cat === 'unemployed') {
+        return memberOccupationColumnIsUnemployedStatus(m);
+    }
+    if (cat === 'senior_citizen') {
+        return isMemberSeniorCitizen(m);
+    }
+    if (cat === 'students') {
+        return memberOccupationColumnIsStudentStatus(m);
     }
     return true;
 }
@@ -1055,7 +1589,62 @@ function applyTextSearchFilter(houseDataList, searchTerm) {
     });
 }
 
+/**
+ * Itugma ang censusFilter* sa hidden input / sub-dropdown kung may piniling category sa UI
+ * pero hindi pa naka-activate ang memory state (resulta: lahat ng resident lumilitaw).
+ */
+function syncCensusFilterStateFromDom() {
+    const catEl = document.getElementById('censusFilterCategoryInput');
+    const subEl = document.getElementById('censusFilterSub');
+    const soloInpEl = document.getElementById('censusFilterSoloInput');
+    if (!catEl) {
+        return;
+    }
+    const domCat = (catEl.value || '').trim();
+    if (!domCat) {
+        return;
+    }
+    if (censusFilterActive && censusFilterCategory === domCat) {
+        return;
+    }
+    let subVal = '';
+    if (domCat === 'solo_parent') {
+        subVal = (soloInpEl && soloInpEl.value.trim()) || '';
+    } else if (domCat === 'employed') {
+        subVal = 'emp';
+    } else if (domCat === 'unemployed') {
+        subVal = 'unemp';
+    } else if (domCat === 'senior_citizen') {
+        subVal = 'sc';
+    } else if (domCat === 'students') {
+        subVal = 'stu';
+    } else if (subEl) {
+        subVal = subEl.value || '';
+    }
+    if (!subVal && domCat === 'pwds') {
+        subVal = 'pwd_any';
+    }
+    if (!subVal && domCat === 'beneficiaries') {
+        subVal = 'ben_any';
+    }
+    if (!subVal && domCat === 'non_beneficiaries') {
+        subVal = 'non_all';
+    }
+    const noSubSelect =
+        domCat === 'employed' ||
+        domCat === 'unemployed' ||
+        domCat === 'senior_citizen' ||
+        domCat === 'students';
+    if (!subVal && domCat !== 'solo_parent' && !noSubSelect) {
+        return;
+    }
+    censusFilterCategory = domCat;
+    censusFilterSubValue = subVal;
+    censusFilterActive = true;
+}
+
 function recomputeFilteredCensusData() {
+    syncCensusFilterStateFromDom();
     let data = allCensusData;
     if (censusFilterSitioValue) {
         data = applySitioFilter(data, censusFilterSitioValue);
@@ -1069,21 +1658,129 @@ function recomputeFilteredCensusData() {
         data = applyTextSearchFilter(data, t);
     }
     filteredCensusData = data;
-    currentPage = 1;
     renderCensusTable();
+    refreshCensusStatisticsBar();
+}
+
+function runCensusFilterSearch() {
+    const catEl = document.getElementById('censusFilterCategoryInput');
+    const subEl = document.getElementById('censusFilterSub');
+    const soloInpEl = document.getElementById('censusFilterSoloInput');
+    if (!catEl || !subEl) {
+        return;
+    }
+    const cat = catEl.value;
+    let subVal = '';
+    if (cat === 'solo_parent') {
+        subVal = (soloInpEl && soloInpEl.value.trim()) || '';
+    } else if (cat === 'employed') {
+        subVal = 'emp';
+    } else if (cat === 'unemployed') {
+        subVal = 'unemp';
+    } else if (cat === 'senior_citizen') {
+        subVal = 'sc';
+    } else if (cat === 'students') {
+        subVal = 'stu';
+    } else {
+        subVal = subEl.value;
+    }
+    /* Default sub kapag may 2nd dropdown pero walang napiling value (madalas pagkatapos mag-populate — kung hindi, lalabas ang lahat ng resident). */
+    if (!subVal && cat === 'pwds') {
+        subVal = 'pwd_any';
+    }
+    if (!subVal && cat === 'beneficiaries') {
+        subVal = 'ben_any';
+    }
+    if (!subVal && cat === 'non_beneficiaries') {
+        subVal = 'non_all';
+    }
+    if (!cat) {
+        censusFilterActive = false;
+        censusFilterCategory = '';
+        censusFilterSubValue = '';
+        recomputeFilteredCensusData();
+        return;
+    }
+    const noSubSelect =
+        cat === 'employed' ||
+        cat === 'unemployed' ||
+        cat === 'senior_citizen' ||
+        cat === 'students';
+    if (!subVal && cat !== 'solo_parent' && !noSubSelect) {
+        return;
+    }
+    censusFilterCategory = cat;
+    censusFilterSubValue = subVal;
+    censusFilterActive = true;
+    recomputeFilteredCensusData();
+}
+
+function finalizeCensusSubDropdown() {
+    const sub = document.getElementById('censusFilterSub');
+    const searchInp = document.getElementById('censusFilterSubSearch');
+    if (!sub) {
+        return;
+    }
+    __censusSubAllOptions = Array.from(sub.options).map((o) => ({
+        value: o.value,
+        label: o.textContent
+    }));
+    if (searchInp) {
+        searchInp.value = '';
+        const show = !sub.hidden && __censusSubAllOptions.length >= 2;
+        searchInp.hidden = !show;
+    }
+}
+
+function applyCensusSubSearchFilter(query) {
+    const sub = document.getElementById('censusFilterSub');
+    if (!sub || __censusSubAllOptions.length === 0) {
+        return;
+    }
+    const q = String(query || '').toLowerCase().trim();
+    const prev = sub.value;
+    const snapshot = __censusSubAllOptions;
+    sub.innerHTML = '';
+    const matches = !q ? snapshot.slice() : snapshot.filter((o) => o.label.toLowerCase().includes(q));
+    if (matches.length === 0) {
+        const o = document.createElement('option');
+        o.value = '__no_match__';
+        o.textContent = '(Walang tumugma sa hanap)';
+        sub.appendChild(o);
+        sub.value = '__no_match__';
+    } else {
+        matches.forEach(({ value, label }) => {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            sub.appendChild(opt);
+        });
+        if (matches.some((m) => m.value === prev)) {
+            sub.value = prev;
+        } else {
+            sub.value = matches[0].value;
+        }
+    }
+    runCensusFilterSearch();
 }
 
 function populateCensusSubDropdown(cat) {
     const sub = document.getElementById('censusFilterSub');
     const wrap = document.getElementById('censusFilterSubWrap');
+    const searchInp = document.getElementById('censusFilterSubSearch');
     if (!sub || !wrap) {
         return;
     }
     sub.innerHTML = '';
+    __censusSubAllOptions = [];
     const soloInp = document.getElementById('censusFilterSoloInput');
     if (soloInp) {
         soloInp.hidden = true;
         soloInp.value = '';
+    }
+    if (searchInp) {
+        searchInp.value = '';
+        searchInp.hidden = true;
     }
     sub.hidden = false;
 
@@ -1099,27 +1796,31 @@ function populateCensusSubDropdown(cat) {
         sub.appendChild(o);
     };
 
-    if (cat === 'age') {
-        CENSUS_AGE_RANGES.forEach(r => addOpt(r.id, r.label));
-        wrap.hidden = false;
-        return;
-    }
     if (cat === 'beneficiaries') {
         addOpt('ben_any', 'Lahat ng may benepisyo');
         __censusBenefitList.forEach((text, i) => {
             const short = text.length > 70 ? `${text.slice(0, 67)}…` : text;
             addOpt(`benidx:${i}`, short);
         });
+        if (sub.options.length) {
+            sub.selectedIndex = 0;
+        }
         wrap.hidden = false;
+        finalizeCensusSubDropdown();
         return;
     }
     if (cat === 'non_beneficiaries') {
         addOpt('non_all', 'Walang benepisyo / none / blangko');
+        if (sub.options.length) {
+            sub.selectedIndex = 0;
+        }
         wrap.hidden = false;
+        finalizeCensusSubDropdown();
         return;
     }
     if (cat === 'solo_parent') {
         sub.hidden = true;
+        sub.innerHTML = '';
         if (soloInp) {
             soloInp.hidden = false;
             soloInp.value = '';
@@ -1128,103 +1829,158 @@ function populateCensusSubDropdown(cat) {
         return;
     }
     if (cat === 'pwds') {
-        addOpt('pwd_any', 'Anumang PWD / may disabilities');
+        addOpt('pwd_any', 'Anumang PWD');
         __censusPwdList.forEach((text, i) => {
             const short = text.length > 70 ? `${text.slice(0, 67)}…` : text;
             addOpt(`pwdidx:${i}`, short);
         });
+        if (sub.options.length) {
+            sub.selectedIndex = 0;
+        }
         wrap.hidden = false;
+        finalizeCensusSubDropdown();
+        return;
+    }
+    if (cat === 'employed' || cat === 'unemployed' || cat === 'senior_citizen' || cat === 'students') {
+        sub.hidden = true;
+        sub.innerHTML = '';
+        wrap.hidden = true;
         return;
     }
 
     wrap.hidden = true;
 }
 
-function setupCensusFilterControls() {
-    const sitioEl = document.getElementById('censusFilterSitio');
-    const catEl = document.getElementById('censusFilterCategory');
-    const subEl = document.getElementById('censusFilterSub');
-    const btn = document.getElementById('censusFilterSearchBtn');
-    if (!sitioEl || !catEl || !subEl || !btn) {
+function censusTabDataToCat(dataCat) {
+    if (dataCat === '__all__' || dataCat === null || dataCat === '') {
+        return '';
+    }
+    return String(dataCat);
+}
+
+function syncCensusFilterTabs(selectedCat) {
+    const root = document.getElementById('censusFilterBar');
+    if (!root) {
         return;
     }
+    root.querySelectorAll('.census-filter-tab').forEach((btn) => {
+        const v = censusTabDataToCat(btn.getAttribute('data-cat'));
+        const isSel = v === selectedCat;
+        btn.classList.toggle('is-active', isSel);
+        btn.setAttribute('aria-selected', isSel ? 'true' : 'false');
+    });
+}
+
+function applyCensusCategoryChange(cat) {
+    const catEl = document.getElementById('censusFilterCategoryInput');
+    if (catEl) {
+        catEl.value = cat;
+    }
+    syncCensusFilterTabs(cat);
+    censusFilterCategory = '';
+    censusFilterSubValue = '';
+    censusFilterActive = false;
+    if (!cat) {
+        const wrap = document.getElementById('censusFilterSubWrap');
+        const si = document.getElementById('censusFilterSoloInput');
+        const sub = document.getElementById('censusFilterSub');
+        const ss = document.getElementById('censusFilterSubSearch');
+        __censusSubAllOptions = [];
+        if (wrap) {
+            wrap.hidden = true;
+        }
+        if (si) {
+            si.hidden = true;
+            si.value = '';
+        }
+        if (sub) {
+            sub.hidden = false;
+        }
+        if (ss) {
+            ss.hidden = true;
+            ss.value = '';
+        }
+        recomputeFilteredCensusData();
+        return;
+    }
+    populateCensusSubDropdown(cat);
+    runCensusFilterSearch();
+}
+
+function setupCensusFilterControls() {
+    const sitioEl = document.getElementById('censusFilterSitio');
+    const catEl = document.getElementById('censusFilterCategoryInput');
+    const subEl = document.getElementById('censusFilterSub');
+    if (!sitioEl || !catEl || !subEl) {
+        return;
+    }
+
+    const soloInpEl = document.getElementById('censusFilterSoloInput');
+    const subSearchEl = document.getElementById('censusFilterSubSearch');
+
+    let soloFilterDebounce = null;
+    let subSearchDebounce = null;
+    const runSoloFilterDebounced = () => {
+        if (soloFilterDebounce) {
+            clearTimeout(soloFilterDebounce);
+        }
+        soloFilterDebounce = setTimeout(() => {
+            if (catEl.value === 'solo_parent') {
+                runCensusFilterSearch();
+            }
+        }, 200);
+    };
 
     sitioEl.addEventListener('change', () => {
         censusFilterSitioValue = sitioEl.value || '';
         recomputeFilteredCensusData();
     });
 
-    catEl.addEventListener('change', () => {
-        const cat = catEl.value;
-        censusFilterCategory = '';
-        censusFilterSubValue = '';
-        censusFilterActive = false;
-        if (!cat) {
-            document.getElementById('censusFilterSubWrap').hidden = true;
-            const si = document.getElementById('censusFilterSoloInput');
-            const sub = document.getElementById('censusFilterSub');
-            if (si) {
-                si.hidden = true;
-                si.value = '';
-            }
-            if (sub) {
-                sub.hidden = false;
-            }
-            recomputeFilteredCensusData();
-            return;
-        }
-        populateCensusSubDropdown(cat);
-        recomputeFilteredCensusData();
+    document.querySelectorAll('#censusFilterBar .census-filter-tab').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const cat = censusTabDataToCat(btn.getAttribute('data-cat'));
+            applyCensusCategoryChange(cat);
+        });
     });
+    syncCensusFilterTabs(censusTabDataToCat(catEl.value));
 
-    const soloInpEl = document.getElementById('censusFilterSoloInput');
-    const runCensusFilterSearch = () => {
-        const cat = catEl.value;
-        let subVal = '';
-        if (cat === 'solo_parent') {
-            subVal = (soloInpEl && soloInpEl.value.trim()) || '';
-        } else {
-            subVal = subEl.value;
-        }
-        if (!cat) {
-            censusFilterActive = false;
-            censusFilterCategory = '';
-            censusFilterSubValue = '';
-            recomputeFilteredCensusData();
-            return;
-        }
-        if (!subVal && cat !== 'solo_parent') {
-            return;
-        }
-        censusFilterCategory = cat;
-        censusFilterSubValue = subVal;
-        censusFilterActive = true;
-        recomputeFilteredCensusData();
-    };
+    subEl.addEventListener('change', runCensusFilterSearch);
 
-    btn.addEventListener('click', runCensusFilterSearch);
     if (soloInpEl) {
+        soloInpEl.addEventListener('input', runSoloFilterDebounced);
         soloInpEl.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 e.preventDefault();
+                if (soloFilterDebounce) {
+                    clearTimeout(soloFilterDebounce);
+                }
                 runCensusFilterSearch();
+            }
+        });
+    }
+
+    if (subSearchEl) {
+        subSearchEl.addEventListener('input', () => {
+            if (subSearchDebounce) {
+                clearTimeout(subSearchDebounce);
+            }
+            subSearchDebounce = setTimeout(() => {
+                applyCensusSubSearchFilter(subSearchEl.value);
+            }, 200);
+        });
+        subSearchEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (subSearchDebounce) {
+                    clearTimeout(subSearchDebounce);
+                }
+                applyCensusSubSearchFilter(subSearchEl.value);
             }
         });
     }
 }
 
 // Search functions
-function toggleSearchBar() {
-    const searchContainer = document.getElementById('searchContainer');
-    if (searchContainer.style.display === 'none') {
-        searchContainer.style.display = 'block';
-        document.getElementById('searchInput').focus();
-    } else {
-        searchContainer.style.display = 'none';
-        clearSearch();
-    }
-}
-
 function searchCensus() {
     recomputeFilteredCensusData();
 }
@@ -1235,27 +1991,6 @@ function clearSearch() {
         input.value = '';
     }
     recomputeFilteredCensusData();
-}
-
-// Pagination functions
-function previousPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        renderCensusTable();
-    }
-}
-
-function nextPage() {
-    const totalPages = Math.ceil(filteredCensusData.length / itemsPerPage);
-    if (currentPage < totalPages) {
-        currentPage++;
-        renderCensusTable();
-    }
-}
-
-function updatePaginationInfo() {
-    const totalPages = Math.ceil(filteredCensusData.length / itemsPerPage);
-    document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages || 1}`;
 }
 
 // Print function - creates a print-friendly list view
@@ -1459,6 +2194,7 @@ function printData() {
                         <th>Age</th>
                         <th>Sex</th>
                         <th>Relation</th>
+                        <th>Civil status</th>
                         <th>Status</th>
                         <th>Contact</th>
                         <th>Occupation</th>
@@ -1492,13 +2228,13 @@ function printData() {
                         const sex = member.sex || member.gender || '';
                         const birthday = member.birthday || member.birth_date || member.birthDate || '';
                         const civilStatus = member.civil_status || member.civilStatus || member.civilstatus || '';
+                        const recordStatus = String(member.status != null ? member.status : 'Censused').trim() || 'Censused';
                         const contact = member.contact_number || member.contact || member.contactNumber || member.phone || member.phone_number || member.phoneNumber || member.mobile || member.mobile_number || member.mobileNumber || '';
                         const occupation = member.occupation || member.job || member.employment || member.work || '';
                         const placeOfWork = member.place_of_work || member.placeOfWork || member.place_of_employment || '';
                         const relation = member.relation_to_household || member.relationToHousehold || member.relation || '';
                         const benefits = member.barangay_supported_benefits || member.barangay_supported || member.benefits || '';
-                        // Get disabilities field - check various possible field names
-                        const disabilities = member.disability || member.disabled || member.disabilities || member.pwd || member.person_with_disability || member.has_disability || member.with_disability || '';
+                        const disabilities = getDisabilitiesColumnText(member);
                         
                         // Get complete address from the stored address (same for whole household; show every row)
                         const completeAddress = member._completeAddress || member.complete_address || member.completeAddress || member.address || '';
@@ -1519,6 +2255,7 @@ function printData() {
                                 <td>${sex ? escapeHtml(sex) : '-'}</td>
                                 <td>${relation ? escapeHtml(relation) : '-'}</td>
                                 <td>${civilStatus ? escapeHtml(civilStatus) : '-'}</td>
+                                <td>${escapeHtml(recordStatus)}</td>
                                 <td>${contact ? escapeHtml(contact) : '-'}</td>
                                 <td>${occupation ? escapeHtml(occupation) : '-'}</td>
                                 <td>${placeOfWork ? escapeHtml(placeOfWork) : '-'}</td>

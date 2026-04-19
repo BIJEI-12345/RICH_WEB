@@ -437,6 +437,62 @@ body {
     color: rgba(255, 255, 255, 0.9);
 }
 
+/* Buwanang datos + AI (Groq — GROQ_API_KEY_EMERGENCY / .env) */
+.emergency-monthly-ai {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 1.25rem;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
+
+.emergency-monthly-ai[hidden] {
+    display: none !important;
+}
+
+.emergency-monthly-ai__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+}
+
+.emergency-monthly-ai__head .fa-robot {
+    color: #475569;
+}
+
+.emergency-monthly-ai__stats {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.45;
+}
+
+.emergency-monthly-ai__text {
+    margin: 0 0 0.35rem;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: #334155;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+.emergency-monthly-ai__hint {
+    margin: 0;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
 /* Emergency Management */
 .emergency-management {
     display: flex;

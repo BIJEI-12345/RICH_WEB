@@ -109,6 +109,7 @@ function flattenCensusArchiveRows(data) {
                 place_of_work: placeOfWork || '—',
                 disabilities: disabilities || '—',
                 benefits: benefits || '—',
+                census_status: (m.status && String(m.status).trim() !== '') ? String(m.status).trim() : 'Archived',
                 archived_at: m.archived_at || ''
             });
         }
@@ -425,17 +426,18 @@ function getColumnsForCategory(category) {
         'census': [
             { key: 'full_name', label: 'Name', truncate: 42 },
             { key: 'address', label: 'Household / Address', truncate: 96 },
+            { key: 'census_status', label: 'Status', truncate: 14 },
             { key: 'birthday', label: 'Birthdate', type: 'date' },
             { key: 'age', label: 'Age' },
             { key: 'sex', label: 'Sex' },
             { key: 'relation', label: 'Relation', truncate: 28 },
-            { key: 'civil_status', label: 'Status', truncate: 22 },
+            { key: 'civil_status', label: 'Civil status', truncate: 22 },
             { key: 'contact', label: 'Contact', truncate: 22 },
             { key: 'occupation', label: 'Occupation', truncate: 28 },
             { key: 'place_of_work', label: 'Place of Work', truncate: 36 },
             { key: 'disabilities', label: 'Disabilities', truncate: 28 },
             { key: 'benefits', label: 'Benefits', truncate: 28 },
-            { key: 'archived_at', label: 'Removed At', type: 'date' },
+            { key: 'archived_at', label: 'Archived at', type: 'date' },
             { key: 'id', label: 'Action', type: 'census_return' }
         ]
     };

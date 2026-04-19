@@ -307,23 +307,77 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_admin_profile') {
 // ANNOUNCEMENTS SECTION
 // ===========================================
 
-// Set headers for JSON responses
+require_once __DIR__ . '/announcement_image.php';
+
+try {
+    $pdo = getPDODatabaseConnection();
+} catch (Exception $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Database connection failed']);
+    exit;
+}
+
+ensureAnnouncementImageBlob($pdo);
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Serve announcement image bytes (DB blob or legacy disk path) — not JSON
+if ($method === 'GET' && isset($_GET['announcement_image']) && $_GET['announcement_image'] === 'true') {
+    $imgId = (int)($_GET['id'] ?? 0);
+    if ($imgId < 1) {
+        http_response_code(400);
+        echo 'Missing or invalid id';
+        exit;
+    }
+    $stmt = $pdo->prepare('SELECT image FROM announcements WHERE id = ?');
+    $stmt->execute([$imgId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || empty($row['image'])) {
+        http_response_code(404);
+        echo 'Image not found';
+        exit;
+    }
+    $imageData = $row['image'];
+    if (is_string($imageData) && strlen($imageData) < 512
+        && (strpos($imageData, 'uploads/') !== false || strpos($imageData, 'uploads\\') !== false)
+        && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($imageData, 0, min(200, strlen($imageData))))) {
+        $norm = str_replace('\\', '/', $imageData);
+        $full = realpath(__DIR__ . '/../' . ltrim($norm, '/'));
+        $base = realpath(__DIR__ . '/..');
+        if ($full && $base && strpos($full, $base) === 0 && is_file($full)) {
+            $mimeType = function_exists('mime_content_type') ? mime_content_type($full) : 'image/jpeg';
+            header('Content-Type: ' . $mimeType);
+            header('Content-Length: ' . filesize($full));
+            readfile($full);
+            exit;
+        }
+    }
+    if (is_string($imageData) && strlen($imageData) > 100) {
+        $mime = 'image/jpeg';
+        if (class_exists('finfo')) {
+            $fi = new finfo(FILEINFO_MIME_TYPE);
+            $detected = $fi->buffer($imageData);
+            if ($detected) {
+                $mime = $detected;
+            }
+        }
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . strlen($imageData));
+        echo $imageData;
+        exit;
+    }
+    http_response_code(404);
+    echo 'Invalid image data';
+    exit;
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
-try {
-    $pdo = getPDODatabaseConnection();
-} catch(Exception $e) {
-    error_log("Database connection error: " . $e->getMessage());
-    echo json_encode(['ok' => false, 'error' => 'Database connection failed']);
-    exit;
-}
-
-$method = $_SERVER['REQUEST_METHOD'];
-
-switch($method) {
+switch ($method) {
     case 'POST':
         // Create new announcement or update existing one
         $id = $_GET['id'] ?? null;
@@ -332,32 +386,40 @@ switch($method) {
         $title = trim($_POST['title'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $datetime = trim($_POST['datetime'] ?? '');
-        $image_path = '';
+        $imageBlob = null;
         
-        // Handle image upload if provided (paths relative to this script, not CWD)
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = __DIR__ . '/../uploads/announcements/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
+            $tmp = $_FILES['image']['tmp_name'];
+            $allowed = ['image/jpeg' => true, 'image/png' => true, 'image/gif' => true, 'image/webp' => true];
+            $mime = '';
+            if (class_exists('finfo')) {
+                $fi = new finfo(FILEINFO_MIME_TYPE);
+                $mime = (string) $fi->file($tmp);
+            } elseif (function_exists('mime_content_type')) {
+                $mime = (string) mime_content_type($tmp);
             }
-            
-            $file_extension = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-            $filename = 'announcement_' . time() . '_' . uniqid() . '.' . $file_extension;
-            $file_path = $upload_dir . $filename;
-            
-            if (move_uploaded_file($_FILES['image']['tmp_name'], $file_path)) {
-                $image_path = 'uploads/announcements/' . $filename;
+            if ($mime === '' || !isset($allowed[$mime])) {
+                echo json_encode(['ok' => false, 'error' => 'Invalid image type. Use JPG, PNG, GIF, or WebP.']);
+                break;
+            }
+            if (!empty($_FILES['image']['size']) && (int) $_FILES['image']['size'] > 5 * 1024 * 1024) {
+                echo json_encode(['ok' => false, 'error' => 'Image must be 5MB or smaller.']);
+                break;
+            }
+            $imageBlob = @file_get_contents($tmp);
+            if ($imageBlob === false || $imageBlob === '') {
+                echo json_encode(['ok' => false, 'error' => 'Failed to read image file.']);
+                break;
             }
         }
         
         try {
             if ($isUpdate) {
-                // Update existing announcement
-                if ($image_path) {
-                    $stmt = $pdo->prepare("UPDATE announcements SET title = ?, date_and_time = ?, description = ?, image = ? WHERE id = ?");
-                    $stmt->execute([$title, $datetime, $description, $image_path, $id]);
+                if ($imageBlob !== null) {
+                    $stmt = $pdo->prepare('UPDATE announcements SET title = ?, date_and_time = ?, description = ?, image = ? WHERE id = ?');
+                    $stmt->execute([$title, $datetime, $description, $imageBlob, $id]);
                 } else {
-                    $stmt = $pdo->prepare("UPDATE announcements SET title = ?, date_and_time = ?, description = ? WHERE id = ?");
+                    $stmt = $pdo->prepare('UPDATE announcements SET title = ?, date_and_time = ?, description = ? WHERE id = ?');
                     $stmt->execute([$title, $datetime, $description, $id]);
                 }
                 
@@ -366,9 +428,8 @@ switch($method) {
                     'message' => 'Announcement updated successfully'
                 ]);
             } else {
-                // Create new announcement
-                $stmt = $pdo->prepare("INSERT INTO announcements (title, date_and_time, description, image) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$title, $datetime, $description, $image_path]);
+                $stmt = $pdo->prepare('INSERT INTO announcements (title, date_and_time, description, image) VALUES (?, ?, ?, ?)');
+                $stmt->execute([$title, $datetime, $description, $imageBlob]);
                 
                 echo json_encode([
                     'ok' => true, 
@@ -390,18 +451,11 @@ switch($method) {
             $stmt->execute();
             $announcements = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Validate image paths - remove invalid/missing images
             foreach ($announcements as &$announcement) {
-                if (!empty($announcement['image'])) {
-                    // Check if image file exists (same base path as upload)
-                    $imagePath = __DIR__ . '/../' . str_replace(['\\', '//'], '/', $announcement['image']);
-                    if (!file_exists($imagePath) || !is_file($imagePath)) {
-                        // Image doesn't exist, set to empty
-                        $announcement['image'] = '';
-                    }
-                }
+                $aid = (int) ($announcement['id'] ?? 0);
+                $announcement['image'] = normalizeAnnouncementImageForJson($announcement['image'] ?? '', $aid);
             }
-            unset($announcement); // Unset reference
+            unset($announcement);
             
             echo json_encode([
                 'ok' => true,

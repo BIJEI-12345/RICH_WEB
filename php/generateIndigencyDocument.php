@@ -43,6 +43,7 @@ function formatIssuedDate($timestamp = null, $language = 'english') {
 ob_start();
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/generated_document_temp.php';
 
 // Fatal errors often yield HTTP 500 with an empty body; surface JSON for the client
 register_shutdown_function(function () {
@@ -131,18 +132,6 @@ function indigencyResolvePositionForLanguage(string $raw, string $language): str
     }
 
     return $sp['en'] !== '' ? $sp['en'] : $sp['tl'];
-}
-
-/** Web path from site root to generated files (avoids broken relative URLs from JS). */
-function indigencyPublicGeneratedFileUrl($filename) {
-    $scriptName = isset($_SERVER['SCRIPT_NAME']) ? str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']) : '/php/generateIndigencyDocument.php';
-    $appRoot = dirname(dirname($scriptName));
-    $appRoot = rtrim($appRoot, '/');
-    if ($appRoot === '/' || $appRoot === '.' || $appRoot === '') {
-        $appRoot = '';
-    }
-    $path = ($appRoot === '' ? '' : $appRoot) . '/uploads/generated_documents/' . ltrim($filename, '/');
-    return preg_replace('#(?<!:)/+#', '/', $path);
 }
 
 // Function to safely handle image data
@@ -757,17 +746,11 @@ try {
     
     // Generate the document file - select template based on language (paths relative to this file, not CWD)
     $templatePath = __DIR__ . '/../brgy_forms/indigency/indigency_' . $language . $templateSuffix . '.docx';
-    $outputPath = __DIR__ . '/../uploads/generated_documents/';
-    
-    // Create output directory if it doesn't exist
-    if (!file_exists($outputPath)) {
-        mkdir($outputPath, 0777, true);
-    }
     
     // Generate unique filename with language indicator
     $fullName = trim($data['first_name'] . ' ' . $data['middle_name'] . ' ' . $data['last_name']);
     $filename = 'INDIGENCY_' . strtoupper($language) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['last_name']) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['first_name']) . '_' . date('Ymd_His') . '.docx';
-    $fullOutputPath = $outputPath . $filename;
+    $fullOutputPath = rich_temp_docx_path($filename);
     
     // Check if template exists
     if (!file_exists($templatePath)) {
@@ -805,8 +788,8 @@ try {
         $updateStmt->close();
         $connection->close();
         
-        // Keep DOCX file (no PDF conversion)
         $finalFilename = $filename;
+        $dlToken = rich_register_temp_download($fullOutputPath);
         
         error_log("Document generated successfully: " . $finalFilename);
         
@@ -817,7 +800,7 @@ try {
             'success' => true,
             'message' => 'Indigency certificate generated successfully in ' . ucfirst($language) . ' with personal details',
             'filename' => $finalFilename,
-            'downloadUrl' => indigencyPublicGeneratedFileUrl($finalFilename),
+            'downloadUrl' => rich_temp_download_public_url($dlToken),
             'language' => $language,
             'data' => $data
         ]);

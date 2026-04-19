@@ -17,6 +17,11 @@ try {
         throw new Exception('Database connection failed: ' . $connection->connect_error);
     }
 
+    // Align is_permanent with purpose (jobseeker = permanent retention)
+    $connection->query(
+        "UPDATE certification_forms SET is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0)"
+    );
+
     // Get all finished jobseeker certifications that might not yet be in job_seeker_report
     $sql = "SELECT * FROM certification_forms WHERE LOWER(purpose) = 'jobseeker' AND status = 'Finished'";
     $result = $connection->query($sql);

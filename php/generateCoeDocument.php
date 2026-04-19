@@ -121,6 +121,7 @@ function getOrdinalSuffix($number) {
 ob_start();
 
 require_once 'config.php';
+require_once __DIR__ . '/generated_document_temp.php';
 
 header('Content-Type: application/json');
 
@@ -547,17 +548,9 @@ try {
     
     // Generate the document file
     $templatePath = '../brgy_forms/coe/coe.docx';
-    $outputPath = '../uploads/generated_documents/';
-    
-    // Create output directory if it doesn't exist
-    if (!file_exists($outputPath)) {
-        mkdir($outputPath, 0777, true);
-    }
-    
-    // Generate unique filename
     $fullName = trim($data['first_name'] . ' ' . $data['middle_name'] . ' ' . $data['last_name']);
-     $filename = 'COE_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['last_name']) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['first_name']) . '_' . date('Ymd_His') . '.docx';
-     $fullOutputPath = $outputPath . $filename;
+    $filename = 'COE_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['last_name']) . '_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $data['first_name']) . '_' . date('Ymd_His') . '.docx';
+    $fullOutputPath = rich_temp_docx_path($filename);
      
      // Check if template exists
     if (!file_exists($templatePath)) {
@@ -595,8 +588,8 @@ try {
         $updateStmt->close();
         $connection->close();
         
-        // Keep DOCX file (no PDF conversion)
         $finalFilename = $filename;
+        $dlToken = rich_register_temp_download($fullOutputPath);
         
         error_log("COE Document generated successfully: " . $finalFilename);
         
@@ -607,7 +600,7 @@ try {
             'success' => true,
             'message' => 'Certificate of Employment generated successfully with personal details',
             'filename' => $finalFilename,
-            'downloadUrl' => 'uploads/generated_documents/' . $finalFilename,
+            'downloadUrl' => rich_temp_download_public_url($dlToken),
             'data' => $data
         ]);
     } else {

@@ -112,15 +112,6 @@ function resetImageUpload() {
     fileInput.value = '';
 }
 
-function toggleSearchBar() {
-    const searchContainer = document.getElementById('searchContainer');
-    if (searchContainer.style.display === 'none') {
-        searchContainer.style.display = 'flex';
-    } else {
-        searchContainer.style.display = 'none';
-    }
-}
-
 function searchResidents() {
     const searchInput = document.getElementById('searchInput');
     const searchTerm = searchInput.value.toLowerCase();

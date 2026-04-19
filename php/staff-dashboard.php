@@ -13,6 +13,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'staff') {
 
 // Database connection
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/announcement_image.php';
 
 // Get database connection
 try {
@@ -96,12 +97,19 @@ function getUserInformation() {
 function getAnnouncements() {
     global $conn;
     
+    try {
+        ensureAnnouncementImageBlob(getPDODatabaseConnection());
+    } catch (Throwable $e) {
+    }
+    
     $sql = "SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5";
     $result = $conn->query($sql);
     
     $announcements = [];
     if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
+        while ($row = $result->fetch_assoc()) {
+            $aid = (int) ($row['id'] ?? 0);
+            $row['image'] = normalizeAnnouncementImageForJson($row['image'] ?? '', $aid);
             $announcements[] = $row;
         }
     }

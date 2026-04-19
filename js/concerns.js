@@ -14,6 +14,25 @@ let selectedConcernCategory = null;
 let selectedRowElement = null;
 let selectedRiskLevel = null; // 'low', 'medium', 'high', or null
 let pendingRevokeConcernId = null;
+let pendingResolveConcernId = null;
+/** @type {string|null} */
+let adminDocPreviewObjectUrl = null;
+
+/**
+ * Timestamp for sorting finished concerns: only resolved date/time (DB resolved_at).
+ * "Latest" = most recently resolved first (top). Does not use report date (date_and_time).
+ */
+function getResolvedSortTime(concern) {
+    const raw = concern && concern.resolved_at;
+    if (!raw) {
+        return 0;
+    }
+    const s = String(raw).trim();
+    // MySQL "Y-m-d H:i:s" parses more reliably as ISO-like local datetime
+    const normalized = /^\d{4}-\d{2}-\d{2} \d/.test(s) ? s.replace(' ', 'T') : s;
+    const t = new Date(normalized).getTime();
+    return isNaN(t) ? 0 : t;
+}
 
 // Navigation Functions
 function goBack() {
@@ -35,6 +54,12 @@ function sortConcerns(category, sortOrder) {
     
     // Sort the concerns based on sort order
     categoryConcerns.sort((a, b) => {
+        // Finished + Latest/Oldest: strictly by resolved date (last finished first for "latest")
+        if (category === 'finished' && (sortOrder === 'latest' || sortOrder === 'oldest')) {
+            const ta = getResolvedSortTime(a);
+            const tb = getResolvedSortTime(b);
+            return sortOrder === 'latest' ? tb - ta : ta - tb;
+        }
         // If sorting by risk level
         if (sortOrder === 'high' || sortOrder === 'medium' || sortOrder === 'low' || sortOrder === 'no-risk') {
             // If sorting by specific risk level, prioritize that level
@@ -334,11 +359,12 @@ function logout() {
 }
 
 function showLogoutConfirmationModal() {
+    resetStatusModalLayout();
     const modal = document.getElementById('statusModal');
     const icon = document.getElementById('statusIcon');
     const titleElement = document.getElementById('statusTitle');
     const messageElement = document.getElementById('statusMessage');
-    const okBtn = document.querySelector('.ok-btn');
+    const okBtn = document.getElementById('statusModalOkBtn') || modal.querySelector('.ok-btn');
     
     titleElement.textContent = 'Confirm Logout';
     messageElement.textContent = 'Are you sure you want to logout?';
@@ -402,6 +428,21 @@ function hideLoadingIndicator(status) {
 }
 
 // Data Loading Functions
+async function refreshConcernsList(status, buttonEl) {
+    if (buttonEl) {
+        buttonEl.classList.add('is-refreshing');
+        buttonEl.disabled = true;
+    }
+    try {
+        await loadConcerns(status);
+    } finally {
+        if (buttonEl) {
+            buttonEl.classList.remove('is-refreshing');
+            buttonEl.disabled = false;
+        }
+    }
+}
+
 async function loadConcerns(status = null) {
     try {
         // Show loading indicator
@@ -474,6 +515,12 @@ function displayConcerns(concerns, status) {
     // Apply current sort order with risk level priority
     const sortedConcerns = [...concerns].sort((a, b) => {
         const sortOrder = currentSortOrder[category];
+        
+        if (category === 'finished' && (sortOrder === 'latest' || sortOrder === 'oldest')) {
+            const ta = getResolvedSortTime(a);
+            const tb = getResolvedSortTime(b);
+            return sortOrder === 'latest' ? tb - ta : ta - tb;
+        }
         
         // If sorting by risk level
         if (sortOrder === 'high' || sortOrder === 'medium' || sortOrder === 'low' || sortOrder === 'no-risk') {
@@ -899,7 +946,24 @@ function levenshteinDistance(a, b) {
 function normalizeLocationForComparisonJs(loc) {
     let s = String(loc || '').trim().toLowerCase().replace(/\s+/g, ' ');
     s = s.replace(/^(brgy\.?|barangay)\s+/iu, '');
+    s = s.replace(/\bsityo\b/giu, 'sitio');
+    s = s.replace(/\bprk\.?\b/giu, 'purok');
+    s = s.replace(/\bpuroc\b/giu, 'purok');
+    s = s.replace(/\bblk\.?\b/giu, 'block');
+    s = s.replace(/\bblk\b/giu, 'block');
+    s = s.replace(/\bzone\s*(\d+)\b/giu, 'zone $1');
+    s = s.replace(/\bst\.?\b/giu, 'street');
+    s = s.replace(/[,;]+/g, ' ');
+    s = s.replace(/\s+/g, ' ');
     return s.trim();
+}
+
+function locationAsciiFoldForDistanceJs(s) {
+    let t = String(s || '');
+    try {
+        t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (e) { /* ignore */ }
+    return t.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /** Mirrors php/concerns.php getRelatableIssueCategoryDefinitions / relatableSameIssueCategoryPhp */
@@ -937,8 +1001,12 @@ function locationsReferToSamePlaceJs(baseRaw, otherRaw) {
     if (shorter.length >= 4 && longer.includes(shorter)) return true;
     const maxLen = Math.max(a.length, b.length);
     if (maxLen > 64) return false;
-    const dist = levenshteinDistance(a, b);
-    const maxAllowed = maxLen <= 18 ? 3 : Math.max(4, Math.min(12, Math.round(maxLen * 0.18)));
+    const af = locationAsciiFoldForDistanceJs(a);
+    const bf = locationAsciiFoldForDistanceJs(b);
+    if (!af || !bf) return false;
+    const dist = levenshteinDistance(af, bf);
+    const foldLen = Math.max(af.length, bf.length);
+    const maxAllowed = foldLen <= 18 ? 3 : Math.max(4, Math.min(12, Math.round(foldLen * 0.18)));
     return dist <= maxAllowed;
 }
 
@@ -1523,20 +1591,16 @@ async function moveToProcessing(concernId) {
     }
 }
 
-async function resolveConcern(concernId) {
-    try {
-        const result = await sendConcernStatusUpdate(concernId, 'resolved');
-        if (result && result.success) {
-            showStatusModal('success', 'Concern Resolved', 'Concern has been resolved successfully.');
-            // Reload the current view
-            loadConcerns(currentView);
-        } else {
-            showStatusModal('error', 'Error', result.message || 'Failed to resolve concern.');
-        }
-    } catch (error) {
-        console.error('Error resolving concern:', error);
-        showStatusModal('error', 'Error', 'Failed to connect to the server.');
-    }
+function resolveConcern(concernId) {
+    showStatusModal(
+        'info',
+        'Confirm resolution',
+        'Press OK to open resolution documentation. The concern is marked resolved only after you submit the form.',
+        function openDocPanel() {
+            openResolutionDocumentationInStatusModal(concernId);
+        },
+        { keepOpen: true }
+    );
 }
 
 async function revokeConcern(concernId) {
@@ -1654,6 +1718,26 @@ function downloadReport(concernId) {
 
 
 // Modal Functions
+function escapeConcernHtml(str) {
+    if (str == null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+/** Renders 1–5 star icons for resident rating (DB column `rating`). */
+function renderConcernRatingStarsHtml(rating) {
+    const n = Math.min(5, Math.max(0, parseInt(String(rating), 10) || 0));
+    if (n < 1) return '';
+    const parts = [];
+    for (let i = 1; i <= 5; i++) {
+        parts.push(`<i class="fas fa-star${i <= n ? '' : ' concern-rating-star--empty'}" aria-hidden="true"></i>`);
+    }
+    return `<div class="concern-rating-stars" role="img" aria-label="${n} out of 5 stars">${parts.join('')}</div>`;
+}
+
 function showConcernModal(concernData) {
     const modal = document.getElementById('concernModal');
     const modalTitle = document.getElementById('modalTitle');
@@ -1667,11 +1751,52 @@ function showConcernModal(concernData) {
             <img src="${concernData.concern_image}" alt="Concern Image" style="width: 100%; height: 200px; object-fit: contain; border-radius: 8px; margin-bottom: 1rem;" onerror="this.style.display='none'">
         </div>` : '';
     
-    const resolutionHtml = concernData.status === 'resolved' ? 
-        `<div class="resolution-details" style="background: rgba(40, 167, 69, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #28a745; margin-top: 1rem;">
-            <h5 style="color: #28a745; margin-bottom: 0.5rem;">Resolution Status</h5>
-            <p style="margin: 0; color: #333;">This concern has been successfully resolved.</p>
-            ${concernData.formatted_resolved_date ? `<p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;"><strong>Resolved on:</strong> ${concernData.formatted_resolved_date}</p>` : ''}
+    const resStmt = concernData.resolution_statement ? String(concernData.resolution_statement).trim() : '';
+    const rawResolvedImg = concernData.resolved_image ?? concernData.resolution_doc_image;
+    const resDocImg = rawResolvedImg ? String(rawResolvedImg).trim() : '';
+    const hasResolutionDocContent = !!(resStmt || resDocImg);
+    const suggRaw = concernData.suggestions != null ? String(concernData.suggestions).trim() : '';
+    const ratingNum = concernData.rating != null && concernData.rating !== ''
+        ? Math.min(5, Math.max(0, parseInt(String(concernData.rating), 10) || 0))
+        : 0;
+    const hasResidentFeedback = (ratingNum >= 1) || suggRaw.length > 0;
+    const showResolvedDocPanel = concernData.status === 'resolved' && (hasResolutionDocContent || hasResidentFeedback);
+    const ratingStarsHtml = ratingNum >= 1 ? renderConcernRatingStarsHtml(ratingNum) : '';
+    const feedbackHtml = suggRaw.length > 0
+        ? `<p class="concern-rating-feedback">${escapeConcernHtml(suggRaw)}</p>`
+        : '';
+    const residentFeedbackBlock = (ratingStarsHtml || feedbackHtml)
+        ? `<div class="concern-resolved-doc-block concern-resolved-doc-block--rating">
+                <span class="concern-resolved-doc-label">Resident feedback</span>
+                ${ratingStarsHtml}
+                ${feedbackHtml}
+            </div>`
+        : '';
+    const resolutionBannerHtml = concernData.status === 'resolved' ? 
+        `<div class="concern-resolved-banner">
+            <div class="concern-resolved-banner-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="concern-resolved-banner-text">
+                <span class="concern-resolved-banner-title">Resolved</span>
+                ${concernData.formatted_resolved_date ? `<span class="concern-resolved-banner-date">${escapeConcernHtml(concernData.formatted_resolved_date)}</span>` : ''}
+                ${showResolvedDocPanel ? '<p class="concern-resolved-banner-hint">Tap <strong>Resolution documentation</strong> below to view the resolution record.</p>' : ''}
+            </div>
+        </div>` : '';
+    const resolutionDocPanelHtml = showResolvedDocPanel ? 
+        `<div id="concernModalResolvedDocPanel" class="concern-resolved-doc-panel" role="region" aria-label="Resolution documentation" hidden>
+            <div class="concern-resolved-doc-card">
+                <h6 class="concern-resolved-doc-heading"><i class="fas fa-clipboard-check"></i> Resolution record</h6>
+                ${resStmt ? `<div class="concern-resolved-doc-block">
+                    <span class="concern-resolved-doc-label">Statement</span>
+                    <p class="concern-resolved-doc-text">${escapeConcernHtml(resStmt)}</p>
+                </div>` : ''}
+                ${resDocImg ? `<div class="concern-resolved-doc-block concern-resolved-doc-block--image">
+                    <span class="concern-resolved-doc-label">Documentation image</span>
+                    <div class="concern-resolved-doc-img-frame">
+                        <img src="${escapeConcernHtml(resDocImg)}" alt="Resolution documentation" class="concern-resolved-doc-img" onerror="this.closest('.concern-resolved-doc-block--image').style.display='none'">
+                    </div>
+                </div>` : ''}
+                ${residentFeedbackBlock}
+            </div>
         </div>` : '';
     const revokedHtml = concernData.status === 'revoked' ?
         `<div class="resolution-details" style="background: rgba(220, 53, 69, 0.08); padding: 1rem; border-radius: 8px; border-left: 4px solid #dc3545; margin-top: 1rem;">
@@ -1705,7 +1830,8 @@ function showConcernModal(concernData) {
                 <strong style="color: #333; display: block; margin-bottom: 0.5rem;">Statement:</strong>
                 <p style="background: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #007bff; margin: 0; line-height: 1.5;">${concernData.statement}</p>
             </div>
-            ${resolutionHtml}
+            ${resolutionBannerHtml}
+            ${resolutionDocPanelHtml}
             ${revokedHtml}
         </div>
     `;
@@ -1714,29 +1840,241 @@ function showConcernModal(concernData) {
     // Resolve button should only appear when processing concerns, not when viewing
     resolveBtn.style.display = 'none';
     resolveBtn.onclick = null;
+
+    const docBtn = document.getElementById('modalResolvedDocBtn');
+    const docChevron = document.getElementById('modalResolvedDocChevron');
+    const docLabel = document.getElementById('modalResolvedDocBtnLabel');
+    const docPanel = document.getElementById('concernModalResolvedDocPanel');
+    if (docBtn) {
+        if (showResolvedDocPanel) {
+            docBtn.style.display = 'inline-flex';
+            docBtn.setAttribute('aria-expanded', 'false');
+            if (docLabel) docLabel.textContent = 'Resolution documentation';
+            if (docChevron) docChevron.style.transform = 'rotate(0deg)';
+            if (docPanel) {
+                docPanel.hidden = true;
+                docPanel.classList.remove('is-open');
+            }
+            docBtn.onclick = toggleConcernModalResolvedDoc;
+        } else {
+            docBtn.style.display = 'none';
+            docBtn.onclick = null;
+        }
+    }
     
     modal.classList.add('show');
     modal.setAttribute('aria-hidden', 'false');
 }
 
+function toggleConcernModalResolvedDoc() {
+    const panel = document.getElementById('concernModalResolvedDocPanel');
+    const btn = document.getElementById('modalResolvedDocBtn');
+    const chevron = document.getElementById('modalResolvedDocChevron');
+    const label = document.getElementById('modalResolvedDocBtnLabel');
+    if (!panel || !btn) return;
+    const opening = panel.hidden;
+    if (opening) {
+        panel.hidden = false;
+        panel.classList.add('is-open');
+        requestAnimationFrame(() => {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    } else {
+        panel.classList.remove('is-open');
+        panel.hidden = true;
+    }
+    const nowOpen = !panel.hidden;
+    btn.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+    if (label) label.textContent = nowOpen ? 'Hide documentation' : 'Resolution documentation';
+    if (chevron) chevron.style.transform = nowOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
 function closeConcernModal() {
     const modal = document.getElementById('concernModal');
+    const panel = document.getElementById('concernModalResolvedDocPanel');
+    const docBtn = document.getElementById('modalResolvedDocBtn');
+    const chevron = document.getElementById('modalResolvedDocChevron');
+    const label = document.getElementById('modalResolvedDocBtnLabel');
+    if (panel) {
+        panel.hidden = true;
+        panel.classList.remove('is-open');
+    }
+    if (docBtn) {
+        docBtn.setAttribute('aria-expanded', 'false');
+        if (label) label.textContent = 'Resolution documentation';
+    }
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
     modal.classList.remove('show');
     modal.setAttribute('aria-hidden', 'true');
 }
 
 // Status Modal Functions
-function showStatusModal(type, title, message) {
+function clearAdminDocumentationImagePreview() {
+    if (adminDocPreviewObjectUrl) {
+        try {
+            URL.revokeObjectURL(adminDocPreviewObjectUrl);
+        } catch (e) { /* ignore */ }
+        adminDocPreviewObjectUrl = null;
+    }
+    const aImg = document.getElementById('resolutionAdminPreviewImg');
+    const aNo = document.getElementById('resolutionAdminNoImage');
+    if (aImg) {
+        aImg.removeAttribute('src');
+        aImg.classList.add('hidden');
+    }
+    if (aNo) aNo.classList.remove('hidden');
+}
+
+function syncAdminDocumentationImagePreviewFromFile() {
+    const fi = document.getElementById('resolutionDocFile');
+    clearAdminDocumentationImagePreview();
+    if (!fi || !fi.files || !fi.files[0]) return;
+    const file = fi.files[0];
+    if (!file.type || !file.type.startsWith('image/')) return;
+    adminDocPreviewObjectUrl = URL.createObjectURL(file);
+    const aImg = document.getElementById('resolutionAdminPreviewImg');
+    const aNo = document.getElementById('resolutionAdminNoImage');
+    if (aImg && aNo) {
+        aImg.src = adminDocPreviewObjectUrl;
+        aImg.classList.remove('hidden');
+        aNo.classList.add('hidden');
+        aImg.onerror = function() {
+            clearAdminDocumentationImagePreview();
+        };
+    }
+}
+
+function resetStatusModalLayout() {
+    clearAdminDocumentationImagePreview();
+    const simple = document.getElementById('statusModalSimple');
+    const doc = document.getElementById('statusModalDocumentation');
+    const dlg = document.getElementById('statusModalDialog');
+    if (simple) simple.classList.remove('hidden');
+    if (doc) {
+        doc.classList.add('hidden');
+        const ta = document.getElementById('resolutionStatementInput');
+        const fi = document.getElementById('resolutionDocFile');
+        if (ta) ta.value = '';
+        if (fi) fi.value = '';
+    }
+    if (dlg) dlg.classList.remove('status-dialog--documentation');
+    pendingResolveConcernId = null;
+    const prevImg = document.getElementById('resolutionResidentPreviewImg');
+    const noImg = document.getElementById('resolutionResidentNoImage');
+    if (prevImg) {
+        prevImg.removeAttribute('src');
+        prevImg.classList.add('hidden');
+    }
+    if (noImg) noImg.classList.remove('hidden');
+}
+
+function openResolutionDocumentationInStatusModal(concernId) {
+    pendingResolveConcernId = concernId;
+    const simple = document.getElementById('statusModalSimple');
+    const doc = document.getElementById('statusModalDocumentation');
+    const dlg = document.getElementById('statusModalDialog');
+    if (simple) simple.classList.add('hidden');
+    if (doc) doc.classList.remove('hidden');
+    if (dlg) dlg.classList.add('status-dialog--documentation');
+
+    const ta = document.getElementById('resolutionStatementInput');
+    const fi = document.getElementById('resolutionDocFile');
+    if (ta) ta.value = '';
+    if (fi) fi.value = '';
+    clearAdminDocumentationImagePreview();
+
+    const concern = concernsData.find(c => c.concern_id === concernId);
+    const prevImg = document.getElementById('resolutionResidentPreviewImg');
+    const noImg = document.getElementById('resolutionResidentNoImage');
+    const url = concern && concern.concern_image ? String(concern.concern_image).trim() : '';
+    if (url && prevImg && noImg) {
+        prevImg.src = url;
+        prevImg.classList.remove('hidden');
+        noImg.classList.add('hidden');
+        prevImg.onerror = function() {
+            prevImg.classList.add('hidden');
+            noImg.classList.remove('hidden');
+        };
+    } else if (prevImg && noImg) {
+        prevImg.removeAttribute('src');
+        prevImg.classList.add('hidden');
+        noImg.classList.remove('hidden');
+    }
+
+    const modal = document.getElementById('statusModal');
+    if (modal) {
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+    setTimeout(() => { if (ta) ta.focus(); }, 50);
+}
+
+function cancelResolutionDocumentation() {
+    closeStatusModal();
+}
+
+async function submitResolutionDocumentation() {
+    const concernId = pendingResolveConcernId;
+    const ta = document.getElementById('resolutionStatementInput');
+    const submitBtn = document.getElementById('resolutionDocSubmitBtn');
+    if (!concernId || !ta) return;
+    const trimmed = String(ta.value || '').trim();
+    if (!trimmed) {
+        ta.focus();
+        return;
+    }
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+        const fd = new FormData();
+        fd.append('action', 'resolve_with_documentation');
+        fd.append('concern_id', concernId);
+        fd.append('resolution_statement', trimmed);
+        const fi = document.getElementById('resolutionDocFile');
+        if (fi && fi.files && fi.files[0]) {
+            fd.append('resolution_doc', fi.files[0]);
+        }
+        const response = await fetch('php/concerns.php', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin'
+        });
+        const result = await response.json();
+        if (result && result.success) {
+            showStatusModal('success', 'Concern Resolved', 'Concern has been resolved successfully with your documentation.');
+            loadConcerns(currentView);
+        } else {
+            showStatusModal('error', 'Error', (result && result.message) || 'Failed to resolve concern.');
+        }
+    } catch (err) {
+        console.error('submitResolutionDocumentation', err);
+        showStatusModal('error', 'Error', 'Failed to connect to the server.');
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+/** @param {function(): void|Promise<void>} [onOk] If set, OK runs this; modal closes first unless options.keepOpen. */
+/** @param {{ keepOpen?: boolean }} [options] */
+function showStatusModal(type, title, message, onOk, options) {
+    resetStatusModalLayout();
     const modal = document.getElementById('statusModal');
     const icon = document.getElementById('statusIcon');
     const titleElement = document.getElementById('statusTitle');
     const messageElement = document.getElementById('statusMessage');
-    const okBtn = document.querySelector('.ok-btn');
+    const okBtn = document.getElementById('statusModalOkBtn') || modal.querySelector('#statusModalSimple .ok-btn');
     
     titleElement.textContent = title;
     messageElement.textContent = message;
     okBtn.textContent = 'OK';
-    okBtn.onclick = function() { closeStatusModal(); };
+    const keepOpen = options && options.keepOpen === true;
+    if (typeof onOk === 'function') {
+        okBtn.onclick = async function() {
+            if (!keepOpen) closeStatusModal();
+            await onOk();
+        };
+    } else {
+        okBtn.onclick = function() { closeStatusModal(); };
+    }
     
     switch(type) {
         case 'success': 
@@ -1761,6 +2099,7 @@ function showStatusModal(type, title, message) {
 }
 
 function closeStatusModal() {
+    resetStatusModalLayout();
     const modal = document.getElementById('statusModal');
     modal.classList.remove('show');
     modal.setAttribute('aria-hidden', 'true');
@@ -1825,6 +2164,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    const resolutionDocFile = document.getElementById('resolutionDocFile');
+    if (resolutionDocFile) {
+        resolutionDocFile.addEventListener('change', syncAdminDocumentationImagePreviewFromFile);
+    }
+
     // Notification bell
     const notificationBell = document.getElementById('notificationBell');
     if (notificationBell) {

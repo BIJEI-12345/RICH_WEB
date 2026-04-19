@@ -19,12 +19,33 @@
     border-left: 1px solid #e2e8f0 !important;
 }
 
+/* resident-info ay `overflow:hidden` sa .residents-table — pinuputol ang scroll + dulo ng folder/member grid */
+#censusTable.residents-table {
+    overflow: visible;
+}
+
+/*
+ * Folder view: huwag palawakin ang <table> nang mas malapad kaysa viewport dahil sa min-width ng .member-row
+ * (auto layout → lumalawak ang td → na-clclip ng overflow-x:hidden sa .census-main-column, walang tunay na scroll).
+ * Fixed layout + min-width:0 → ang pahalang na scroll ay nasa .members-list.
+ */
+#censusTable.residents-table:not(.census-table--flat) {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#censusTable.residents-table:not(.census-table--flat) th,
+#censusTable.residents-table:not(.census-table--flat) td {
+    min-width: 0;
+}
+
 .house-folder {
     background: #ffffff;
     border-radius: 8px;
     margin-bottom: 0.5rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
+    /* visible: hindi pinuputol ang sticky Action column sa loob ng .members-list */
+    overflow: visible;
 }
 
 .folder-header {
@@ -147,48 +168,86 @@
     gap: 0;
     border: 1px solid #e0e0e0;
     border-radius: 6px;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
     background: #ffffff;
+    /* Makikitang buo ang huling column pag nag-scroll pakanan */
+    scroll-padding-inline-end: 0.75rem;
+    padding-bottom: 2px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
+/* Mas malapad na grid + fixed na lapad ng Action para hindi matulak palabas */
 .member-row-header {
     display: grid;
-    grid-template-columns: 2fr 1.05fr 0.5fr 0.55fr 0.95fr 0.85fr 1.05fr 1.05fr 1.25fr 1.05fr 1.05fr minmax(5.25rem, 0.7fr);
+    grid-template-columns:
+        2fr 1.1fr 0.55fr 0.58fr 0.52fr 1fr minmax(7.75rem, 1fr) 0.88fr 1.1fr 1.1fr 1.35fr 1.1fr 1.1fr 8.25rem;
+    min-width: 86rem;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     background: #2c5aa0;
     color: white;
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
     border-bottom: 2px solid #1e3a5f;
 }
 
 .member-row {
     display: grid;
-    grid-template-columns: 2fr 1.05fr 0.5fr 0.55fr 0.95fr 0.85fr 1.05fr 1.05fr 1.25fr 1.05fr 1.05fr minmax(5.25rem, 0.7fr);
+    grid-template-columns:
+        2fr 1.1fr 0.55fr 0.58fr 0.52fr 1fr minmax(7.75rem, 1fr) 0.88fr 1.1fr 1.1fr 1.35fr 1.1fr 1.1fr 8.25rem;
+    min-width: 86rem;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     border-bottom: 1px solid #e0e0e0;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease;
     align-items: center;
 }
 
+.member-action-btns {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.member-block-btn {
+    background: transparent;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.member-block-btn:hover:not(:disabled) {
+    background: rgba(192, 57, 43, 0.12);
+    color: #a93226;
+}
+
+.member-block-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .member-actions-header {
-    min-width: 5.25rem;
-    overflow: visible;
-    white-space: normal;
-    text-overflow: clip;
     text-align: center;
+    line-height: 1.2;
 }
 
 .member-actions-cell {
     text-align: center;
     cursor: default;
-    min-width: 5.25rem;
-    overflow: visible;
-    white-space: normal;
 }
 
 .member-remove-btn {
@@ -229,7 +288,6 @@
 
 .member-row:hover {
     background: #f0f7ff;
-    transform: translateX(2px);
 }
 
 .member-row-cell {
@@ -240,12 +298,47 @@
     white-space: nowrap;
 }
 
-/* Action column: show full "ACTION" header + trash button (override ellipsis) */
-.member-row-header .member-row-cell.member-actions-header,
-.member-row .member-row-cell.member-actions-cell {
+/* Header: isang linya (hindi “CIVIL” / “STATUS” na dalawang linya) */
+.member-row-header .member-row-cell:not(.member-actions-header) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+/* Action column: laging nakikita sa kanan habang nagho-horizontal scroll */
+.member-row-header .member-row-cell.member-actions-header {
+    position: sticky;
+    right: 0;
+    z-index: 4;
+    min-width: 8.25rem;
+    width: 8.25rem;
+    max-width: 8.25rem;
+    box-sizing: border-box;
+    background: #2c5aa0;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.18);
     overflow: visible;
-    white-space: normal;
+    white-space: nowrap;
     text-overflow: clip;
+}
+
+.member-row .member-row-cell.member-actions-cell {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+    min-width: 8.25rem;
+    width: 8.25rem;
+    max-width: 8.25rem;
+    box-sizing: border-box;
+    background: #ffffff;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+    overflow: visible;
+    white-space: nowrap;
+    text-overflow: clip;
+}
+
+.member-row:hover .member-row-cell.member-actions-cell {
+    background: #f0f7ff;
 }
 
 .member-name-cell {
@@ -262,7 +355,8 @@
 .member-occupation-cell,
 .member-workplace-cell,
 .member-disabilities-cell,
-.member-benefits-cell {
+.member-benefits-cell,
+.member-indigenous-cell {
     color: #2c5aa0;
     font-size: 0.75rem;
 }
@@ -300,7 +394,7 @@
     margin-left: 0.25rem;
 }
 
-/* Ensure no overlap with table container */
+/* Ensure no overlap with table container (census main column overrides margin para sa flex footer) */
 .table-container {
     margin-bottom: 0.5rem;
 }
@@ -317,28 +411,10 @@
         font-size: 0.95rem;
     }
     
-    .member-row-header {
-        grid-template-columns: 1fr;
-        gap: 0.25rem;
-        padding: 0.5rem;
-        font-size: 0.7rem;
-    }
-    
+    /* Keep census member table as one horizontal row — scroll instead of stacking */
+    .member-row-header,
     .member-row {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-        padding: 0.75rem;
-    }
-    
-    .member-row-cell {
-        font-size: 0.85rem;
-        white-space: normal;
-    }
-    
-    .member-row-cell::before {
-        content: attr(data-label) ': ';
-        font-weight: 600;
-        color: #2c5aa0;
+        min-width: 86rem;
     }
 }
 
@@ -414,6 +490,29 @@
 
 .census-add-grid .census-field.full {
     grid-column: 1 / -1;
+}
+
+.census-field--checkbox .census-checkbox-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    margin-top: 0.15rem;
+}
+
+.census-field--checkbox input[type='checkbox'] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: #2c5aa0;
+    cursor: pointer;
+}
+
+.census-checkbox-hint {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #64748b;
+    line-height: 1.35;
+    max-width: 36rem;
 }
 
 .census-add-grid .census-field span {
@@ -556,29 +655,525 @@
     }
 }
 
-/* Add Resident + cascading filters (tabi sa kanan ng Add Resident) */
-.census-add-and-filters {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.45rem;
-    min-width: 0;
+/* Census: sidebar + main column — parang Analytics (fixed filter sidebar sa gilid ng viewport) */
+#censusFilterCategoryInput {
+    display: none;
 }
 
-.census-filter-bar {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.45rem;
-    min-width: 0;
+.page-container > .main-content-container:has(#censusPageLayout) {
+    padding-left: 0;
+    padding-right: 0;
+    max-width: none;
+    width: 100%;
+    flex: 1 1 0%;
+    min-height: 0;
 }
 
-/* Unang dropdown + pangalawang control: parehong lapad (11rem) */
-#censusFilterCategory.census-filter-select {
-    width: 9.5rem;
-    min-width: 9.5rem;
-    max-width: 9.5rem;
+.census-page-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 1rem 1.5rem 0;
     box-sizing: border-box;
+    flex: 1 1 0%;
+    min-height: 0;
+    height: 100%;
+    max-height: calc(100dvh - 80px);
+}
+
+.census-sidebar-wrap {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 260px;
+    max-width: 260px;
+    width: 100%;
+    box-sizing: border-box;
+    align-self: stretch;
+    overflow-x: hidden;
+    transition: flex-basis 0.3s ease, max-width 0.3s ease, opacity 0.25s ease, transform 0.3s ease;
+}
+
+.census-page-layout.is-sidebar-collapsed .census-sidebar-wrap {
+    flex: 0 0 0;
+    max-width: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    pointer-events: none;
+}
+
+/* Card: pareho ng visual language sa analytics sidebar */
+.census-sidebar-wrap .census-sidebar-card.census-filter-sidebar {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.census-sidebar-card {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, transparent 42%),
+        linear-gradient(165deg, rgba(44, 90, 160, 0.09) 0%, rgba(30, 58, 95, 0.05) 45%, rgba(226, 232, 240, 0.65) 100%);
+    border-radius: 0 16px 16px 0;
+    padding: 0 0 1rem 0;
+    border: 1px solid rgba(44, 90, 160, 0.2);
+    border-left: none;
+    box-shadow:
+        4px 6px 28px rgba(30, 58, 95, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Walang negative margin — pantay ang gilid sa .census-sidebar-inner; hindi lumalampas sa wrap */
+.census-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 1.15rem 0.75rem 1rem 0.75rem;
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 52%, #172554 100%);
+    border-radius: 0 16px 0 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 6px 18px rgba(30, 58, 95, 0.28);
+}
+
+.census-sidebar-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.94);
+    margin: 0;
+    padding: 0;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.census-sidebar-hide-btn {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.census-sidebar-hide-btn:hover {
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.55);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.census-sidebar-inner {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 38%),
+        linear-gradient(165deg, rgba(44, 90, 160, 0.08) 0%, rgba(30, 58, 95, 0.06) 48%, rgba(226, 232, 242, 0.92) 100%);
+    /* Paluwag sa kaliwa/kanan — hindi dumikit sa scrollbar o sa gilid ng card */
+    padding: 0.85rem 0.75rem 1.15rem 0.75rem;
+    margin-top: 0.35rem;
+    border-top: 1px solid rgba(44, 90, 160, 0.12);
+    scrollbar-gutter: stable;
+}
+
+.census-filter-sidebar .census-filter-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    position: static;
+    box-sizing: border-box;
+}
+
+.census-toolbar-slot {
+    min-width: 0;
+    flex-shrink: 0;
+}
+
+.census-main-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Buong resident-management-container ang scroll area (header + table + stats); house-folder-row sa natural flow */
+.resident-management-container.census-main-column {
+    flex: 1 1 0%;
+    min-height: 0;
+    max-height: calc(100dvh - 80px);
+    /* auto: fallback kung may lumampas na content; folder table ay fixed-layout na para scroll sa .members-list */
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    /* Mas malaki ang table area vs default 2rem padding sa .resident-management-container */
+    padding: 1rem 1.25rem 1rem 1.5rem;
+    box-sizing: border-box;
+}
+
+/* Mas kompak ang itaas — mas maraming row na kita bago mag-scroll */
+.resident-management-container.census-main-column .page-header {
+    margin-bottom: 0.75rem;
+}
+
+.resident-management-container.census-main-column .page-header h2 {
+    font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+    margin-bottom: 0.25rem;
+}
+
+.resident-management-container.census-main-column .page-header p {
+    font-size: 0.95rem;
+    margin-bottom: 0;
+}
+
+.resident-management-container.census-main-column .action-buttons {
+    margin-bottom: 0.65rem;
+    gap: 0.5rem;
+}
+
+.resident-management-container.census-main-column .census-toolbar-slot {
+    margin-bottom: 0.35rem;
+}
+
+.resident-management-container.census-main-column > .search-container {
+    margin-bottom: 0.4rem;
+}
+
+.resident-management-container.census-main-column > .census-statistics {
+    margin-bottom: 0.35rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+}
+
+.resident-management-container.census-main-column > .page-header,
+.resident-management-container.census-main-column > .action-buttons,
+.resident-management-container.census-main-column > .census-toolbar-slot {
+    flex-shrink: 0;
+}
+
+.census-page-layout.is-sidebar-collapsed .census-main-column {
+    padding-left: 0;
+}
+
+.census-sidebar-show-btn {
+    flex: 0 0 42px;
+    width: 42px;
+    align-self: flex-start;
+    position: sticky;
+    top: 92px;
+    margin-top: 0.35rem;
+    height: 52px;
+    padding: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 12px 12px 0;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-left: none;
+    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 55%, #172554 100%);
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow:
+        2px 4px 18px rgba(30, 58, 95, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    z-index: 5;
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.census-sidebar-show-btn:hover {
+    background: linear-gradient(135deg, #357ab8 0%, #2a4f7a 52%, #1e3a5f 100%);
+    color: #ffffff;
+    box-shadow:
+        3px 6px 22px rgba(30, 58, 95, 0.48),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transform: translateX(1px);
+}
+
+.census-sidebar-show-btn:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.95);
+    outline-offset: 2px;
+}
+
+.census-page-layout.is-sidebar-collapsed .census-sidebar-show-btn:not([hidden]) {
+    display: flex;
+}
+
+@media (min-width: 961px) {
+    /* Scroll sa .census-sidebar-inner lang — may padding ang content, hindi tinatabunan ng scrollbar */
+    .census-sidebar-wrap {
+        position: fixed;
+        left: 0;
+        top: 80px;
+        width: 260px;
+        max-width: 260px;
+        height: calc(100vh - 80px);
+        z-index: 50;
+        align-self: flex-start;
+        overflow: visible;
+        flex: none;
+        transition:
+            transform 0.3s ease,
+            opacity 0.25s ease,
+            visibility 0.25s ease,
+            width 0.3s ease,
+            max-width 0.3s ease;
+    }
+
+    .census-page-layout.is-sidebar-collapsed .census-sidebar-wrap {
+        flex: none;
+        max-width: 260px;
+        width: 260px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-100%);
+        overflow: hidden;
+    }
+
+    .census-main-column {
+        margin-left: 260px;
+        width: auto;
+    }
+
+    .census-page-layout.is-sidebar-collapsed .census-main-column {
+        margin-left: 52px;
+        padding-left: 1rem;
+    }
+
+    /* Parehong inset sa magkabilang gilid ng viewport tulad ng 52px strip + 1rem sa kaliwa */
+    .census-page-layout.is-sidebar-collapsed {
+        padding-right: calc(1rem + 52px);
+    }
+
+    .census-page-layout.is-sidebar-collapsed .resident-management-container {
+        max-width: none;
+        width: 100%;
+    }
+
+    .census-sidebar-show-btn {
+        position: fixed;
+        left: 0;
+        top: 96px;
+        z-index: 51;
+        margin-top: 0;
+        align-self: auto;
+    }
+
+    .census-page-layout.is-sidebar-collapsed .census-sidebar-show-btn:not([hidden]) {
+        top: 80px;
+        width: 52px;
+        min-width: 52px;
+        max-width: 52px;
+        height: 44px;
+        flex-basis: 44px;
+        border-radius: 0 12px 12px 0;
+        margin-top: 0;
+        box-shadow:
+            2px 5px 20px rgba(30, 58, 95, 0.42),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+}
+
+/* Search → stats → table: direct children ng scrollable resident-management-container */
+.resident-management-container.census-main-column > .search-container {
+    flex-shrink: 0;
+}
+
+.resident-management-container.census-main-column > .table-container {
+    flex: 1 1 auto;
+    /* ~10 rows + thead: tinataya ~42px/row; umuugnay sa taas ng viewport */
+    min-height: min(40rem, calc(100dvh - 16.5rem));
+    min-width: 0;
+    margin-bottom: 0 !important;
+    overflow-y: visible !important;
+    overflow-x: visible;
+}
+
+.resident-management-container.census-main-column > .census-statistics {
+    flex-shrink: 0;
+}
+
+/* Flat na listahan: pahalang na scroll sa wrapper; vertical scroll sa #censusMainScroll */
+.table-container.census-list-flat {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline-end: 0.75rem;
+    /* Flex child: dapat hindi lumawak ang wrapper nang buong lapad ng table — para lumitaw ang scrollbar sa ibaba */
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+/* Mas mataas na specificity kaysa sa rule sa itaas (na may overflow-x: visible) */
+.resident-management-container.census-main-column > .table-container.census-list-flat {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline-end: 0.75rem;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+}
+
+#censusTable.census-table--flat.residents-table {
+    display: table;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+
+#censusTable.census-table--flat .census-flat-member-row {
+    cursor: pointer;
+}
+
+#censusTable.census-table--flat .census-flat-member-row:hover {
+    background: #f0f4ff;
+}
+
+#censusTable.census-table--flat td.census-flat-address {
+    white-space: normal;
+    max-width: 22rem;
+    vertical-align: top;
+    line-height: 1.35;
+}
+
+#censusTable.census-table--flat th.census-flat-actions-col,
+#censusTable.census-table--flat td.census-flat-actions {
+    position: sticky;
+    right: 0;
+    white-space: nowrap;
+    min-width: 6.75rem;
+    vertical-align: middle;
+    z-index: 2;
+}
+
+#censusTable.census-table--flat th.census-flat-actions-col {
+    z-index: 3;
+    background: #2c5aa0;
+    color: #fff;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.15);
+}
+
+#censusTable.census-table--flat td.census-flat-actions {
+    background: #fff;
+    box-shadow: -6px 0 10px rgba(15, 23, 42, 0.08);
+}
+
+#censusTable.census-table--flat .census-flat-member-row:hover td.census-flat-actions {
+    background: #f0f4ff;
+}
+
+.census-filter-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.45rem;
+    margin-bottom: 0;
+}
+
+.action-buttons .census-filter-sitio-action {
+    align-self: center;
+    min-width: 9.5rem;
+    max-width: 14rem;
+}
+
+.census-filter-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    flex-shrink: 0;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+}
+
+/* Pareho sa USERS/CENSUS: inactive = blue bg white text; active = white bg blue text + border */
+.census-filter-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+    min-height: 2.85rem;
+    padding: 0.65rem 0.85rem;
+    border: 2px solid #2c5aa0;
+    border-radius: 10px;
+    background: #2c5aa0;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 500;
+    line-height: 1.35;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.census-filter-tab:hover:not(.is-active) {
+    background: #1e3a5f;
+    border-color: #1e3a5f;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.35);
+}
+
+.census-filter-tab:focus-visible {
+    outline: 2px solid #2c5aa0;
+    outline-offset: 2px;
+}
+
+.census-filter-tab.is-active {
+    background: #fff;
+    border-color: #2c5aa0;
+    color: #2c5aa0;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.census-filter-tab.is-active:hover {
+    background: #f0f4ff;
+    border-color: #2c5aa0;
+    color: #2c5aa0;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.2);
 }
 
 .census-filter-select {
@@ -594,39 +1189,131 @@
 
 .census-filter-sub-wrap {
     display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.45rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 0.65rem;
     min-width: 0;
 }
 
-/* Pangalawang control: same width tulad ng unang dropdown (hindi lumalawak dahil sa mahahabang option text) */
+/* Hanapin + dropdown (row); solo parent field sumasaklaw kung nag-iisa */
 .census-filter-sub-wrap .census-filter-sub-field {
-    width: 9.5rem;
-    min-width: 9.5rem;
-    max-width: 9.5rem;
+    flex: 1 1 12rem;
+    width: auto;
+    min-width: 0;
+    min-height: 2.75rem;
+    max-width: min(100%, 24rem);
+    padding: 0.62rem 0.75rem;
     box-sizing: border-box;
+}
+
+.census-filter-sub-wrap #censusFilterSubSearch.census-filter-sub-field {
+    flex: 1 1 11rem;
+    max-width: min(100%, 20rem);
+}
+
+.census-filter-sub-wrap #censusFilterSub.census-filter-sub-field {
+    flex: 1 1 14rem;
+    min-width: min(100%, 11rem);
+}
+
+#censusFilterSubSearch.census-filter-sub-field {
+    font-size: 0.85rem;
 }
 
 .census-filter-sub-wrap[hidden] {
     display: none !important;
 }
 
-.census-filter-search-btn {
-    padding: 0.55rem 1rem !important;
-    font-size: 0.9rem !important;
-}
-
-@media (max-width: 640px) {
-    .census-filter-bar {
-        flex-direction: column;
-        align-items: stretch;
+@media (max-width: 960px) {
+    .resident-management-container.census-main-column > .table-container {
+        min-height: min(28rem, calc(100dvh - 14rem));
     }
 
-    #censusFilterCategory.census-filter-select {
+    .resident-management-container.census-main-column {
+        max-height: none;
+        padding: 0.85rem 0.75rem 1rem;
+    }
+
+    .census-page-layout {
+        flex-direction: column;
+        padding: 0 0.75rem 1.25rem 0;
+        max-height: none;
+        height: auto;
+    }
+
+    .census-sidebar-wrap {
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        height: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        flex: 0 0 auto !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        overflow: visible !important;
+    }
+
+    .census-page-layout.is-sidebar-collapsed .census-sidebar-wrap {
+        display: none;
+    }
+
+    .census-page-layout.is-sidebar-collapsed .census-sidebar-show-btn:not([hidden]) {
+        display: flex;
+    }
+
+    .census-main-column {
+        margin-left: 0 !important;
+        padding-left: 0 !important;
         width: 100%;
-        max-width: 100%;
-        min-width: 0;
+    }
+
+    .census-sidebar-show-btn {
+        position: relative !important;
+        left: auto !important;
+        top: auto;
+        align-self: center;
+        margin: 0 0 0.75rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        width: auto;
+        min-width: 160px;
+        padding: 0 1rem;
+        background: linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 55%, #172554 100%);
+        color: #ffffff;
+        box-shadow:
+            0 4px 18px rgba(30, 58, 95, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    }
+
+    .census-sidebar-show-btn:hover {
+        background: linear-gradient(135deg, #357ab8 0%, #2a4f7a 52%, #1e3a5f 100%);
+        color: #ffffff;
+    }
+
+    .census-sidebar-card.census-filter-sidebar {
+        border-radius: 16px;
+        border-left: 1px solid rgba(44, 90, 160, 0.2);
+    }
+
+    .census-sidebar-head {
+        border-radius: 16px 16px 0 0;
+    }
+
+    .census-filter-sidebar .census-filter-tabs {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .census-filter-tab {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: min(100%, 8rem);
+        min-height: 2.65rem;
     }
 
     .census-filter-select {
@@ -635,23 +1322,70 @@
 
     .census-filter-sub-wrap {
         width: 100%;
+        flex-direction: column;
+        align-items: stretch;
     }
 
     .census-filter-sub-wrap .census-filter-sub-field {
         width: 100%;
         max-width: 100%;
         min-width: 0;
+        flex: 1 1 auto;
     }
+}
 
-    .census-filter-search-btn {
-        width: 100%;
-        justify-content: center;
+/* Scroll-to-top — scroll target ay #censusMainScroll (.resident-management-container.census-main-column) */
+.scroll-to-top-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: max(1rem, env(safe-area-inset-right, 0px));
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e3a5f, #2c5aa0);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    font-size: 1.2rem;
+}
+
+.scroll-to-top-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-to-top-btn.show {
+    display: flex;
+}
+
+.scroll-to-top-btn:focus-visible {
+    outline: 2px solid rgba(147, 197, 253, 0.95);
+    outline-offset: 2px;
+}
+
+@media (max-width: 960px) {
+    .scroll-to-top-btn {
+        bottom: 1rem;
+        right: 1rem;
+        width: 40px;
+        height: 40px;
     }
 }
 
 @media print {
-    .census-add-and-filters,
-    .census-filter-bar {
+    .census-sidebar-wrap,
+    .census-sidebar-show-btn,
+    .census-filter-sidebar,
+    .census-toolbar-slot,
+    .census-filter-toolbar,
+    #censusFilterSitio,
+    .scroll-to-top-btn {
         display: none !important;
     }
 

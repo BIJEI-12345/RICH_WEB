@@ -30,14 +30,56 @@
         </header>
 
         <div class="main-content-container">
-            <main class="main-content">
+            <div class="analytics-page-layout" id="analyticsPageLayout">
+                <div class="analytics-sidebar-wrap no-print">
+                <aside class="analytics-sidebar" aria-label="Report sections">
+                    <div class="analytics-sidebar-head">
+                        <span class="analytics-sidebar-title">Reports</span>
+                        <button type="button" class="analytics-sidebar-hide-btn no-print" id="analyticsSidebarHide" aria-expanded="true" aria-controls="analyticsSidebarInner" title="Hide sidebar" aria-label="Hide reports sidebar">
+                            <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="analytics-sidebar-inner" id="analyticsSidebarInner">
+                    <nav class="analytics-tab-nav" aria-label="Analytics sections" role="tablist">
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnDocuments" role="tab" aria-selected="false" aria-controls="analyticsPanelDocuments" data-tab="documents" title="Document Requests">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-file-alt"></i></span>
+                            <span class="analytics-tab-btn-text">Document Requests</span>
+                        </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnConcerns" role="tab" aria-selected="false" aria-controls="analyticsPanelConcerns" data-tab="concerns" title="Concerns">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-comments"></i></span>
+                            <span class="analytics-tab-btn-text">Concerns</span>
+                        </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnEmergency" role="tab" aria-selected="false" aria-controls="analyticsPanelEmergency" data-tab="emergency" title="Emergency Reports">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></span>
+                            <span class="analytics-tab-btn-text">Emergency Reports</span>
+                        </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnCensus" role="tab" aria-selected="false" aria-controls="analyticsPanelCensus" data-tab="census" title="Census">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-users"></i></span>
+                            <span class="analytics-tab-btn-text">Census</span>
+                        </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnUsers" role="tab" aria-selected="false" aria-controls="analyticsPanelUsers" data-tab="users" title="Active Users">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-user-clock"></i></span>
+                            <span class="analytics-tab-btn-text">Active Users</span>
+                        </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnJobseeker" role="tab" aria-selected="false" aria-controls="analyticsPanelJobseeker" data-tab="jobseeker" title="Jobseeker Report">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-briefcase"></i></span>
+                            <span class="analytics-tab-btn-text">Jobseeker Report</span>
+                        </button>
+                    </nav>
+                    </div>
+                </aside>
+                </div>
+                <button type="button" class="analytics-sidebar-show-btn no-print" id="analyticsSidebarShow" hidden title="Show reports sidebar" aria-label="Show reports sidebar" aria-expanded="false">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+                <main class="main-content analytics-main-column">
                 <section class="analytics-section">
                     <div class="analytics-main-area">
                         <header class="analytics-topbar">
                             <div>
                                 <p class="detail-tag">Insights</p>
                                 <h3 class="analytics-title">Analytics</h3>
-                                <p class="detail-text">Choose a section and review the latest counts, resolutions, and document traffic.</p>
+                                <p class="detail-text">Choose a report in the sidebar. Charts and tables appear here. Use the month/year controls when a section is open.</p>
                             </div>
                             <div class="analytics-actions sticky-actions">
                                 <span class="analytics-meta" id="analyticsScopeLabel">Updated —</span>
@@ -55,68 +97,12 @@
                             </div>
                         </header>
                         <div class="analytics-tables-section">
-                            <div class="analytics-table-container">
-                                <div class="table-header">
-                                    <div>
-                                        <h5>Concerns</h5>
-                                        <p class="table-subtitle" id="activitySummarySubtitle">—</p>
+                                <div class="analytics-tab-main">
+                                    <div id="analyticsTabPlaceholder" class="analytics-tab-placeholder" role="status">
+                                        <p class="analytics-tab-placeholder-text"><i class="fas fa-chart-line" aria-hidden="true"></i> All sections are closed. Pick a report in the sidebar to show charts and tables here.</p>
                                     </div>
-                                    <button type="button" class="btn outline no-print" id="printConcernsTable">
-                                        <i class="fas fa-print"></i> Print
-                                    </button>
-                                </div>
-                                <div class="table-wrapper">
-                                    <table class="analytics-comparison-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Period</th>
-                                                <th>Reported</th>
-                                                <th>This month vs Previous month</th>
-                                                <th>Resolved</th>
-                                                <th>This month vs Previous month</th>
-                                                <th>% Resolved</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="activitySummaryTableBody">
-                                            <tr>
-                                                <td colspan="6" class="table-loading">Loading...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="analytics-table-chart" id="concernsTableChart" aria-label="Concerns bar chart"></div>
-                            </div>
-                            <div class="analytics-table-container">
-                                <div class="table-header">
-                                    <div>
-                                        <h5>Emergency Alerts</h5>
-                                        <p class="table-subtitle" id="emergencyAlertsSubtitle">—</p>
-                                    </div>
-                                    <button type="button" class="btn outline no-print" id="printEmergencyTable">
-                                        <i class="fas fa-print"></i> Print
-                                    </button>
-                                </div>
-                                <div class="table-wrapper">
-                                    <table class="analytics-comparison-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Period</th>
-                                                <th>Reported</th>
-                                                <th>This month vs Previous month</th>
-                                                <th>Resolved</th>
-                                                <th>This month vs Previous month</th>
-                                                <th>% Resolved</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="emergencyAlertsTableBody">
-                                            <tr>
-                                                <td colspan="6" class="table-loading">Loading...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <div class="analytics-table-chart" id="emergencyTableChart" aria-label="Emergency alerts bar chart"></div>
-                            </div>
+
+                                    <div id="analyticsPanelDocuments" class="analytics-tab-panel" data-tab-panel="documents" role="tabpanel" aria-labelledby="analyticsTabBtnDocuments" hidden>
                             <div class="analytics-table-container">
                                 <div class="table-header">
                                     <div>
@@ -127,79 +113,324 @@
                                         <i class="fas fa-print"></i> Print
                                     </button>
                                 </div>
+                                <div class="analytics-chart-toolbar no-print">
+                                    <div class="analytics-chart-toolbar-primary">
+                                        <div class="chart-visibility-toggle" role="group" aria-label="Document requests — show charts">
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-doc-chart-visibility="bar" aria-pressed="true" title="Show or hide bar chart"><i class="fas fa-chart-bar" aria-hidden="true"></i> Bar</button>
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-doc-chart-visibility="pie" aria-pressed="true" title="Show or hide pie chart"><i class="fas fa-chart-pie" aria-hidden="true"></i> Pie</button>
+                                        </div>
+                                        <label class="analytics-chart-toolbar-field">
+                                            <span>Document type</span>
+                                            <select id="documentRequestsDocFilter" aria-label="Filter — document type">
+                                                <option value="">All (total)</option>
+                                                <option value="Barangay ID">Barangay ID</option>
+                                                <option value="COE">COE</option>
+                                                <option value="Certification">Certification</option>
+                                                <option value="Clearance">Clearance</option>
+                                                <option value="Indigency">Indigency</option>
+                                            </select>
+                                        </label>
+                                        <label class="analytics-chart-toolbar-field">
+                                            <span>Sitio</span>
+                                            <select id="documentRequestsSitioFilter" aria-label="Filter — sitio">
+                                            </select>
+                                        </label>
+                                        <div class="pie-chart-extra pie-chart-extra--documents" id="documentsPieExtra" hidden>
+                                            <label class="analytics-chart-toolbar-field documents-pie-metric-field"><span>Show (pie)</span>
+                                                <select id="documentsPieMetric" aria-label="Pie metric — documents">
+                                                    <option value="month">This month</option>
+                                                    <option value="year">This year</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="document-requests-charts-box analytics-table-chart" id="documentRequestsChartsBox" aria-label="Document requests — bar and pie">
+                                    <div id="documentRequestsBarHost" class="doc-chart-host"></div>
+                                    <div id="documentRequestsPieHost" class="doc-chart-host"></div>
+                                </div>
+                            </div>
+                                        <div class="analytics-secondary-grid analytics-secondary-grid--in-documents-tab">
+                            <div class="analytics-panel">
+                                <h5>Document Requests Breakdown</h5>
+                                <p class="panel-subtitle" id="docBreakdownMonthLabel">This Month</p>
+                                <ul class="document-breakdown" id="analyticsDocMonth">
+                                    <li>Loading...</li>
+                                </ul>
+                                <p class="panel-subtitle" id="docBreakdownYearLabel">This Year</p>
+                                <ul class="document-breakdown" id="analyticsDocYear">
+                                    <li>Loading...</li>
+                                </ul>
+                            </div>
+                        </div>
+                                    </div>
+
+                                    <div id="analyticsPanelConcerns" class="analytics-tab-panel" data-tab-panel="concerns" role="tabpanel" aria-labelledby="analyticsTabBtnConcerns" hidden>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Concerns</h5>
+                                        <p class="table-subtitle" id="activitySummarySubtitle">—</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printConcernsTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="analytics-chart-toolbar no-print">
+                                    <div class="analytics-chart-toolbar-primary">
+                                        <div class="chart-visibility-toggle" role="group" aria-label="Concerns — show charts">
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-concerns-chart-visibility="bar" aria-pressed="true" title="Show or hide bar chart"><i class="fas fa-chart-bar" aria-hidden="true"></i> Bar</button>
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-concerns-chart-visibility="pie" aria-pressed="true" title="Show or hide pie chart"><i class="fas fa-chart-pie" aria-hidden="true"></i> Pie</button>
+                                        </div>
+                                        <label class="analytics-chart-toolbar-field concerns-sitio-toolbar-field">
+                                            <span>Sitio</span>
+                                            <div class="concerns-sitio-control-slot">
+                                                <select id="concernsSitioFilter" aria-label="Filter — sitio (Concerns)">
+                                                    <option value="">All sitios</option>
+                                                </select>
+                                            </div>
+                                        </label>
+                                        <label class="analytics-chart-toolbar-field no-print" id="concernsBarScopeWrap" hidden>
+                                            <span>Scope</span>
+                                            <select id="concernsBarScope" aria-label="Scope — Concerns (bar chart and pie by sitio)">
+                                                <option value="month">This month</option>
+                                                <option value="year">This year</option>
+                                            </select>
+                                        </label>
+                                        <div class="pie-chart-extra pie-chart-extra--stacked" id="concernsPieExtra" hidden>
+                                        <div class="concerns-pie-stack">
+                                            <div class="concerns-pie-row pie-chart-toolbar-field" id="concernsPieSitioTopWrap" hidden>
+                                                <span class="concerns-pie-label">Show</span>
+                                                <div class="concerns-pie-control-slot">
+                                                    <select id="concernsPieSitioTop" class="concerns-pie-select" aria-label="Filter by sitio">
+                                                        <option value="all">All sitios</option>
+                                                        <option value="1">Top 1 High</option>
+                                                        <option value="2">Top 2 High</option>
+                                                        <option value="3">Top 3 High</option>
+                                                        <option value="4">Top 4 High</option>
+                                                        <option value="5">Top 5 High</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <hr class="concerns-pie-sep" aria-hidden="true" />
+                                            <div class="concerns-pie-row pie-chart-toolbar-field" id="concernsPieSitioMetricWrap">
+                                                <span class="concerns-pie-label">Metric</span>
+                                                <select id="concernsPieSitioMetric" class="concerns-pie-select" aria-label="Metric — Concerns per sitio">
+                                                    <option value="all">All Concerns</option>
+                                                    <option value="resolved">Resolved</option>
+                                                    <option value="unresolved">Unresolved</option>
+                                                    <option value="revoked">Revoked</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="document-requests-charts-box analytics-table-chart" id="concernsChartsBox" aria-label="Concerns — bar and pie">
+                                    <div id="concernsBarHost" class="doc-chart-host"></div>
+                                    <div id="concernsPieHost" class="doc-chart-host"></div>
+                                </div>
+                            </div>
+                                    </div>
+
+                                    <div id="analyticsPanelEmergency" class="analytics-tab-panel" data-tab-panel="emergency" role="tabpanel" aria-labelledby="analyticsTabBtnEmergency" hidden>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Emergency Reports</h5>
+                                        <p class="table-subtitle" id="emergencyAlertsSubtitle">—</p>
+                                    </div>
+                                    <button type="button" class="btn outline no-print" id="printEmergencyTable">
+                                        <i class="fas fa-print"></i> Print
+                                    </button>
+                                </div>
+                                <div class="analytics-chart-toolbar no-print">
+                                    <div class="analytics-chart-toolbar-primary">
+                                        <div class="chart-visibility-toggle" role="group" aria-label="Emergency — show charts">
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-emergency-chart-visibility="bar" aria-pressed="true" title="Show or hide bar chart"><i class="fas fa-chart-bar" aria-hidden="true"></i> Bar</button>
+                                            <button type="button" class="btn outline chart-visibility-btn is-active" data-emergency-chart-visibility="heatmap" aria-pressed="true" title="Show or hide heat map"><i class="fas fa-th" aria-hidden="true"></i> Heat map</button>
+                                        </div>
+                                        <label class="analytics-chart-toolbar-field">
+                                            <span>Sitio</span>
+                                            <select id="emergencySitioFilter" aria-label="Filter — sitio (Emergency)">
+                                                <option value="">All sitios</option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                </div>
+                                <p class="document-requests-filter-hint no-print" id="emergencyFilterHint" role="note">
+                                    <strong>Sitio</strong>: choose one sitio for a breakdown for that area only; leave <em>All sitios</em> for the whole barangay. Bar and heat map can both be on (toggle Bar / Heat map).
+                                </p>
+                                <div class="document-requests-charts-box analytics-table-chart" id="emergencyChartsBox" aria-label="Emergency — bar and heat map">
+                                    <div id="emergencyBarHost" class="doc-chart-host"></div>
+                                    <div id="emergencyHeatmapHost" class="doc-chart-host"></div>
+                                </div>
+                            </div>
+                                    </div>
+
+                                    <div id="analyticsPanelCensus" class="analytics-tab-panel" data-tab-panel="census" role="tabpanel" aria-labelledby="analyticsTabBtnCensus" hidden>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Census</h5>
+                                        <p class="table-subtitle" id="censusAnalyticsSubtitle">—</p>
+                                    </div>
+                                    <a href="census.html" class="btn outline no-print">Open Census</a>
+                                </div>
+                                <div class="analytics-census-summary" id="censusAnalyticsSummary" aria-live="polite"></div>
+                                <section class="analytics-census-demographics" id="censusAnalyticsDemographics" aria-label="Census demographic totals"></section>
                                 <div class="table-wrapper">
-                                    <table class="analytics-comparison-table">
+                                    <table class="analytics-users-table analytics-census-by-sitio-table">
                                         <thead>
                                             <tr>
-                                                <th>Document Type</th>
-                                                <th>This Month</th>
-                                                <th>This month vs Previous month</th>
-                                                <th>This Year</th>
-                                                <th>Total</th>
+                                                <th>Sitio</th>
+                                                <th>Residents</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="documentRequestsTableBody">
+                                        <tbody id="censusAnalyticsBySitioBody">
                                             <tr>
-                                                <td colspan="5" class="table-loading">Loading...</td>
+                                                <td colspan="2" class="table-loading">Loading...</td>
                                             </tr>
                                         </tbody>
                                     </table>
                                 </div>
-                                <div class="analytics-table-chart" id="documentRequestsTableChart" aria-label="Document requests bar chart"></div>
-                            </div>
-                            <div class="analytics-table-container analytics-sitio-section">
-                                <div class="table-header">
-                                    <div>
-                                        <h5>By sitio</h5>
-                                        <p class="table-subtitle" id="sitioAnalyticsSubtitle">Pumili ng sitio; gamitin ang mga arrow para lumipat sa Concerns, Emergency, o Document requests.</p>
+                                <div class="analytics-census-senior-section" id="censusAnalyticsSeniorSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsSeniorHeading">Senior citizens (60+)</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsSeniorNote" role="note">Residents aged 60 and above, by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-seniors-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Seniors (60+)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsSeniorBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
-                                <div class="sitio-analytics-toolbar">
-                                    <button type="button" class="btn outline sitio-step-btn" id="sitioPrevBtn" title="Nakaraang sitio" aria-label="Nakaraang sitio">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </button>
-                                    <select id="analyticsSitioSelect" class="analytics-range-select sitio-select-wide" aria-label="Pumili ng sitio">
-                                        <option value="">Select Sitio</option>
-                                        <option value="AHUNIN">AHUNIN</option>
-                                        <option value="BALTAZAR">BALTAZAR</option>
-                                        <option value="BIAK NA BATO">BIAK NA BATO</option>
-                                        <option value="CALLE ONSE/SAMPAGUITA">CALLE ONSE/SAMPAGUITA</option>
-                                        <option value="COC">COC</option>
-                                        <option value="CRUSHER HIGHWAY">CRUSHER HIGHWAY</option>
-                                        <option value="INNER CRUSHER">INNER CRUSHER</option>
-                                        <option value="LOOBAN 1">LOOBAN 1</option>
-                                        <option value="LOOBAN 2">LOOBAN 2</option>
-                                        <option value="NABUS">NABUS</option>
-                                        <option value="OLD BARRIO NPC">OLD BARRIO NPC</option>
-                                        <option value="OLD BARRIO 2">OLD BARRIO 2</option>
-                                        <option value="OLD BARRIO EXT">OLD BARRIO EXT</option>
-                                        <option value="POBLACION">POBLACION</option>
-                                        <option value="KADAYUNAN">KADAYUNAN</option>
-                                        <option value="MANGGAHAN">MANGGAHAN</option>
-                                        <option value="RIVERSIDE">RIVERSIDE</option>
-                                        <option value="SETTLING">SETTLING</option>
-                                        <option value="SPAR">SPAR</option>
-                                        <option value="UPPER">UPPER</option>
-                                        <option value="ALINSANGAN">ALINSANGAN</option>
-                                        <option value="RCD">RCD</option>
-                                        <option value="BRIA PHASE 1">BRIA PHASE 1</option>
-                                        <option value="BRIA PHASE 2">BRIA PHASE 2</option>
-                                    </select>
-                                    <button type="button" class="btn outline sitio-step-btn" id="sitioNextBtn" title="Susunod na sitio" aria-label="Susunod na sitio">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </button>
+                                <div class="analytics-census-widowed-section" id="censusAnalyticsWidowedSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsWidowedHeading">Widowed</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsWidowedNote" role="note">Residents recorded as widowed (or equivalent), by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-widowed-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Widowed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsWidowedBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                                <div class="sitio-graph-type-nav">
-                                    <button type="button" class="btn outline" id="sitioGraphPrevBtn" aria-label="Nakaraang uri ng graph">
-                                        <i class="fas fa-arrow-left"></i>
-                                    </button>
-                                    <span id="sitioGraphTypeLabel" class="sitio-graph-type-label">Concerns</span>
-                                    <button type="button" class="btn outline" id="sitioGraphNextBtn" aria-label="Susunod na uri ng graph">
-                                        <i class="fas fa-arrow-right"></i>
-                                    </button>
+                                <div class="analytics-census-employed-section" id="censusAnalyticsEmployedSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsEmployedHeading">Employed</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsEmployedNote" role="note">Residents classified as employed (occupation field), by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-employed-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Employed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsEmployedBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
-                                <div class="analytics-table-chart sitio-chart-outer" id="sitioPerSitioChart" aria-label="Graph ayon sa sitio"></div>
+                                <div class="analytics-census-unemployed-section" id="censusAnalyticsUnemployedSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsUnemployedHeading">Unemployed</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsUnemployedNote" role="note">Residents classified as unemployed (occupation field), by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-unemployed-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Unemployed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsUnemployedBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="analytics-census-students-section" id="censusAnalyticsStudentsSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsStudentsHeading">Students</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsStudentsNote" role="note">Residents with student status in occupation (e.g. Student, estudyante), by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-students-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Students</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsStudentsBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="analytics-census-pwd-section" id="censusAnalyticsPwdSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsPwdHeading">PWD</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsPwdNote" role="note">Residents with PWD / disability records, by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-pwd-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>PWD</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsPwdBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="analytics-census-indigenous-section" id="censusAnalyticsIndigenousSection" hidden>
+                                    <h6 class="analytics-census-subheading" id="censusAnalyticsIndigenousHeading">Indigenous (IP)</h6>
+                                    <p class="analytics-census-senior-note no-print" id="censusAnalyticsIndigenousNote" role="note">Residents marked as indigenous (IP), by sitio (same sitio labels as above).</p>
+                                    <div class="table-wrapper">
+                                        <table class="analytics-users-table analytics-census-by-sitio-table analytics-census-indigenous-by-sitio-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Sitio</th>
+                                                    <th>Indigenous (IP)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="censusAnalyticsIndigenousBySitioBody">
+                                                <tr>
+                                                    <td colspan="2" class="table-loading">Loading...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
+                                    </div>
+
+                                    <div id="analyticsPanelUsers" class="analytics-tab-panel" data-tab-panel="users" role="tabpanel" aria-labelledby="analyticsTabBtnUsers" hidden>
                             <div class="analytics-table-container">
                                 <div class="table-header">
                                     <div>
@@ -230,6 +461,9 @@
                                     </table>
                                 </div>
                             </div>
+                                    </div>
+
+                                    <div id="analyticsPanelJobseeker" class="analytics-tab-panel" data-tab-panel="jobseeker" role="tabpanel" aria-labelledby="analyticsTabBtnJobseeker" hidden>
                             <div class="analytics-table-container">
                                 <div class="table-header">
                                     <div>
@@ -240,7 +474,7 @@
                                         <i class="fas fa-print"></i> Print
                                     </button>
                                 </div>
-                                <div class="table-wrapper">
+                                <div class="table-wrapper table-wrapper--jobseeker">
                                     <table class="analytics-comparison-table" id="jobseekerReportTable">
                                         <thead id="jobseekerReportTableHead">
                                             <tr>
@@ -255,23 +489,14 @@
                                     </table>
                                 </div>
                             </div>
-                        </div>
-                        <div class="analytics-secondary-grid">
-                            <div class="analytics-panel">
-                                <h5>Document Requests Breakdown</h5>
-                                <p class="panel-subtitle" id="docBreakdownMonthLabel">This Month</p>
-                                <ul class="document-breakdown" id="analyticsDocMonth">
-                                    <li>Loading...</li>
-                                </ul>
-                                <p class="panel-subtitle" id="docBreakdownYearLabel">This Year</p>
-                                <ul class="document-breakdown" id="analyticsDocYear">
-                                    <li>Loading...</li>
-                                </ul>
-                            </div>
+                                    </div>
+
+                                </div>
                         </div>
                     </div>
                 </section>
             </main>
+            </div>
         </div>
     </div>
     <button id="scrollToTop" class="scroll-to-top-btn" aria-label="Scroll to top" title="Scroll to top">
@@ -283,4 +508,3 @@
 
 </body>
 </html>
-

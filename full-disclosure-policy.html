@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Disclosure Policy Board - Barangay Bigte</title>
+    <link rel="icon" href="Images/logo_app_2.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="Styles/barangay-ordinance.css">
+    <link rel="stylesheet" href="Styles/full-disclosure-policy.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/userSession.js" defer></script>
+    <script src="js/audit-logger.js" defer></script>
+    <script src="js/full-disclosure-policy.js" defer></script>
+</head>
+<body>
+    <div class="page-container bo-page">
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-section">
+                    <button type="button" class="back-btn" onclick="navigateToPolicyDashboard()" title="Back to Dashboard">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <div class="logo">
+                        <img src="Images/logo.png" alt="Barangay Logo" class="logo-img">
+                    </div>
+                    <img src="Images/logoHeader.png" alt="Barangay Bigte" class="logo-header-img">
+                </div>
+            </div>
+            <div class="header-content">
+                <div class="header-actions"></div>
+            </div>
+        </header>
+
+        <div class="main-content-container">
+            <main class="bo-main">
+                <div class="bo-content-wrap">
+                <section class="bo-panel bo-panel--combined" aria-label="Full Disclosure Policy Board">
+                    <div class="bo-panel-head">
+                        <h2 class="bo-panel-title"><i class="fas fa-users" aria-hidden="true"></i> Full Disclosure Policy Board</h2>
+                        <p class="bo-panel-desc">Browse policy board images in the viewer. Admins can upload in the middle section; resident feedback for the selected page is at the bottom.</p>
+                    </div>
+
+                    <div class="bo-combined-inner">
+                        <div class="bo-gallery-block">
+                            <h3 class="bo-subsection-title"><i class="fas fa-images" aria-hidden="true"></i> Policy board images</h3>
+                            <p class="bo-subsection-desc">Large preview on top, thumbnails in the middle, arrows at the bottom.</p>
+                            <div id="fpGalleryRoot" class="bo-gallery-root" aria-live="polite"></div>
+                        </div>
+
+                        <div class="bo-upload-block" id="fpUploadSection" hidden>
+                            <h3 class="bo-subsection-title"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i> Upload</h3>
+                            <p class="bo-subsection-desc">Use the button to choose a file, preview it, then confirm to upload.</p>
+                            <form id="fpUploadForm" class="bo-upload-form" enctype="multipart/form-data">
+                                <div class="bo-upload-pick-row">
+                                    <input id="fpImageInput" name="image" type="file" class="bo-sr-only" accept="image/jpeg,image/png,image/gif,image/webp" tabindex="-1" title="">
+                                    <button type="button" id="fpPickImageBtn" class="bo-btn bo-btn--primary bo-upload-pick-btn" aria-describedby="fpUploadHint">
+                                        <i class="fas fa-image" aria-hidden="true"></i>
+                                        Upload image
+                                    </button>
+                                    <p class="bo-upload-hint" id="fpUploadHint">JPG, PNG, GIF, or WebP — max 10MB</p>
+                                </div>
+                                <div id="fpFilePreview" class="bo-preview" hidden>
+                                    <p class="bo-preview-label">Preview — confirm when ready</p>
+                                    <div class="bo-preview-frame">
+                                        <button type="button" id="fpClearPreviewBtn" class="bo-preview-dismiss" title="Remove selected image" aria-label="Remove selected image">
+                                            <i class="fas fa-times" aria-hidden="true"></i>
+                                        </button>
+                                        <img id="fpPreviewImg" alt="Selected image preview">
+                                    </div>
+                                    <div id="fpConfirmActions" class="bo-confirm-actions" hidden>
+                                        <button type="button" id="fpConfirmUploadBtn" class="bo-btn bo-btn--approve">
+                                            <i class="fas fa-check-circle" aria-hidden="true"></i>
+                                            Confirm &amp; upload
+                                        </button>
+                                        <button type="button" id="fpPickAnotherBtn" class="bo-btn bo-btn--secondary">
+                                            <i class="fas fa-folder-open" aria-hidden="true"></i>
+                                            Choose another file
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <section id="fpFeedbackSection" class="fp-feedback-section fp-feedback-section--bottom" hidden aria-label="Resident feedback for selected image">
+                            <h3 class="bo-subsection-title"><i class="fas fa-comments" aria-hidden="true"></i> Feedback for this page</h3>
+                            <p class="bo-subsection-desc fp-feedback-hint">Comments and ratings for the image currently selected in the viewer above.</p>
+                            <div id="fpFeedbackRoot"></div>
+                        </section>
+                    </div>
+                </section>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

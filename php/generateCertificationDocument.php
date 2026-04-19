@@ -7,6 +7,7 @@ ini_set('log_errors', 1);
 
 // Include required files
 require_once 'config.php';
+require_once __DIR__ . '/generated_document_temp.php';
 require_once '../vendor/autoload.php';
 
 // Start output buffering to catch any unexpected output
@@ -55,7 +56,7 @@ try {
     // First, update status to Processing if requested
     if ($updateStatus) {
         $currentTime = date('Y-m-d H:i:s');
-        $updateSql = "UPDATE certification_forms SET status = 'Processing', process_at = ? WHERE id = ?";
+        $updateSql = "UPDATE certification_forms SET status = 'Processing', process_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
         $updateStmt = $connection->prepare($updateSql);
         if (!$updateStmt) {
             throw new Exception('Failed to prepare status update query: ' . $connection->error);
@@ -163,11 +164,13 @@ try {
             // Clear any output buffer content
             ob_clean();
             
+            $t1 = rich_register_temp_download($outputPaths[0]);
+            $t2 = rich_register_temp_download($outputPaths[1]);
             echo json_encode([
                 'success' => true,
                 'message' => 'Jobseeker documents generated successfully',
-                'download_url' => 'uploads/generated_documents/certification/' . basename($outputPaths[0]),
-                'download_url_2' => 'uploads/generated_documents/certification/' . basename($outputPaths[1])
+                'download_url' => rich_temp_download_public_url($t1),
+                'download_url_2' => rich_temp_download_public_url($t2)
             ]);
         } else {
             throw new Exception('Failed to generate jobseeker documents');
@@ -184,10 +187,11 @@ try {
             // Clear any output buffer content
             ob_clean();
             
+            $tok = rich_register_temp_download($outputPath);
             echo json_encode([
                 'success' => true,
                 'message' => 'Certification document generated successfully',
-                'download_url' => 'uploads/generated_documents/certification/' . basename($outputPath)
+                'download_url' => rich_temp_download_public_url($tok)
             ]);
         } else {
             throw new Exception('Failed to generate certification document');
@@ -404,15 +408,6 @@ function generateJobseekerDocuments($data) {
         
         $outputPaths = [];
         
-        // Create output directory if it doesn't exist
-        $outputDir = '../uploads/generated_documents/certification';
-        if (!is_dir($outputDir)) {
-            error_log("Creating output directory...");
-            if (!mkdir($outputDir, 0755, true)) {
-                throw new Exception("Failed to create output directory: $outputDir");
-            }
-        }
-        
         // Generate timestamp for unique filenames
         $timestamp = date('Y-m-d_H-i-s');
         $lastName = $data['last_name'] ?? 'UNKNOWN';
@@ -431,7 +426,7 @@ function generateJobseekerDocuments($data) {
         
         // Generate CERT document
         $certFilename = "JOBSEEKER_CERT_" . $lastName . "_" . $timestamp . ".docx";
-        $certOutputPath = $outputDir . '/' . $certFilename;
+        $certOutputPath = rich_temp_docx_path($certFilename);
         
         error_log("Generating CERT document: $certOutputPath");
         if (!copy($certTemplatePath, $certOutputPath)) {
@@ -444,7 +439,7 @@ function generateJobseekerDocuments($data) {
         
         // Generate OATH document
         $oathFilename = "JOBSEEKER_OATH_" . $lastName . "_" . $timestamp . ".docx";
-        $oathOutputPath = $outputDir . '/' . $oathFilename;
+        $oathOutputPath = rich_temp_docx_path($oathFilename);
         
         error_log("Generating OATH document: $oathOutputPath");
         if (!copy($oathTemplatePath, $oathOutputPath)) {
@@ -576,17 +571,6 @@ function generateCertificationDocument($data, $purpose) {
             throw new Exception("Template file is not readable: $templatePath");
         }
         
-        // Create output directory if it doesn't exist
-        $outputDir = '../uploads/generated_documents/certification';
-        error_log("Output directory: $outputDir");
-        
-        if (!is_dir($outputDir)) {
-            error_log("Creating output directory...");
-            if (!mkdir($outputDir, 0755, true)) {
-                throw new Exception("Failed to create output directory: $outputDir");
-            }
-        }
-        
         // Generate unique filename based on purpose
         $timestamp = date('Y-m-d_H-i-s');
         
@@ -597,7 +581,7 @@ function generateCertificationDocument($data, $purpose) {
         }
         
          $filename = $filenamePrefix . "_" . $data['last_name'] . "_" . $timestamp . ".docx";
-         $outputPath = $outputDir . '/' . $filename;
+         $outputPath = rich_temp_docx_path($filename);
          
          error_log("Output path: $outputPath");
         

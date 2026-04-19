@@ -31,9 +31,37 @@
             </div>
         </header>
 
-        <!-- Main Content -->
+        <!-- Main Content — layout katulad ng Analytics: fixed filter sidebar + main column -->
         <div class="main-content-container">
-            <div class="resident-management-container">
+            <div class="census-page-layout" id="censusPageLayout">
+                <div class="census-sidebar-wrap no-print">
+                    <aside class="census-filter-sidebar census-sidebar-card" aria-label="Filter census records">
+                        <div class="census-sidebar-head">
+                            <span class="census-sidebar-title">Filter Tabs</span>
+                            <button type="button" class="census-sidebar-hide-btn no-print" id="censusSidebarHide" aria-expanded="true" aria-controls="censusSidebarInner" title="Itago ang filters" aria-label="Itago ang filters">
+                                <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="census-sidebar-inner" id="censusSidebarInner">
+                            <input type="hidden" id="censusFilterCategoryInput" value="" />
+                            <div id="censusFilterBar" class="census-filter-tabs" role="tablist" aria-label="Uri ng filter">
+                                <button type="button" class="census-filter-tab is-active" role="tab" data-cat="__all__" aria-selected="true" title="Show all — no category filter">ALL</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="beneficiaries" aria-selected="false">With Benefits</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="non_beneficiaries" aria-selected="false">Without Benefits</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="solo_parent" aria-selected="false">Solo parent</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="pwds" aria-selected="false">PWDs</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="employed" aria-selected="false">Employed</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="unemployed" aria-selected="false">Unemployed</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="senior_citizen" aria-selected="false">Senior citizen</button>
+                                <button type="button" class="census-filter-tab" role="tab" data-cat="students" aria-selected="false">Students</button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+                <button type="button" class="census-sidebar-show-btn no-print" id="censusSidebarShow" hidden title="Ipakita ang filters" aria-label="Ipakita ang filters" aria-expanded="false">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            <div class="resident-management-container census-main-column" id="censusMainScroll">
                 <div class="page-header">
                     <h2>Census Information Management</h2>
                     <p>View and manage census form records</p>
@@ -49,45 +77,31 @@
                         <i class="fas fa-clipboard-list"></i>
                         CENSUS
                     </button>
-                    <button class="action-btn search-btn" onclick="toggleSearchBar()">
-                        <i class="fas fa-search"></i>
-                        Search Census
-                    </button>
                     <button class="action-btn print-btn" onclick="printData()">
                         <i class="fas fa-print"></i>
                         Print Data
                     </button>
-                    <div class="census-add-and-filters">
                     <button type="button" class="action-btn add-resident-btn" id="addResidentBtn" onclick="openAddCensusModal()">
                         <i class="fas fa-user-plus"></i>
                         Add Resident
                     </button>
-                    <div class="census-filter-bar" id="censusFilterBar" aria-label="Filter census records">
-                        <select id="censusFilterSitio" class="census-filter-select" title="Filter by sitio">
-                            <option value="">All Sitio</option>
-                        </select>
-                        <select id="censusFilterCategory" class="census-filter-select" title="Unang filter">
-                            <option value="">Filter by…</option>
-                            <option value="age">Age</option>
-                            <option value="beneficiaries">Beneficiaries</option>
-                            <option value="non_beneficiaries">Non beneficiaries</option>
-                            <option value="solo_parent">Solo parent</option>
-                            <option value="pwds">PWDs</option>
-                        </select>
-                        <div class="census-filter-sub-wrap" id="censusFilterSubWrap" hidden>
-                            <select id="censusFilterSub" class="census-filter-select census-filter-sub-field" title="Pangalawang filter"></select>
-                            <input type="text" id="censusFilterSoloInput" class="census-filter-select census-filter-sub-field" placeholder="Optional: higit pang hanap sa status/relation…" title="Solo parent — optional na keyword pagkatapos ng widowed" hidden autocomplete="off" />
-                            <button type="button" class="action-btn census-filter-search-btn" id="censusFilterSearchBtn">
-                                <i class="fas fa-search"></i>
-                                Search
-                            </button>
-                        </div>
-                    </div>
-                    </div>
+                    <select id="censusFilterSitio" class="census-filter-select census-filter-sitio-action" title="Filter by sitio" aria-label="Filter by sitio">
+                        <option value="">All Sitio</option>
+                    </select>
                 </div>
 
+                    <div class="census-toolbar-slot">
+                        <div class="census-filter-toolbar">
+                            <div class="census-filter-sub-wrap" id="censusFilterSubWrap" hidden>
+                                <input type="text" id="censusFilterSubSearch" class="census-filter-select census-filter-sub-field" placeholder="Hanapin sa listahan…" title="Salain ang mga opsyon sa dropdown sa ibaba" hidden autocomplete="off" />
+                                <select id="censusFilterSub" class="census-filter-select census-filter-sub-field" title="Pangalawang filter"></select>
+                                <input type="text" id="censusFilterSoloInput" class="census-filter-select census-filter-sub-field" placeholder="Optional: higit pang hanap sa status/relation…" title="Solo parent — optional na keyword pagkatapos ng widowed" hidden autocomplete="off" />
+                            </div>
+                        </div>
+                    </div>
+
                 <!-- Search Bar -->
-                <div class="search-container" id="searchContainer" style="display: none;">
+                <div class="search-container" id="searchContainer">
                     <div class="search-bar">
                         <div class="search-input-container">
                             <input type="text" id="searchInput" placeholder="Search census records...">
@@ -99,6 +113,14 @@
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Census Statistics Summary -->
+                <div class="census-statistics" id="censusStatistics" style="display: none;" aria-live="polite">
+                    <span class="stat-label">Total: <span class="stat-number" id="statTotal">0</span></span>
+                    <span class="stat-label">Male: <span class="stat-number" id="statMale">0</span></span>
+                    <span class="stat-label">Female: <span class="stat-number" id="statFemale">0</span></span>
+                    <span class="stat-label">PWDs: <span class="stat-number" id="statDisabilities">0</span></span>
                 </div>
 
                 <!-- Census Table -->
@@ -119,25 +141,7 @@
                         </tbody>
                     </table>
                 </div>
-
-                <!-- Census Statistics Summary -->
-                <div class="census-statistics" id="censusStatistics" style="display: none;">
-                    <span class="stat-label">Total: <span class="stat-number" id="statTotal">0</span></span>
-                    <span class="stat-label">Male: <span class="stat-number" id="statMale">0</span></span>
-                    <span class="stat-label">Female: <span class="stat-number" id="statFemale">0</span></span>
-                    <span class="stat-label">PWDs: <span class="stat-number" id="statDisabilities">0</span></span>
-                </div>
-
-                <!-- Pagination -->
-                <div class="pagination">
-                    <button class="page-btn" onclick="previousPage()">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <span class="page-info" id="pageInfo">Page 1 of 1</span>
-                    <button class="page-btn" onclick="nextPage()">
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -192,6 +196,13 @@
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
                         </select>
+                    </label>
+                    <label class="census-field census-field--checkbox">
+                        <span>Indigenous Peoples (IP)</span>
+                        <span class="census-checkbox-wrap">
+                            <input type="checkbox" id="add_indigenous" name="indigenous" value="1" aria-describedby="add_indigenous_hint">
+                            <span id="add_indigenous_hint" class="census-checkbox-hint">Check if the resident is a member of an Indigenous Peoples group.</span>
+                        </span>
                     </label>
                     <label class="census-field">
                         <span>Civil status <abbr title="required">*</abbr></span>
@@ -295,6 +306,10 @@
             </div>
         </div>
     </div>
+
+    <button type="button" id="censusScrollToTop" class="scroll-to-top-btn no-print" aria-label="Balik sa taas ng listahan" title="Balik sa taas ng listahan">
+        <i class="fas fa-arrow-up" aria-hidden="true"></i>
+    </button>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="js/userSession.js" defer></script>

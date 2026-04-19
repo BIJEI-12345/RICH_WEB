@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing dashboard...');
     console.log('Emergency page loaded successfully!');
     loadEmergencyData();
+    loadEmergencyMonthlyInterpretation();
     setupEventListeners();
     
     // Test function to manually check if everything works
@@ -39,6 +40,67 @@ document.addEventListener('DOMContentLoaded', function() {
         updateDashboard();
     };
 });
+
+/** Buwanang bilang + Groq na interpretasyon (php/emergency_monthly_interpretation.php) */
+async function loadEmergencyMonthlyInterpretation() {
+    const panel = document.getElementById('emergencyMonthlyAiPanel');
+    const statsEl = document.getElementById('emergencyMonthlyAiStats');
+    const textEl = document.getElementById('emergencyMonthlyAiText');
+    const hintEl = document.getElementById('emergencyMonthlyAiHint');
+    if (!panel || !statsEl || !textEl || !hintEl) {
+        return;
+    }
+
+    try {
+        const response = await fetch('php/emergency_monthly_interpretation.php', { credentials: 'same-origin' });
+        if (response.status === 403) {
+            panel.hidden = true;
+            return;
+        }
+        const data = await response.json();
+        if (!data || data.success !== true) {
+            panel.hidden = true;
+            return;
+        }
+
+        const cur = data.currentMonth || {};
+        const prev = data.previousMonth || {};
+        const label = data.monthLabel || '';
+        const reported = Number(cur.reported) || 0;
+        const resolved = Number(cur.resolved) || 0;
+        const prevRep = Number(prev.reported) || 0;
+        const prevRes = Number(prev.resolved) || 0;
+
+        statsEl.textContent =
+            `${label}: ${reported} na ulat ang pumasok sa buwang ito (${resolved} resolved). ` +
+            `Nakaraang buwan: ${prevRep} ulat (${prevRes} resolved).`;
+
+        const ai = String(data.aiInterpretation || '').trim();
+        const groqOk = data.groqConfigured === true;
+
+        if (groqOk && ai) {
+            textEl.textContent = ai;
+            textEl.hidden = false;
+        } else {
+            textEl.textContent = '';
+            textEl.hidden = true;
+        }
+
+        if (!groqOk) {
+            hintEl.textContent =
+                'Para sa AI na interpretasyon, maglagay ng GROQ_API_KEY o EMERGENCY_GRAPH_GROQ_API_KEY sa .env (Analytics → Emergency Reports).';
+        } else if (reported > 0 && !ai) {
+            hintEl.textContent = 'Hindi nakumpleto ang AI na buod. Subukan muli mamaya o tingnan ang server log.';
+        } else {
+            hintEl.textContent = '';
+        }
+
+        panel.hidden = false;
+    } catch (e) {
+        console.error('loadEmergencyMonthlyInterpretation', e);
+        panel.hidden = true;
+    }
+}
 
 // Load emergency data from PHP backend
 async function loadEmergencyData() {

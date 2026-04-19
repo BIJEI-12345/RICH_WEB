@@ -475,6 +475,53 @@ body {
     flex-wrap: wrap;
 }
 
+.section-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 8px;
+    border: 2px solid #2c5aa0;
+    background: white;
+    color: #2c5aa0;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.15);
+    flex-shrink: 0;
+}
+
+.section-refresh-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(44, 90, 160, 0.28);
+    background: #f0f4ff;
+}
+
+.section-refresh-btn:disabled {
+    opacity: 0.85;
+    cursor: wait;
+}
+
+.section-refresh-btn:focus-visible {
+    outline: 2px solid #2c5aa0;
+    outline-offset: 2px;
+}
+
+.section-refresh-btn i {
+    font-size: 0.95rem;
+}
+
+.section-refresh-btn.is-refreshing i {
+    animation: section-refresh-spin 0.65s linear infinite;
+}
+
+@keyframes section-refresh-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .section-control-group {
     display: flex;
     align-items: center;
@@ -1493,6 +1540,237 @@ body.concerns-page-admin .action-buttons-container .btn-action.revoke-btn {
     justify-content: flex-end;
 }
 
+.modal-actions--concern {
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    border-top: 1px solid #e8eef2;
+    background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+
+.modal-actions-left {
+    flex: 0 1 auto;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.modal-actions-right {
+    flex: 0 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.resolved-doc-footer-btn {
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 10px;
+    border: 2px solid #2d8a72;
+    background: linear-gradient(135deg, #f0faf7 0%, #e8f5f0 100%);
+    color: #1a5c4a;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    box-shadow: 0 2px 8px rgba(45, 138, 114, 0.12);
+}
+
+.resolved-doc-footer-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(45, 138, 114, 0.2);
+    background: linear-gradient(135deg, #e4f5ef 0%, #dcf0e8 100%);
+}
+
+.resolved-doc-footer-btn:focus-visible {
+    outline: 2px solid #2c5aa0;
+    outline-offset: 2px;
+}
+
+.resolved-doc-footer-chevron {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    transition: transform 0.3s ease;
+    margin-left: 0.15rem;
+}
+
+/* Resolved summary + collapsible documentation (concern details modal) */
+.concern-resolved-banner {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    margin-top: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(40, 167, 69, 0.09) 0%, rgba(32, 201, 151, 0.08) 100%);
+    border: 1px solid rgba(40, 167, 69, 0.22);
+    box-shadow: 0 4px 14px rgba(40, 167, 69, 0.06);
+}
+
+.concern-resolved-banner-icon {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.35);
+}
+
+.concern-resolved-banner-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.concern-resolved-banner-title {
+    display: block;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1e5f3a;
+    letter-spacing: 0.02em;
+}
+
+.concern-resolved-banner-date {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.85rem;
+    color: #4a6670;
+}
+
+.concern-resolved-banner-hint {
+    margin: 0.65rem 0 0;
+    font-size: 0.8rem;
+    color: #5a7a72;
+    line-height: 1.45;
+}
+
+.concern-resolved-doc-panel {
+    margin-top: 0.85rem;
+    overflow: hidden;
+}
+
+.concern-resolved-doc-panel[hidden] {
+    display: none !important;
+}
+
+.concern-resolved-doc-panel.is-open {
+    display: block !important;
+    animation: concernResolvedDocReveal 0.4s ease forwards;
+}
+
+@keyframes concernResolvedDocReveal {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.concern-resolved-doc-card {
+    padding: 1.1rem 1.15rem;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid #d4e8e0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 8px 24px rgba(30, 90, 70, 0.07);
+}
+
+.concern-resolved-doc-heading {
+    margin: 0 0 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a4d3f;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.concern-resolved-doc-heading i {
+    color: #28a745;
+}
+
+.concern-resolved-doc-block {
+    margin-bottom: 1rem;
+}
+
+.concern-resolved-doc-block:last-child {
+    margin-bottom: 0;
+}
+
+.concern-resolved-doc-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c8a80;
+    margin-bottom: 0.35rem;
+}
+
+.concern-resolved-doc-text {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: #2c3e50;
+    white-space: pre-wrap;
+}
+
+.concern-resolved-doc-img-frame {
+    margin-top: 0.35rem;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f4f9f7;
+    border: 1px solid #e0ebe7;
+}
+
+.concern-resolved-doc-img {
+    display: block;
+    width: 100%;
+    max-height: 260px;
+    object-fit: contain;
+    vertical-align: middle;
+}
+
+.concern-resolved-doc-block--rating {
+    margin-top: 0.25rem;
+}
+
+.concern-rating-stars {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-top: 0.35rem;
+    font-size: 1.1rem;
+    color: #f4b400;
+}
+
+.concern-rating-stars .concern-rating-star--empty {
+    color: #d8dee6;
+}
+
+.concern-rating-feedback {
+    margin: 0.5rem 0 0 0;
+    padding: 0.65rem 0.75rem;
+    background: #f8fafb;
+    border-radius: 8px;
+    border-left: 3px solid #6c757d;
+    color: #2c3e50;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
 /* Relatable Modal */
 .relatable-modal {
     position: fixed;
@@ -1764,10 +2042,162 @@ body.concerns-page-admin .action-buttons-container .btn-action.revoke-btn {
 }
 
 /* Status Modal Specific */
+#statusModal .status-dialog-close-btn {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: #e9ecef;
+    color: #495057;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, color 0.2s ease;
+    z-index: 1;
+}
+
+#statusModal .status-dialog-close-btn:hover {
+    background: #dee2e6;
+    color: #212529;
+}
+
+#statusModal .status-dialog-close-btn:focus-visible {
+    outline: 2px solid #2c5aa0;
+    outline-offset: 2px;
+}
+
 .status-dialog {
     text-align: center;
     padding: 2rem;
     max-width: 400px;
+}
+
+#statusModalSimple.hidden,
+#statusModalDocumentation.hidden {
+    display: none !important;
+}
+
+.status-dialog.status-dialog--documentation {
+    max-width: 560px;
+    width: 95%;
+    text-align: left;
+    padding: 1.75rem 1.5rem 1.5rem;
+}
+
+.resolution-doc-header {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.resolution-doc-title {
+    margin: 0 0 0.35rem;
+    font-size: 1.15rem;
+    color: #1e3a5f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.resolution-doc-sub {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.resolution-doc-section {
+    margin-bottom: 1rem;
+}
+
+.resolution-doc-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.35rem;
+}
+
+.resolution-doc-label .req {
+    color: #c0392b;
+}
+
+.resolution-resident-preview {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+}
+
+.resolution-resident-img {
+    max-width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.resolution-resident-img.hidden {
+    display: none !important;
+}
+
+.resolution-resident-noimg.hidden,
+#resolutionAdminNoImage.hidden {
+    display: none !important;
+}
+
+.resolution-resident-noimg {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 1rem;
+}
+
+.resolution-doc-file {
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+.resolution-admin-preview {
+    margin-top: 0.55rem;
+    justify-content: center;
+}
+
+.resolution-admin-preview .resolution-resident-img:not(.hidden) {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.resolution-doc-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cfd8dc;
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 100px;
+}
+
+.resolution-doc-actions {
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+#statusModal .status-dialog {
+    position: relative;
+    padding-top: 2.5rem;
 }
 
 .revoke-reason-dialog {

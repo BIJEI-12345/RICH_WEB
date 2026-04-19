@@ -11,7 +11,9 @@
         'resident-info.html': { module: 'Resident Information', action: 'viewed', description: 'Resident Information page accessed' },
         'archive.html': { module: 'Archive', action: 'viewed', description: 'Archive page accessed' },
         'analytics.html': { module: 'Analytics', action: 'viewed', description: 'Analytics page accessed' },
-        'audit-trail.html': { module: 'Audit Trail', action: 'viewed', description: 'Audit Trail page accessed' }
+        'audit-trail.html': { module: 'Audit Trail', action: 'viewed', description: 'Audit Trail page accessed' },
+        'barangay-ordinance.html': { module: 'Barangay Ordinance', action: 'viewed', description: 'Barangay Ordinance page accessed' },
+        'full-disclosure-policy.html': { module: 'Full Disclosure Policy Board', action: 'viewed', description: 'Full Disclosure Policy Board page accessed' }
     };
     
     // Log page view when page loads

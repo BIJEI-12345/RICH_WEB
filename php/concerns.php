@@ -37,6 +37,157 @@ function rich_session_is_concerns_reporting_role() {
     return $p === 'concerns & reporting' || $p === 'concern & reporting';
 }
 
+/** Ensure optional columns for admin resolution documentation exist. Migrates resolution_doc_image → resolved_image if present. Stores image bytes in resolved_image (LONGBLOB). */
+function ensureResolutionDocumentationColumns($connection) {
+    $c = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolution_statement'");
+    if ($c && $c->num_rows === 0) {
+        @$connection->query("ALTER TABLE concerns ADD COLUMN resolution_statement TEXT NULL");
+    }
+    $hasResolvedImage = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolved_image'");
+    if ($hasResolvedImage && $hasResolvedImage->num_rows === 0) {
+        @$connection->query("ALTER TABLE concerns ADD COLUMN resolved_image LONGBLOB NULL");
+    } elseif ($hasResolvedImage && $hasResolvedImage->num_rows > 0) {
+        $colRow = $hasResolvedImage->fetch_assoc();
+        $type = strtolower((string)($colRow['Type'] ?? ''));
+        if (strpos($type, 'varchar') !== false || strpos($type, 'char') !== false) {
+            $res = @$connection->query("SELECT id, resolved_image FROM concerns WHERE resolved_image IS NOT NULL AND resolved_image != ''");
+            if ($res) {
+                $baseReal = @realpath(__DIR__ . '/..');
+                while ($row = $res->fetch_assoc()) {
+                    $val = $row['resolved_image'];
+                    if (!is_string($val) || $val === '') {
+                        continue;
+                    }
+                    if (strlen($val) >= 600) {
+                        continue;
+                    }
+                    if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
+                        continue;
+                    }
+                    $norm = str_replace('\\', '/', $val);
+                    $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
+                    if ($full && $baseReal && strpos($full, $baseReal) === 0 && is_file($full)) {
+                        $bin = @file_get_contents($full);
+                        if ($bin !== false && strlen($bin) > 0) {
+                            $upd = $connection->prepare('UPDATE concerns SET resolved_image = ? WHERE id = ?');
+                            if ($upd) {
+                                $upd->bind_param('si', $bin, $row['id']);
+                                if ($upd->execute()) {
+                                    @unlink($full);
+                                }
+                                $upd->close();
+                            }
+                        }
+                    }
+                }
+            }
+            @$connection->query('ALTER TABLE concerns MODIFY COLUMN resolved_image LONGBLOB NULL');
+        }
+    }
+    $hasOld = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolution_doc_image'");
+    if ($hasOld && $hasOld->num_rows > 0) {
+        @$connection->query("UPDATE concerns SET resolved_image = resolution_doc_image WHERE (resolved_image IS NULL OR resolved_image = '') AND resolution_doc_image IS NOT NULL AND TRIM(resolution_doc_image) != ''");
+        @$connection->query("ALTER TABLE concerns DROP COLUMN resolution_doc_image");
+        ensureResolutionDocumentationColumns($connection);
+    }
+    migrateResolvedImagePathStringsToBlob($connection);
+    migrateConcernImagePathStringsToBlob($connection);
+}
+
+/** Replace legacy stored path strings (in VARCHAR or LONGBLOB) with file bytes. Idempotent. */
+function migrateResolvedImagePathStringsToBlob($connection) {
+    $res = @$connection->query("SELECT id, resolved_image FROM concerns WHERE resolved_image IS NOT NULL AND resolved_image != ''");
+    if (!$res) {
+        return;
+    }
+    $baseReal = @realpath(__DIR__ . '/..');
+    while ($row = $res->fetch_assoc()) {
+        $val = $row['resolved_image'];
+        if (!is_string($val) || $val === '') {
+            continue;
+        }
+        if (strlen($val) > 512) {
+            continue;
+        }
+        if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
+            continue;
+        }
+        if (preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($val, 0, min(200, strlen($val))))) {
+            continue;
+        }
+        $norm = str_replace('\\', '/', $val);
+        $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
+        if (!$full || !$baseReal || strpos($full, $baseReal) !== 0 || !is_file($full)) {
+            continue;
+        }
+        $bin = @file_get_contents($full);
+        if ($bin === false || strlen($bin) === 0) {
+            continue;
+        }
+        $upd = $connection->prepare('UPDATE concerns SET resolved_image = ? WHERE id = ?');
+        if ($upd) {
+            $upd->bind_param('si', $bin, $row['id']);
+            if ($upd->execute()) {
+                @unlink($full);
+            }
+            $upd->close();
+        }
+    }
+}
+
+/** Legacy rows: concern_image stored as uploads/... path → LONGBLOB; remove file after import. */
+function migrateConcernImagePathStringsToBlob($connection) {
+    $res = @$connection->query("SELECT id, concern_image FROM concerns WHERE concern_image IS NOT NULL AND concern_image != ''");
+    if (!$res) {
+        return;
+    }
+    $baseReal = @realpath(__DIR__ . '/..');
+    while ($row = $res->fetch_assoc()) {
+        $val = $row['concern_image'];
+        if (!is_string($val) || $val === '') {
+            continue;
+        }
+        if (strlen($val) > 512) {
+            continue;
+        }
+        if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
+            continue;
+        }
+        if (preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($val, 0, min(200, strlen($val))))) {
+            continue;
+        }
+        $norm = str_replace('\\', '/', $val);
+        $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
+        if (!$full || !$baseReal || strpos($full, $baseReal) !== 0 || !is_file($full)) {
+            continue;
+        }
+        $bin = @file_get_contents($full);
+        if ($bin === false || strlen($bin) === 0) {
+            continue;
+        }
+        $upd = $connection->prepare('UPDATE concerns SET concern_image = ? WHERE id = ?');
+        if ($upd) {
+            $upd->bind_param('si', $bin, $row['id']);
+            if ($upd->execute()) {
+                @unlink($full);
+            }
+            $upd->close();
+        }
+    }
+}
+
+/** Ensure resident feedback columns (post-resolution rating & suggestions) exist. */
+function ensureConcernRatingColumns($connection) {
+    $r = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'rating'");
+    if ($r && $r->num_rows === 0) {
+        @$connection->query('ALTER TABLE concerns ADD COLUMN rating TINYINT UNSIGNED NULL DEFAULT NULL');
+    }
+    $s = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'suggestions'");
+    if ($s && $s->num_rows === 0) {
+        @$connection->query('ALTER TABLE concerns ADD COLUMN suggestions TEXT NULL');
+    }
+}
+
 // Simple permission helper mirrored with frontend rules
 function canEdit($module) {
     if (rich_session_is_admin()) {
@@ -121,7 +272,11 @@ function concernStatementIndicatesHighRiskByKeywords($statementLower) {
         'life-threatening', 'critical condition', 'nagbabanta ng patay', 'may baril',
         'may sandata', 'hostage', 'kidnap', 'nakakulong na biktima',
         'banta sa buhay', 'binabanta', 'pagbabanta', 'pagbabanta ng', 'binanta',
-        'may biktima', 'maraming nasaktan'
+        'may biktima', 'maraming nasaktan',
+        'panganib sa tao', 'peligro sa tao', 'delikado sa tao', 'mapanganib sa tao',
+        'kaligtasan ng tao', 'panganib sa kaligtasan', 'banta sa kaligtasan',
+        'panunulsol', 'pagsulsol', 'udyok ng karahasan', 'incitement',
+        'physical harm', 'serious harm', 'gulo at karahasan', 'karahasan sa tao'
     ];
     foreach ($imminentHarmKeywords as $keyword) {
         if (mb_stripos($statementLower, $keyword) !== false) {
@@ -293,6 +448,11 @@ function groqClassifyConcernRiskFromStatement($statement, $apiKey) {
     $prompt .= "- BANTA SA BUHAY, pagbabanta, hostage, kidnapan, may baril/sandata, life-threatening na sitwasyon\n";
     $prompt .= "English: electrocution risk, fallen power lines, electrical fire, bridge/building collapse risk, disaster with casualties.\n\n";
     
+    $prompt .= "CRITICAL — Laging HIGH (hindi medium o low):\n";
+    $prompt .= "- Peligro o panganib sa TAO, kaligtasan ng residente, o direktang banta sa buhay/kaligtasan ng tao.\n";
+    $prompt .= "- Pag-uudyok, panunulsol, pagsulsol, incitement, o anumang mensaheng nag-iudyok ng karahasan o kapahamakan ng tao — HIGH.\n";
+    $prompt .= "- Kung may alinlangan sa pagitan ng medium at high pero may malinaw na human safety / life-safety — piliin ang HIGH.\n\n";
+    
     $prompt .= "MEDIUM — Hindi masyadong direktang malubhang kapahamakan sa tao kumpara sa HIGH, pero may tunay na problema sa serbisyo o imprastraktura o kapaligiran:\n";
     $prompt .= "- Baradong kanal, tumutulo na tubig (hindi electrical), ordinaryong sira ng streetlight, lubak, walang tubig, basura, ingay, trapiko\n";
     $prompt .= "- SIRANG o NASIRANG KALSADA / KALYE / DAAN: kasama kung dahil sa mabibigat na sasakyan, malalaking truck, dump truck, o pasada — palaging MEDIUM (hindi LOW)\n";
@@ -306,11 +466,13 @@ function groqClassifyConcernRiskFromStatement($statement, $apiKey) {
     $prompt .= "- Tanong, permiso, dokumento, suggestion, kosmetiko/aesthetic, napakaliit na isyu na walang malinaw na panganib o abala sa serbisyo\n\n";
     
     $prompt .= "RULES:\n";
-    $prompt .= "- Use HIGH for electricity hazards, life threats, serious injury/victims, disasters implying harm, or critically dangerous damaged infrastructure.\n";
+    $prompt .= "- Use HIGH for electricity hazards, life threats, serious injury/victims, disasters implying harm, critically dangerous damaged infrastructure, danger to people, human safety, violence, threats, or incitement to harm.\n";
+    $prompt .= "- CRITICAL: If the statement clearly involves danger to people, safety of persons, or incitement to harm — you MUST answer high.\n";
     $prompt .= "- Use MEDIUM for routine public works issues without those HIGH signals.\n";
     $prompt .= "- NEVER use LOW for damaged roads, potholes, or heavy vehicles damaging streets — those are MEDIUM.\n";
     $prompt .= "- Use LOW only for inquiries or trivial matters.\n";
-    $prompt .= "- If unsure between LOW and MEDIUM, prefer MEDIUM when a concrete public problem is described.\n\n";
+    $prompt .= "- If unsure between LOW and MEDIUM, prefer MEDIUM when a concrete public problem is described.\n";
+    $prompt .= "- If unsure between MEDIUM and HIGH but human safety or harm to people is implied, prefer HIGH.\n\n";
     
     $prompt .= "Statement:\n\"" . addslashes($statement) . "\"\n\n";
     $prompt .= "Reply with exactly one word, lowercase: low, medium, or high";
@@ -320,7 +482,7 @@ function groqClassifyConcernRiskFromStatement($statement, $apiKey) {
         'messages' => [
             [
                 'role' => 'system',
-                'content' => 'You are a risk triage assistant for barangay concerns. Output exactly one word: low, medium, or high. No punctuation or explanation.'
+                'content' => 'You are a risk triage assistant for barangay concerns. When danger to people, human safety, serious harm, violence, threats, or incitement to harm is clearly described, output high. Output exactly one word: low, medium, or high. No punctuation or explanation.'
             ],
             [
                 'role' => 'user',
@@ -385,7 +547,57 @@ function normalizeLocationForComparison($loc) {
     }
     $s = preg_replace('/\s+/', ' ', $s);
     $s = preg_replace('/^(brgy\.?|barangay)\s+/iu', '', $s);
+    $s = trim($s);
+    // Common spelling / format variants (Philippine addresses)
+    $s = preg_replace('/\bsityo\b/iu', 'sitio', $s);
+    $s = preg_replace('/\bprk\.?\b/iu', 'purok', $s);
+    $s = preg_replace('/\bpuroc\b/iu', 'purok', $s);
+    $s = preg_replace('/\bblk\.?\b/iu', 'block', $s);
+    $s = preg_replace('/\bblk\b/iu', 'block', $s);
+    $s = preg_replace('/\bzone\s*(\d+)\b/iu', 'zone $1', $s);
+    $s = preg_replace('/\bst\.?\b/iu', 'street', $s);
+    $s = preg_replace('/[,;]+/u', ' ', $s);
+    $s = preg_replace('/\s+/', ' ', $s);
     return trim($s);
+}
+
+/**
+ * ASCII-fold for Levenshtein (PHP levenshtein() is not UTF-8 safe). Keeps matching sane for mixed EN/TL.
+ */
+function locationAsciiFoldForDistancePhp($s) {
+    if (function_exists('iconv')) {
+        $t = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
+        if ($t !== false && $t !== '') {
+            return strtolower(preg_replace('/\s+/', ' ', trim($t)));
+        }
+    }
+    return strtolower(preg_replace('/[^a-z0-9\s]/u', ' ', $s));
+}
+
+/**
+ * Meaningful tokens for broad SQL fetch (same-area candidates with different spelling).
+ *
+ * @return list<string>
+ */
+function relatableLocationSearchTokensPhp($normalizedLower) {
+    $stop = ['barangay', 'brgy', 'sitio', 'sityo', 'purok', 'zone', 'blk', 'block', 'street', 'st', 'road', 'daan', 'kalye', 'ng', 'sa', 'na', 'at', 'the', 'and', 'of', 'no', 'lot'];
+    $parts = preg_split('/\s+/u', $normalizedLower, -1, PREG_SPLIT_NO_EMPTY);
+    $out = [];
+    foreach ($parts as $p) {
+        $p = trim($p);
+        $len = function_exists('mb_strlen') ? mb_strlen($p, 'UTF-8') : strlen($p);
+        if ($len < 3) {
+            continue;
+        }
+        if (in_array($p, $stop, true)) {
+            continue;
+        }
+        $out[] = $p;
+        if (count($out) >= 2) {
+            break;
+        }
+    }
+    return $out;
 }
 
 /**
@@ -403,19 +615,34 @@ function locationsReferToSamePlace($baseRaw, $otherRaw) {
     if ($a === $b) {
         return true;
     }
-    $lenA = strlen($a);
-    $lenB = strlen($b);
+    $lenA = function_exists('mb_strlen') ? mb_strlen($a, 'UTF-8') : strlen($a);
+    $lenB = function_exists('mb_strlen') ? mb_strlen($b, 'UTF-8') : strlen($b);
     $shorter = $lenA <= $lenB ? $a : $b;
     $longer = $lenA <= $lenB ? $b : $a;
-    if (strlen($shorter) >= 4 && strpos($longer, $shorter) !== false) {
-        return true;
+    $shortLen = function_exists('mb_strlen') ? mb_strlen($shorter, 'UTF-8') : strlen($shorter);
+    if ($shortLen >= 4) {
+        $subHit = function_exists('mb_stripos')
+            ? mb_stripos($longer, $shorter, 0, 'UTF-8')
+            : stripos($longer, $shorter);
+        if ($subHit !== false) {
+            return true;
+        }
     }
     $maxLen = max($lenA, $lenB);
     if ($maxLen > 64) {
         return false;
     }
-    $dist = levenshtein($a, $b);
-    $maxAllowed = $maxLen <= 18 ? 3 : (int) max(4, min(12, round($maxLen * 0.18)));
+    $af = locationAsciiFoldForDistancePhp($a);
+    $bf = locationAsciiFoldForDistancePhp($b);
+    if ($af === '' || $bf === '') {
+        return false;
+    }
+    $dist = levenshtein($af, $bf);
+    if ($dist < 0) {
+        return false;
+    }
+    $foldLen = max(strlen($af), strlen($bf));
+    $maxAllowed = $foldLen <= 18 ? 3 : (int) max(4, min(12, round($foldLen * 0.18)));
     return $dist <= $maxAllowed;
 }
 
@@ -528,7 +755,11 @@ function enrichConcernRowForRelatableModal(array $concern) {
     $concern['concern_id'] = 'CON-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT);
     if (!empty($concern['concern_image'])) {
         $img = $concern['concern_image'];
-        if (strpos($img, 'Images/') === 0 || strpos($img, 'Pictures/') === 0) {
+        if (is_string($img) && strlen($img) < 512
+            && (strpos($img, 'uploads/') !== false || strpos($img, 'uploads\\') !== false)
+            && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($img, 0, min(200, strlen($img))))) {
+            $concern['concern_image'] = 'php/concerns.php?image=true&id=' . $concern['concern_id'];
+        } elseif (strpos($img, 'Images/') === 0 || strpos($img, 'Pictures/') === 0) {
             $concern['concern_image'] = str_replace('Pictures/', 'Images/', $img);
         } elseif (strlen($img) > 100) {
             $concern['concern_image'] = 'php/concerns.php?image=true&id=' . $concern['concern_id'];
@@ -807,6 +1038,65 @@ try {
         exit;
     }
     
+    // Serve resolution documentation image (DB blob or legacy disk path)
+    if (isset($_GET['resolved_image']) && $_GET['resolved_image'] === 'true') {
+        $concernId = $_GET['id'] ?? null;
+        if (!$concernId) {
+            http_response_code(400);
+            echo 'Missing concern ID';
+            exit;
+        }
+        $id = (int)str_replace('CON-', '', (string)$concernId);
+        if ($id < 1) {
+            http_response_code(400);
+            echo 'Invalid concern ID';
+            exit;
+        }
+        ensureResolutionDocumentationColumns($connection);
+        $sql = 'SELECT resolved_image FROM concerns WHERE id = ?';
+        $stmt = $connection->prepare($sql);
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        if (!$row || empty($row['resolved_image'])) {
+            http_response_code(404);
+            echo 'Image not found';
+            exit;
+        }
+        $imageData = $row['resolved_image'];
+        if (is_string($imageData) && strlen($imageData) < 512
+            && (strpos($imageData, 'uploads/') !== false || strpos($imageData, 'uploads\\') !== false)
+            && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($imageData, 0, min(200, strlen($imageData))))) {
+            $norm = str_replace('\\', '/', $imageData);
+            $full = realpath(__DIR__ . '/../' . ltrim($norm, '/'));
+            $base = realpath(__DIR__ . '/..');
+            if ($full && $base && strpos($full, $base) === 0 && is_file($full)) {
+                $mimeType = function_exists('mime_content_type') ? mime_content_type($full) : 'image/jpeg';
+                header('Content-Type: ' . $mimeType);
+                header('Content-Length: ' . filesize($full));
+                readfile($full);
+                exit;
+            }
+        }
+        if (is_string($imageData) && strlen($imageData) > 100) {
+            $mime = 'image/jpeg';
+            if (class_exists('finfo')) {
+                $fi = new finfo(FILEINFO_MIME_TYPE);
+                $detected = $fi->buffer($imageData);
+                if ($detected) {
+                    $mime = $detected;
+                }
+            }
+            header('Content-Type: ' . $mime);
+            header('Content-Length: ' . strlen($imageData));
+            echo $imageData;
+            exit;
+        }
+        http_response_code(404);
+        echo 'Invalid image data';
+        exit;
+    }
+    
     switch ($method) {
         case 'GET':
             // Check if risk_level column exists, if not, add it
@@ -822,6 +1112,8 @@ try {
             if ($checkRevokeReasonColumn->num_rows === 0) {
                 $connection->query("ALTER TABLE concerns ADD COLUMN reason_revoke TEXT NULL");
             }
+            ensureResolutionDocumentationColumns($connection);
+            ensureConcernRatingColumns($connection);
             
             // Get concerns from concerns table with status filtering
             $status = isset($_GET['status']) ? $_GET['status'] : null;
@@ -829,16 +1121,16 @@ try {
             if ($status) {
                 if ($status === 'resolved') {
                     // For resolved concerns, sort by resolved_at date (latest resolved first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
                 } else if ($status === 'revoked') {
                     // For revoked concerns, sort by revoked_at date (latest revoked first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY revoked_at DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY revoked_at DESC LIMIT 100";
                 } else if ($status === 'processing') {
                     // For processing concerns, include process_at
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 } else {
                     // For other statuses, sort by original date_and_time (latest first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 }
                 $stmt = $connection->prepare($sql);
                 $stmt->bind_param('s', $status);
@@ -846,7 +1138,7 @@ try {
                 $concerns = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             } else {
                 // For all concerns, sort by date_and_time (latest first)
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 100";
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns ORDER BY date_and_time DESC LIMIT 100";
                 $result = $connection->query($sql);
                 $concerns = $result->fetch_all(MYSQLI_ASSOC);
             }
@@ -922,13 +1214,26 @@ try {
                 
                 // Fix image path - convert Pictures/ to Images/ and handle binary data
                 if ($concern['concern_image']) {
-                    // Check if it's a file path or binary data
-                    if (strpos($concern['concern_image'], 'Images/') === 0 || strpos($concern['concern_image'], 'Pictures/') === 0) {
-                        // It's a file path, convert Pictures/ to Images/
-                        $concern['concern_image'] = str_replace('Pictures/', 'Images/', $concern['concern_image']);
-                    } else if (strlen($concern['concern_image']) > 100) {
-                        // It's binary data - use the same file with image parameter
+                    $ci = $concern['concern_image'];
+                    if (is_string($ci) && strlen($ci) < 512
+                        && (strpos($ci, 'uploads/') !== false || strpos($ci, 'uploads\\') !== false)
+                        && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($ci, 0, min(200, strlen($ci))))) {
                         $concern['concern_image'] = 'php/concerns.php?image=true&id=' . $concern['concern_id'];
+                    } elseif (strpos($ci, 'Images/') === 0 || strpos($ci, 'Pictures/') === 0) {
+                        $concern['concern_image'] = str_replace('Pictures/', 'Images/', $ci);
+                    } elseif (strlen($ci) > 100) {
+                        $concern['concern_image'] = 'php/concerns.php?image=true&id=' . $concern['concern_id'];
+                    }
+                }
+                
+                if (!empty($concern['resolved_image'])) {
+                    $ri = $concern['resolved_image'];
+                    if (is_string($ri) && strlen($ri) < 512
+                        && (strpos($ri, 'uploads/') !== false || strpos($ri, 'uploads\\') !== false)
+                        && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($ri, 0, min(200, strlen($ri))))) {
+                        $concern['resolved_image'] = 'php/concerns.php?resolved_image=true&id=' . $concern['concern_id'];
+                    } elseif (is_string($ri) && strlen($ri) > 100) {
+                        $concern['resolved_image'] = 'php/concerns.php?resolved_image=true&id=' . $concern['concern_id'];
                     }
                 }
                 
@@ -964,10 +1269,9 @@ try {
                     $concern['formatted_revoked_date'] = null;
                 }
                 
-                // Clean UTF-8 encoding issues (simplified to avoid timeout)
+                // Clean UTF-8 encoding issues (simplified to avoid timeout); skip raw binary fields
                 foreach ($concern as $key => $value) {
-                    if (is_string($value)) {
-                        // Simple UTF-8 cleaning without expensive operations
+                    if (is_string($value) && $key !== 'concern_image' && $key !== 'resolved_image') {
                         $concern[$key] = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
                     }
                 }
@@ -1112,6 +1416,102 @@ try {
             break;
             
         case 'POST':
+            // Multipart: resolve with admin documentation (statement + optional image)
+            if (isset($_POST['action']) && $_POST['action'] === 'resolve_with_documentation') {
+                $adminEmail = $_GET['admin_email'] ?? $_SERVER['HTTP_X_ADMIN_EMAIL'] ?? null;
+                $isAdmin = false;
+                if ($adminEmail) {
+                    try {
+                        $emailEsc = $connection->real_escape_string($adminEmail);
+                        $sqlAd = "SELECT position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
+                        $resultAd = $connection->query($sqlAd);
+                        $rowAd = $resultAd ? $resultAd->fetch_assoc() : null;
+                        $dbPos = strtolower(trim((string)($rowAd['position'] ?? '')));
+                        if ($rowAd && ($dbPos === 'admin' || $dbPos === 'administrator')) {
+                            $isAdmin = true;
+                        }
+                    } catch (Exception $e) {
+                    }
+                }
+                if (!$isAdmin && !canEdit('concerns')) {
+                    echo json_encode(['success' => false, 'message' => 'You do not have permission to modify concerns']);
+                    break;
+                }
+                ensureResolutionDocumentationColumns($connection);
+                $concernIdRaw = trim((string)($_POST['concern_id'] ?? ''));
+                $resolutionStatement = trim((string)($_POST['resolution_statement'] ?? ''));
+                if ($concernIdRaw === '') {
+                    echo json_encode(['success' => false, 'message' => 'Missing concern ID']);
+                    break;
+                }
+                if ($resolutionStatement === '') {
+                    echo json_encode(['success' => false, 'message' => 'Resolution statement is required.']);
+                    break;
+                }
+                $id = (int)str_replace('CON-', '', $concernIdRaw);
+                if ($id < 1) {
+                    echo json_encode(['success' => false, 'message' => 'Invalid concern ID']);
+                    break;
+                }
+                $chk = $connection->prepare('SELECT status FROM concerns WHERE id = ?');
+                $chk->bind_param('i', $id);
+                $chk->execute();
+                $rowStatus = $chk->get_result()->fetch_assoc();
+                if (!$rowStatus) {
+                    echo json_encode(['success' => false, 'message' => 'Concern not found']);
+                    break;
+                }
+                if (($rowStatus['status'] ?? '') !== 'processing') {
+                    echo json_encode(['success' => false, 'message' => 'Only concerns in Processing can be resolved with documentation.']);
+                    break;
+                }
+                $imageBlob = null;
+                if (!empty($_FILES['resolution_doc']['name']) && isset($_FILES['resolution_doc']['tmp_name'])
+                    && is_uploaded_file($_FILES['resolution_doc']['tmp_name'])) {
+                    $f = $_FILES['resolution_doc'];
+                    $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+                    $mime = '';
+                    if (class_exists('finfo')) {
+                        $fi = new finfo(FILEINFO_MIME_TYPE);
+                        $mime = (string)$fi->file($f['tmp_name']);
+                    } elseif (function_exists('mime_content_type')) {
+                        $mime = (string)mime_content_type($f['tmp_name']);
+                    }
+                    if ($mime === '' || !isset($allowed[$mime])) {
+                        echo json_encode(['success' => false, 'message' => 'Invalid image type. Use JPG, PNG, GIF, or WebP.']);
+                        break;
+                    }
+                    if (!empty($f['size']) && (int)$f['size'] > 5 * 1024 * 1024) {
+                        echo json_encode(['success' => false, 'message' => 'Image must be 5MB or smaller.']);
+                        break;
+                    }
+                    $imageBlob = @file_get_contents($f['tmp_name']);
+                    if ($imageBlob === false || $imageBlob === '') {
+                        echo json_encode(['success' => false, 'message' => 'Failed to read documentation image.']);
+                        break;
+                    }
+                }
+                $resolvedAt = new DateTime('now', new DateTimeZone(DEFAULT_TIMEZONE));
+                $resolvedAtStr = $resolvedAt->format('Y-m-d H:i:s');
+                $statusResolved = 'resolved';
+                if ($imageBlob !== null) {
+                    $sqlR = 'UPDATE concerns SET status = ?, resolved_at = ?, resolution_statement = ?, resolved_image = ? WHERE id = ?';
+                    $stmtR = $connection->prepare($sqlR);
+                    $stmtR->bind_param('ssssi', $statusResolved, $resolvedAtStr, $resolutionStatement, $imageBlob, $id);
+                    $resultR = $stmtR->execute();
+                } else {
+                    $sqlR = 'UPDATE concerns SET status = ?, resolved_at = ?, resolution_statement = ?, resolved_image = NULL WHERE id = ?';
+                    $stmtR = $connection->prepare($sqlR);
+                    $stmtR->bind_param('sssi', $statusResolved, $resolvedAtStr, $resolutionStatement, $id);
+                    $resultR = $stmtR->execute();
+                }
+                if (!empty($resultR)) {
+                    echo json_encode(['success' => true, 'message' => 'Concern resolved with documentation.']);
+                } else {
+                    echo json_encode(['success' => false, 'message' => 'Failed to update concern.']);
+                }
+                break;
+            }
             // Handle finding similar concerns using AI
             $rawInput = file_get_contents('php://input');
             $input = json_decode($rawInput, true);
@@ -1143,11 +1543,14 @@ try {
                 // Add concern_id to base concern
                 $baseConcern['concern_id'] = 'CON-' . str_pad($baseConcern['id'], 3, '0', STR_PAD_LEFT);
                 
-                // Latest rows + every row at the same trimmed location (case-insensitive) so pairs like COC/COc are never split by LIMIT
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 350";
+                // Latest rows + same trimmed location + token-LIKE merge (fuzzy spelling still filtered by locationsReferToSamePlace in AI/rule steps)
+                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 450";
                 $result = $connection->query($sql);
                 $allConcerns = $result->fetch_all(MYSQLI_ASSOC);
-                
+                $byId = [];
+                foreach ($allConcerns as $row) {
+                    $byId[(int)$row['id']] = $row;
+                }
                 $baseLocTrim = trim((string)($baseConcern['location'] ?? ''));
                 if ($baseLocTrim !== '') {
                     $sqlSameLoc = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE LOWER(TRIM(location)) = LOWER(?)";
@@ -1157,16 +1560,35 @@ try {
                         $stmtLoc->execute();
                         $sameLocRows = $stmtLoc->get_result()->fetch_all(MYSQLI_ASSOC);
                         $stmtLoc->close();
-                        $byId = [];
-                        foreach ($allConcerns as $row) {
-                            $byId[(int)$row['id']] = $row;
-                        }
                         foreach ($sameLocRows as $row) {
                             $byId[(int)$row['id']] = $row;
                         }
-                        $allConcerns = array_values($byId);
+                    }
+                    $baseNormForTokens = normalizeLocationForComparison($baseLocTrim);
+                    $tokens = relatableLocationSearchTokensPhp($baseNormForTokens);
+                    if (!empty($tokens)) {
+                        $likes = [];
+                        $params = [];
+                        $types = '';
+                        foreach ($tokens as $tok) {
+                            $likes[] = 'LOWER(TRIM(location)) LIKE ?';
+                            $params[] = '%' . $tok . '%';
+                            $types .= 's';
+                        }
+                        $sqlFuzzy = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE (" . implode(' OR ', $likes) . ") LIMIT 200";
+                        $stmtF = $connection->prepare($sqlFuzzy);
+                        if ($stmtF) {
+                            $stmtF->bind_param($types, ...$params);
+                            $stmtF->execute();
+                            $fuzzyRows = $stmtF->get_result()->fetch_all(MYSQLI_ASSOC);
+                            $stmtF->close();
+                            foreach ($fuzzyRows as $row) {
+                                $byId[(int)$row['id']] = $row;
+                            }
+                        }
                     }
                 }
+                $allConcerns = array_values($byId);
                 
                 foreach ($allConcerns as &$concern) {
                     $concern['concern_id'] = 'CON-' . str_pad($concern['id'], 3, '0', STR_PAD_LEFT);

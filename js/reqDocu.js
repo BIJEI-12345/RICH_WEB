@@ -2271,7 +2271,7 @@ async function markAsDone() {
         closeBarangayIdProcessModal();
             
             // Get download URL from response
-            const downloadUrl = data.downloadUrl || (data.filename ? 'uploads/generated_documents/barangay_id/' + data.filename : null);
+            const downloadUrl = data.downloadUrl || null;
             
             console.log('Download URL:', downloadUrl);
             console.log('Response data:', data);

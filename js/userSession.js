@@ -1,7 +1,7 @@
 // Simple user session + access control helper
 ;(function(){
     const Session = {
-        data: { logged_in: false, name: null, position: null },
+        data: { logged_in: false, name: null, position: null, census_document_requests_allowed: true },
         sessionStartTime: null,
         sessionExpired: false,
         warningShown: false,
@@ -11,6 +11,9 @@
                 const res = await fetch('php/userSession.php', { cache: 'no-store' });
                 const json = await res.json();
                 this.data = json || { logged_in: false };
+                if (this.data.census_document_requests_allowed === undefined) {
+                    this.data.census_document_requests_allowed = true;
+                }
                 window.CurrentUser = this.data;
                 
                 // Set session start time on first successful login
@@ -227,6 +230,23 @@
                         const mo = new MutationObserver(() => disableCensusActions());
                         mo.observe(container, { childList: true, subtree: true });
                     }
+                }
+            }
+
+            if (this.data.logged_in && this.data.census_document_requests_allowed === false) {
+                let bar = document.getElementById('census-doc-block-banner');
+                if (!bar && document.body) {
+                    bar = document.createElement('div');
+                    bar.id = 'census-doc-block-banner';
+                    bar.setAttribute('role', 'alert');
+                    bar.style.cssText = 'background:#7f1d1d;color:#fff;padding:0.65rem 1rem;text-align:center;font-size:0.9rem;z-index:99999;position:relative;';
+                    bar.textContent = 'Naka-block ang iyong census record (nakatali sa account email). Hindi muna makapag-request ng bagong dokumento.';
+                    document.body.insertBefore(bar, document.body.firstChild);
+                }
+            } else {
+                const oldBar = document.getElementById('census-doc-block-banner');
+                if (oldBar) {
+                    oldBar.remove();
                 }
             }
         },

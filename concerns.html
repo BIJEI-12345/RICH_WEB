@@ -96,6 +96,9 @@
                             <p>Review and manage incoming concern reports from residents</p>
                         </div>
                         <div class="section-controls">
+                            <button type="button" class="section-refresh-btn" onclick="refreshConcernsList('new', this)" title="Refresh new concerns" aria-label="Refresh new concerns">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            </button>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="new-sort" onchange="sortConcerns('new', this.value)">
                                     <option value="latest">Latest</option>
@@ -146,6 +149,9 @@
                             <p>Concerns currently being addressed and in progress</p>
                         </div>
                         <div class="section-controls">
+                            <button type="button" class="section-refresh-btn" onclick="refreshConcernsList('processing', this)" title="Refresh processing concerns" aria-label="Refresh processing concerns">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            </button>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="processing-sort" onchange="sortConcerns('processing', this.value)">
                                     <option value="latest">Latest</option>
@@ -197,6 +203,9 @@
                             <p>Successfully resolved concern reports with documented solutions</p>
                         </div>
                         <div class="section-controls">
+                            <button type="button" class="section-refresh-btn" onclick="refreshConcernsList('resolved', this)" title="Refresh action taken list" aria-label="Refresh action taken list">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            </button>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="finished-sort" onchange="sortConcerns('finished', this.value)">
                                     <option value="latest">Latest</option>
@@ -247,6 +256,9 @@
                             <p>Concerns revoked and no longer for action</p>
                         </div>
                         <div class="section-controls">
+                            <button type="button" class="section-refresh-btn" onclick="refreshConcernsList('revoked', this)" title="Refresh revoked concerns" aria-label="Refresh revoked concerns">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            </button>
                             <div class="section-control-group">
                                 <select class="sort-dropdown" id="revoked-sort" onchange="sortConcerns('revoked', this.value)">
                                     <option value="latest">Latest</option>
@@ -297,25 +309,68 @@
             <div class="modal-body" id="modalBody">
                 <!-- Dynamic content will be loaded here -->
             </div>
-            <div class="modal-actions">
-                <button class="btn cancel-btn" onclick="closeConcernModal()">Close</button>
-                <button class="btn resolve-btn" id="modalResolveBtn">Resolve Concern</button>
+            <div class="modal-actions modal-actions--concern">
+                <div class="modal-actions-left">
+                    <button type="button" class="btn resolved-doc-footer-btn" id="modalResolvedDocBtn" style="display: none;" aria-expanded="false" aria-controls="concernModalResolvedDocPanel">
+                        <i class="fas fa-file-contract" aria-hidden="true"></i>
+                        <span id="modalResolvedDocBtnLabel">Resolution documentation</span>
+                        <i class="fas fa-chevron-down resolved-doc-footer-chevron" id="modalResolvedDocChevron" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div class="modal-actions-right">
+                    <button type="button" class="btn cancel-btn" onclick="closeConcernModal()">Close</button>
+                    <button type="button" class="btn resolve-btn" id="modalResolveBtn">Resolve Concern</button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Status Modal -->
     <div class="status-modal" id="statusModal" aria-hidden="true">
-        <div class="status-dialog">
-            <div class="status-icon">
-                <i class="fas fa-check-circle" id="statusIcon"></i>
+        <div class="status-dialog" id="statusModalDialog">
+            <button type="button" class="status-dialog-close-btn" onclick="closeStatusModal()" title="Close" aria-label="Close dialog">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+            <div id="statusModalSimple">
+                <div class="status-icon">
+                    <i class="fas fa-check-circle" id="statusIcon"></i>
+                </div>
+                <div class="status-content">
+                    <h4 id="statusTitle">Success!</h4>
+                    <p id="statusMessage">Action completed successfully.</p>
+                </div>
+                <div class="status-actions">
+                    <button type="button" class="btn ok-btn" id="statusModalOkBtn">OK</button>
+                </div>
             </div>
-            <div class="status-content">
-                <h4 id="statusTitle">Success!</h4>
-                <p id="statusMessage">Action completed successfully.</p>
-            </div>
-            <div class="status-actions">
-                <button class="btn ok-btn" onclick="closeStatusModal()">OK</button>
+            <div id="statusModalDocumentation" class="hidden">
+                <div class="resolution-doc-header">
+                    <h4 class="resolution-doc-title"><i class="fas fa-file-signature"></i> Resolution documentation</h4>
+                    <p class="resolution-doc-sub">How this concern was resolved. Submit to mark the concern as resolved.</p>
+                </div>
+                <div class="resolution-doc-section">
+                    <span class="resolution-doc-label">Resident concern image (if any)</span>
+                    <div id="resolutionResidentPreviewWrap" class="resolution-resident-preview">
+                        <img id="resolutionResidentPreviewImg" src="" alt="Resident concern image" class="resolution-resident-img hidden">
+                        <div id="resolutionResidentNoImage" class="resolution-resident-noimg">No image was attached to this concern.</div>
+                    </div>
+                </div>
+                <div class="resolution-doc-section">
+                    <label class="resolution-doc-label" for="resolutionDocFile">Admin documentation image (optional)</label>
+                    <input type="file" id="resolutionDocFile" class="resolution-doc-file" accept="image/jpeg,image/png,image/gif,image/webp">
+                    <div id="resolutionAdminPreviewWrap" class="resolution-resident-preview resolution-admin-preview">
+                        <img id="resolutionAdminPreviewImg" alt="Documentation preview" class="resolution-resident-img hidden">
+                        <div id="resolutionAdminNoImage" class="resolution-resident-noimg">No documentation image selected yet.</div>
+                    </div>
+                </div>
+                <div class="resolution-doc-section">
+                    <label class="resolution-doc-label" for="resolutionStatementInput">Resolution statement <span class="req">*</span></label>
+                    <textarea id="resolutionStatementInput" class="resolution-doc-textarea" rows="4" placeholder="Describe how the concern was addressed…"></textarea>
+                </div>
+                <div class="status-actions resolution-doc-actions">
+                    <button type="button" class="btn cancel-btn" id="resolutionDocCancelBtn" onclick="cancelResolutionDocumentation()">Cancel</button>
+                    <button type="button" class="btn ok-btn" id="resolutionDocSubmitBtn" onclick="submitResolutionDocumentation()">Submit &amp; resolve</button>
+                </div>
             </div>
         </div>
     </div>
