@@ -168,6 +168,18 @@ define('EMERGENCY_GRAPH_GROQ_API_KEY', $emergencyGraphGroqKey);
 $groqEmergencyResolved = $emergencyGraphGroqKey !== '' ? $emergencyGraphGroqKey : trim($groqApiKey);
 define('GROQ_API_KEY_EMERGENCY', $groqEmergencyResolved);
 
+// Census Analytics (Groq) — hiwalay na key bawat Demographic; .env: GROQ_API_KEY_CENSUS_* (tingnan ang komento doon)
+define('GROQ_API_KEY_CENSUS_SENIOR_CITIZENS', trim(rich_env('GROQ_API_KEY_CENSUS_SENIOR_CITIZENS', '')));
+define('GROQ_API_KEY_CENSUS_WIDOWED', trim(rich_env('GROQ_API_KEY_CENSUS_WIDOWED', '')));
+define('GROQ_API_KEY_CENSUS_EMPLOYED', trim(rich_env('GROQ_API_KEY_CENSUS_EMPLOYED', '')));
+define('GROQ_API_KEY_CENSUS_UNEMPLOYED', trim(rich_env('GROQ_API_KEY_CENSUS_UNEMPLOYED', '')));
+define('GROQ_API_KEY_CENSUS_STUDENTS', trim(rich_env('GROQ_API_KEY_CENSUS_STUDENTS', '')));
+define('GROQ_API_KEY_CENSUS_PWD', trim(rich_env('GROQ_API_KEY_CENSUS_PWD', '')));
+define('GROQ_API_KEY_CENSUS_INDIGENOUS', trim(rich_env('GROQ_API_KEY_CENSUS_INDIGENOUS', '')));
+
+// Sentiment Analysis (Concerns.statement text mining)
+define('SENTIMENT_ANALYSIS_API_KEY', trim(rich_env('SENTIMENT_ANALYSIS_API_KEY', '')));
+
 /**
  * Ensure barangay_id_forms.height is VARCHAR for values like 5'8 (no "cm"/"foot" in stored data).
  */

@@ -42,12 +42,6 @@
                     </div>
 
                     <div class="bo-combined-inner">
-                        <div class="bo-gallery-block">
-                            <h3 class="bo-subsection-title"><i class="fas fa-images" aria-hidden="true"></i> Policy board images</h3>
-                            <p class="bo-subsection-desc">Large preview on top, thumbnails in the middle, arrows at the bottom.</p>
-                            <div id="fpGalleryRoot" class="bo-gallery-root" aria-live="polite"></div>
-                        </div>
-
                         <div class="bo-upload-block" id="fpUploadSection" hidden>
                             <h3 class="bo-subsection-title"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i> Upload</h3>
                             <p class="bo-subsection-desc">Use the button to choose a file, preview it, then confirm to upload.</p>
@@ -82,11 +76,16 @@
                             </form>
                         </div>
 
-                        <section id="fpFeedbackSection" class="fp-feedback-section fp-feedback-section--bottom" hidden aria-label="Resident feedback for selected image">
-                            <h3 class="bo-subsection-title"><i class="fas fa-comments" aria-hidden="true"></i> Feedback for this page</h3>
-                            <p class="bo-subsection-desc fp-feedback-hint">Comments and ratings for the image currently selected in the viewer above.</p>
-                            <div id="fpFeedbackRoot"></div>
-                        </section>
+                        <div class="bo-gallery-block">
+                            <h3 class="bo-subsection-title"><i class="fas fa-images" aria-hidden="true"></i> Policy board images</h3>
+                            <p class="bo-subsection-desc">Large preview on top, thumbnails in the middle, arrows at the bottom.</p>
+                            <div id="fpGalleryRoot" class="bo-gallery-root" aria-live="polite"></div>
+                            <section id="fpFeedbackSection" class="fp-feedback-section fp-feedback-section--bottom" hidden aria-label="Resident feedback for selected image">
+                                <h3 class="bo-subsection-title"><i class="fas fa-comments" aria-hidden="true"></i> Feedback for this page</h3>
+                                <p class="bo-subsection-desc fp-feedback-hint">Comments for the image currently selected in the viewer above.</p>
+                                <div id="fpFeedbackRoot"></div>
+                            </section>
+                        </div>
                     </div>
                 </section>
                 </div>

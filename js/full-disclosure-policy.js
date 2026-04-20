@@ -115,8 +115,9 @@
             '<ul class="doc-feedback-list">' +
             list
                 .map((f) => {
+                    const author = String(f.name || '').trim();
                     return `<li class="doc-feedback-item">
-                        <div class="doc-feedback-stars-wrap">${starsDisplayHtml(f.rating)}</div>
+                        ${author ? `<div class="doc-feedback-author">${escapeHtml(author)}</div>` : ''}
                         <div class="doc-feedback-text">${escapeHtml(String(f.comment || ''))}</div>
                         <div class="doc-feedback-when">${formatTs(f.created_at)}</div>
                     </li>`;

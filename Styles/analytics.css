@@ -930,17 +930,100 @@
     width: 8rem;
 }
 
-.analytics-census-by-sitio-table tfoot th,
-.analytics-census-by-sitio-table tfoot td {
-    padding: 0.875rem 1rem;
-    border-top: 2px solid #cbd5e1;
-    background: #f1f5f9;
-    font-weight: 700;
-    color: #0f172a;
+/* Census by sitio — card frame (tugma sa summary cards / demo tiles) */
+#analyticsPanelCensus .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-radius: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid rgba(14, 165, 233, 0.38);
+    background: linear-gradient(
+        165deg,
+        rgba(224, 242, 254, 0.98) 0%,
+        rgba(186, 230, 253, 0.82) 45%,
+        rgba(237, 233, 254, 0.78) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        0 2px 12px rgba(14, 165, 233, 0.14);
 }
 
-.analytics-census-by-sitio-table tfoot td {
-    text-align: right;
+.analytics-census-senior-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(251, 191, 36, 0.48);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(255, 247, 237, 0.88) 50%,
+        rgba(254, 243, 199, 0.5) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(245, 158, 11, 0.12);
+}
+
+.analytics-census-widowed-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(167, 139, 250, 0.48);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(245, 243, 255, 0.9) 50%,
+        rgba(237, 233, 254, 0.55) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(124, 58, 237, 0.1);
+}
+
+.analytics-census-employed-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(52, 211, 153, 0.48);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(236, 253, 245, 0.9) 50%,
+        rgba(209, 250, 229, 0.5) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(16, 185, 129, 0.1);
+}
+
+.analytics-census-unemployed-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(251, 191, 36, 0.45);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(255, 251, 235, 0.9) 50%,
+        rgba(254, 243, 199, 0.48) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(245, 158, 11, 0.1);
+}
+
+.analytics-census-students-section .table-wrapper:has(.analytics-census-by-sitio-table),
+.analytics-census-pwd-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(96, 165, 250, 0.48);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(239, 246, 255, 0.92) 50%,
+        rgba(219, 234, 254, 0.52) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(59, 130, 246, 0.1);
+}
+
+.analytics-census-indigenous-section .table-wrapper:has(.analytics-census-by-sitio-table) {
+    border-color: rgba(45, 212, 191, 0.48);
+    background: linear-gradient(
+        165deg,
+        rgba(255, 255, 255, 0.92) 0%,
+        rgba(240, 253, 250, 0.92) 50%,
+        rgba(204, 251, 241, 0.52) 100%
+    );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.72),
+        0 2px 10px rgba(20, 184, 166, 0.1);
 }
 
 .analytics-census-subheading {
@@ -967,6 +1050,162 @@
     margin-bottom: 0;
 }
 
+.analytics-census-senior-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 247, 237, 0.75) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.1);
+}
+
+.analytics-census-senior-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #9a3412;
+}
+
+.analytics-census-senior-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-senior-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+}
+
+.analytics-census-senior-interpretation__loading,
+.analytics-census-senior-interpretation__hint,
+.analytics-census-senior-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-senior-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-senior-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-senior-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-senior-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(251, 191, 36, 0.38);
+}
+
+.analytics-census-senior-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #c2410c;
+}
+
+.analytics-census-senior-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-senior-recommendations__text {
+    margin: 0;
+    font-weight: 600;
+}
+
+.analytics-census-widowed-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 243, 255, 0.88) 100%);
+    border: 1px solid rgba(167, 139, 250, 0.42);
+    box-shadow: 0 1px 4px rgba(124, 58, 237, 0.1);
+}
+
+.analytics-census-widowed-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #5b21b6;
+}
+
+.analytics-census-widowed-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-widowed-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+}
+
+.analytics-census-widowed-interpretation__loading,
+.analytics-census-widowed-interpretation__hint,
+.analytics-census-widowed-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-widowed-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-widowed-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-widowed-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-widowed-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(167, 139, 250, 0.38);
+}
+
+.analytics-census-widowed-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6d28d9;
+}
+
+.analytics-census-widowed-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-widowed-recommendations__text {
+    margin: 0;
+    font-weight: 600;
+}
+
 .analytics-census-widowed-section {
     margin-top: 1.5rem;
     padding: 1rem 1.15rem 1.2rem;
@@ -984,6 +1223,110 @@
     margin-bottom: 0;
 }
 
+.analytics-census-employed-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(236, 253, 245, 0.9) 100%);
+    border: 1px solid rgba(52, 211, 153, 0.45);
+    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.1);
+}
+
+.analytics-census-employed-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #047857;
+}
+
+.analytics-census-employed-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-employed-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.analytics-census-employed-interpretation__intro {
+    margin: 0 0 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.analytics-census-employed-interpretation__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-employed-interpretation__list li {
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.analytics-census-employed-interpretation__list li:last-child {
+    margin-bottom: 0;
+}
+
+.analytics-census-employed-interpretation__loading,
+.analytics-census-employed-interpretation__hint,
+.analytics-census-employed-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-employed-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-employed-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-employed-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-employed-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+.analytics-census-employed-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #047857;
+}
+
+.analytics-census-employed-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-employed-recommendations__text {
+    margin: 0;
+    font-weight: 600;
+}
+
 .analytics-census-employed-section {
     margin-top: 1.5rem;
     padding: 1rem 1.15rem 1.2rem;
@@ -999,6 +1342,110 @@
 
 .analytics-census-employed-section .table-wrapper {
     margin-bottom: 0;
+}
+
+.analytics-census-unemployed-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 251, 235, 0.92) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.12);
+}
+
+.analytics-census-unemployed-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #b45309;
+}
+
+.analytics-census-unemployed-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-unemployed-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.analytics-census-unemployed-interpretation__intro {
+    margin: 0 0 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.analytics-census-unemployed-interpretation__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-unemployed-interpretation__list li {
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.analytics-census-unemployed-interpretation__list li:last-child {
+    margin-bottom: 0;
+}
+
+.analytics-census-unemployed-interpretation__loading,
+.analytics-census-unemployed-interpretation__hint,
+.analytics-census-unemployed-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-unemployed-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-unemployed-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-unemployed-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-unemployed-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(251, 191, 36, 0.42);
+}
+
+.analytics-census-unemployed-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #b45309;
+}
+
+.analytics-census-unemployed-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-unemployed-recommendations__text {
+    margin: 0;
+    font-weight: 600;
 }
 
 .analytics-census-unemployed-section {
@@ -1035,6 +1482,132 @@
     margin-bottom: 0;
 }
 
+.analytics-census-students-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(239, 246, 255, 0.92) 100%);
+    border: 1px solid rgba(96, 165, 250, 0.45);
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.12);
+}
+
+.analytics-census-students-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #1d4ed8;
+}
+
+.analytics-census-students-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-students-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.analytics-census-students-interpretation__intro {
+    margin: 0 0 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+.analytics-census-students-interpretation__list-heading {
+    margin: 0.75rem 0 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #334155;
+}
+
+.analytics-census-students-interpretation__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-students-interpretation__list li {
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.analytics-census-students-interpretation__list li:last-child {
+    margin-bottom: 0;
+}
+
+.analytics-census-students-interpretation__loading,
+.analytics-census-students-interpretation__hint,
+.analytics-census-students-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-students-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-students-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-students-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-students-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(96, 165, 250, 0.4);
+}
+
+.analytics-census-students-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1e40af;
+}
+
+.analytics-census-students-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-students-recommendations__text {
+    margin: 0;
+    font-weight: 600;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+[class$='-recommendations__body'] p + p {
+    margin-top: 0.5rem;
+}
+
+[class$='-recommendations__text'] {
+    text-align: justify;
+    text-justify: inter-word;
+}
+
 .analytics-census-pwd-section {
     margin-top: 1.5rem;
     padding: 1rem 1.15rem 1.2rem;
@@ -1052,6 +1625,121 @@
     margin-bottom: 0;
 }
 
+.analytics-census-pwd-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 253, 250, 0.92) 100%);
+    border: 1px solid rgba(45, 212, 191, 0.45);
+    box-shadow: 0 1px 4px rgba(20, 184, 166, 0.12);
+}
+
+.analytics-census-pwd-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0f766e;
+}
+
+.analytics-census-pwd-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-pwd-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.analytics-census-pwd-interpretation__intro {
+    margin: 0 0 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+.analytics-census-pwd-interpretation__list-heading {
+    margin: 0.75rem 0 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #334155;
+}
+
+.analytics-census-pwd-interpretation__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-pwd-interpretation__list li {
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.analytics-census-pwd-interpretation__list li:last-child {
+    margin-bottom: 0;
+}
+
+.analytics-census-pwd-interpretation__loading,
+.analytics-census-pwd-interpretation__hint,
+.analytics-census-pwd-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-pwd-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-pwd-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-pwd-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-pwd-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(45, 212, 191, 0.4);
+}
+
+.analytics-census-pwd-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0d9488;
+}
+
+.analytics-census-pwd-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-pwd-recommendations__text {
+    margin: 0;
+    font-weight: 600;
+}
+
 .analytics-census-indigenous-section {
     margin-top: 1.5rem;
     padding: 1rem 1.15rem 1.2rem;
@@ -1067,6 +1755,121 @@
 
 .analytics-census-indigenous-section .table-wrapper {
     margin-bottom: 0;
+}
+
+.analytics-census-indigenous-interpretation-wrap {
+    margin-top: 1rem;
+    padding: 0.85rem 1rem 1rem;
+    border-radius: 10px;
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 253, 250, 0.92) 100%);
+    border: 1px solid rgba(20, 184, 166, 0.42);
+    box-shadow: 0 1px 4px rgba(13, 148, 136, 0.12);
+}
+
+.analytics-census-indigenous-interpretation__label {
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0f766e;
+}
+
+.analytics-census-indigenous-interpretation__body {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-indigenous-interpretation__text {
+    margin: 0;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.analytics-census-indigenous-interpretation__intro {
+    margin: 0 0 0.65rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 600;
+    color: #1e293b;
+    text-align: justify;
+    text-justify: inter-word;
+}
+
+.analytics-census-indigenous-interpretation__list-heading {
+    margin: 0.75rem 0 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #334155;
+}
+
+.analytics-census-indigenous-interpretation__list {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
+.analytics-census-indigenous-interpretation__list li {
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.analytics-census-indigenous-interpretation__list li:last-child {
+    margin-bottom: 0;
+}
+
+.analytics-census-indigenous-interpretation__loading,
+.analytics-census-indigenous-interpretation__hint,
+.analytics-census-indigenous-interpretation__err {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.analytics-census-indigenous-interpretation__loading {
+    color: #64748b;
+    font-style: italic;
+}
+
+.analytics-census-indigenous-interpretation__hint {
+    color: #64748b;
+}
+
+.analytics-census-indigenous-interpretation__err {
+    color: #b91c1c;
+}
+
+.analytics-census-indigenous-recommendations {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(45, 212, 191, 0.4);
+}
+
+.analytics-census-indigenous-recommendations__label {
+    margin: 0 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #0d9488;
+}
+
+.analytics-census-indigenous-recommendations__body {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.52;
+    color: #1e293b;
+}
+
+.analytics-census-indigenous-recommendations__text {
+    margin: 0;
+    font-weight: 600;
 }
 
 .analytics-census-senior-note {
@@ -3731,6 +4534,205 @@
     border-bottom: none;
 }
 
+/* Census by sitio: tugma sa palette ng cards/tiles; rounded cells; row hover / accent */
+.analytics-users-table.analytics-census-by-sitio-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(125, 211, 252, 0.92) 0%, rgba(56, 189, 248, 0.78) 100%);
+    border-bottom: 2px solid rgba(14, 165, 233, 0.42);
+}
+
+.analytics-users-table.analytics-census-seniors-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(254, 215, 170, 0.95) 0%, rgba(251, 191, 36, 0.42) 100%);
+    border-bottom-color: rgba(245, 158, 11, 0.45);
+}
+
+.analytics-users-table.analytics-census-widowed-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(196, 181, 253, 0.88) 0%, rgba(167, 139, 250, 0.42) 100%);
+    border-bottom-color: rgba(124, 58, 237, 0.4);
+}
+
+.analytics-users-table.analytics-census-employed-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(110, 231, 183, 0.88) 0%, rgba(52, 211, 153, 0.42) 100%);
+    border-bottom-color: rgba(16, 185, 129, 0.45);
+}
+
+.analytics-users-table.analytics-census-unemployed-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(253, 230, 138, 0.92) 0%, rgba(251, 191, 36, 0.38) 100%);
+    border-bottom-color: rgba(245, 158, 11, 0.42);
+}
+
+.analytics-users-table.analytics-census-students-by-sitio-table thead,
+.analytics-users-table.analytics-census-pwd-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(147, 197, 253, 0.9) 0%, rgba(59, 130, 246, 0.35) 100%);
+    border-bottom-color: rgba(37, 99, 235, 0.38);
+}
+
+.analytics-users-table.analytics-census-indigenous-by-sitio-table thead {
+    background: linear-gradient(180deg, rgba(94, 234, 212, 0.82) 0%, rgba(20, 184, 166, 0.38) 100%);
+    border-bottom-color: rgba(13, 148, 136, 0.42);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table thead tr:first-child th:first-child {
+    border-top-left-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table thead tr:first-child th:last-child {
+    border-top-right-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table th,
+.analytics-users-table.analytics-census-by-sitio-table td {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.32);
+    font-weight: 700;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table thead th {
+    border-bottom: none;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tbody tr:not(:has(td.table-loading)) td {
+    transition: background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tbody tr:nth-child(even):not(:has(td.table-loading)) td {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td {
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(14, 165, 233, 0.85);
+}
+
+.analytics-users-table.analytics-census-seniors-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(234, 88, 12, 0.85);
+}
+
+.analytics-users-table.analytics-census-widowed-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(124, 58, 237, 0.85);
+}
+
+.analytics-users-table.analytics-census-employed-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(5, 150, 105, 0.9);
+}
+
+.analytics-users-table.analytics-census-unemployed-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(217, 119, 6, 0.9);
+}
+
+.analytics-users-table.analytics-census-students-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child,
+.analytics-users-table.analytics-census-pwd-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(37, 99, 235, 0.88);
+}
+
+.analytics-users-table.analytics-census-indigenous-by-sitio-table tbody tr:not(:has(td.table-loading)):hover td:first-child {
+    box-shadow: inset 4px 0 0 0 rgba(13, 148, 136, 0.9);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:not(:has(tfoot)) tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:not(:has(tfoot)) tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:not(:has(tfoot)) tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tbody tr:last-child td {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-by-sitio-table tfoot td {
+    padding: 0.875rem 1rem;
+    border-top: 2px solid rgba(14, 165, 233, 0.32);
+    background: linear-gradient(180deg, rgba(241, 245, 249, 0.97) 0%, rgba(224, 242, 254, 0.9) 100%);
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tfoot td {
+    text-align: right;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tfoot.analytics-census-by-sitio-foot th,
+.analytics-users-table.analytics-census-by-sitio-table tfoot.analytics-census-by-sitio-foot td {
+    font-size: 1.2rem;
+    line-height: 1.35;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table tfoot.analytics-census-by-sitio-foot td {
+    font-variant-numeric: tabular-nums;
+}
+
+.analytics-users-table.analytics-census-seniors-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-seniors-by-sitio-table tfoot td {
+    border-top-color: rgba(245, 158, 11, 0.4);
+    background: linear-gradient(180deg, rgba(255, 247, 237, 0.98) 0%, rgba(254, 243, 199, 0.75) 100%);
+}
+
+.analytics-users-table.analytics-census-widowed-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-widowed-by-sitio-table tfoot td {
+    border-top-color: rgba(167, 139, 250, 0.42);
+    background: linear-gradient(180deg, rgba(245, 243, 255, 0.98) 0%, rgba(237, 233, 254, 0.82) 100%);
+}
+
+.analytics-users-table.analytics-census-employed-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-employed-by-sitio-table tfoot td {
+    border-top-color: rgba(52, 211, 153, 0.42);
+    background: linear-gradient(180deg, rgba(236, 253, 245, 0.98) 0%, rgba(209, 250, 229, 0.82) 100%);
+}
+
+.analytics-users-table.analytics-census-unemployed-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-unemployed-by-sitio-table tfoot td {
+    border-top-color: rgba(251, 191, 36, 0.4);
+    background: linear-gradient(180deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.78) 100%);
+}
+
+.analytics-users-table.analytics-census-students-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-students-by-sitio-table tfoot td,
+.analytics-users-table.analytics-census-pwd-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-pwd-by-sitio-table tfoot td {
+    border-top-color: rgba(59, 130, 246, 0.38);
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.85) 100%);
+}
+
+.analytics-users-table.analytics-census-indigenous-by-sitio-table tfoot th,
+.analytics-users-table.analytics-census-indigenous-by-sitio-table tfoot td {
+    border-top-color: rgba(45, 212, 191, 0.42);
+    background: linear-gradient(180deg, rgba(240, 253, 250, 0.98) 0%, rgba(204, 251, 241, 0.82) 100%);
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child th:first-child,
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child td:first-child {
+    border-bottom-left-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child th:last-child,
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child td:last-child {
+    border-bottom-right-radius: 10px;
+}
+
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child th,
+.analytics-users-table.analytics-census-by-sitio-table:has(tfoot) tfoot tr:last-child td {
+    border-bottom: none;
+}
+
+/* Mas mataas na specificity kaysa generic na tbody tr:hover ng users table */
+.analytics-users-table.analytics-census-by-sitio-table tbody tr:hover {
+    background: transparent;
+}
+
 .table-loading {
     text-align: center;
     color: #64748b;
@@ -4134,6 +5136,7 @@
 /* Emergency — calendar mosaic: month title, Sun–Sat, rounded cells, warm scale, white gutters */
 .emergency-heatmap--calendar-mosaic {
     max-width: 100%;
+    overflow: visible;
     background: #1ab55f50;
     border-radius: 12px;
     padding: 1rem 1rem 0.65rem;
@@ -4207,6 +5210,8 @@
     width: 100%;
     max-width: 36rem;
     margin: 0 auto;
+    overflow: visible;
+    padding-bottom: 2.75rem;
 }
 
 .emergency-heatmap__mosaic-weekdays {
@@ -4229,9 +5234,12 @@
     grid-template-columns: repeat(7, 1fr);
     gap: 8px;
     grid-auto-rows: minmax(2.75rem, auto);
+    overflow: visible;
 }
 
 .emergency-heatmap__mosaic-cell--data {
+    position: relative;
+    overflow: visible;
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -4242,6 +5250,68 @@
     min-height: 2.75rem;
     box-sizing: border-box;
     line-height: 1.2;
+    cursor: default;
+    outline: none;
+}
+
+.emergency-heatmap__mosaic-cell--data:focus-visible {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3b82f6;
+    z-index: 2;
+}
+
+.emergency-heatmap__mosaic-day-num {
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.emergency-heatmap__mosaic-hover-panel {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 8px);
+    bottom: auto;
+    transform: translateX(-50%) translateY(-4px);
+    min-width: 7.75rem;
+    max-width: 12rem;
+    padding: 0.45rem 0.55rem 0.5rem;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #f8fafc;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.28);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity 0.16s ease,
+        transform 0.16s ease,
+        visibility 0.16s;
+    z-index: 40;
+}
+
+.emergency-heatmap__mosaic-cell--data:hover .emergency-heatmap__mosaic-hover-panel,
+.emergency-heatmap__mosaic-cell--data:focus-within .emergency-heatmap__mosaic-hover-panel {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+}
+
+.emergency-heatmap__mosaic-hover-panel__title {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.emergency-heatmap__mosaic-hover-panel__count {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 1.05rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
 }
 
 .emergency-heatmap__mosaic-cell--empty {
@@ -4291,5 +5361,364 @@
 .emergency-heatmap__scale-note--blue strong {
     font-weight: 600;
     color: #334155;
+}
+
+.sentiment-ui-showcase {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 70%);
+    padding: 1.3rem 1.2rem 1.4rem;
+}
+
+.sentiment-ui-headline {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.05rem;
+}
+
+.sentiment-ui-headline h6 {
+    margin: 0;
+    font-size: clamp(1.05rem, 0.7vw + 0.9rem, 1.5rem);
+    letter-spacing: 0.02em;
+    color: #111827;
+    font-weight: 800;
+}
+
+.sentiment-ui-headline h6 span {
+    color: #c85e09;
+}
+
+.sentiment-ui-score {
+    text-align: right;
+    min-width: 11rem;
+}
+
+.sentiment-ui-score strong {
+    display: block;
+    color: #c85e09;
+    font-size: clamp(1.1rem, 0.8vw + 0.9rem, 1.55rem);
+    line-height: 1.1;
+}
+
+.sentiment-ui-score p {
+    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    color: #6b7280;
+}
+
+.sentiment-ui-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.sentiment-ui-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.sentiment-ui-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.sentiment-ui-title h6 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.sentiment-ui-title p {
+    margin: 0.15rem 0 0;
+    color: #4b5563;
+    font-weight: 600;
+}
+
+.sentiment-ui-rate-count {
+    margin: 0.25rem 0 0;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.sentiment-ui-emoji {
+    width: 3.05rem;
+    height: 3.05rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 1.75rem;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+
+.sentiment-ui-description {
+    margin: 0.9rem 0 0;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: #374151;
+    min-height: 2.7rem;
+}
+
+.sentiment-ui-tags {
+    margin-top: 0.95rem;
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.sentiment-ui-tags span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.4rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #4b5563;
+}
+
+.sentiment-ui-card--negative .sentiment-ui-title h6 {
+    color: #d35400;
+}
+
+.sentiment-ui-card--negative .sentiment-ui-rate-count {
+    color: #c2410c;
+}
+
+.sentiment-ui-card--negative .sentiment-ui-emoji {
+    background: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.sentiment-ui-card--positive .sentiment-ui-title h6 {
+    color: #ec4899;
+}
+
+.sentiment-ui-card--positive .sentiment-ui-rate-count {
+    color: #db2777;
+}
+
+.sentiment-ui-card--positive .sentiment-ui-emoji {
+    background: #fdf2f8;
+    border-color: #fbcfe8;
+}
+
+.sentiment-ui-rating {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px dashed #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.sentiment-ui-rating-label {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.sentiment-ui-rating .concern-rating-stars {
+    display: flex;
+    align-items: center;
+    gap: 0.22rem;
+    margin: 0;
+    font-size: 1.1rem;
+    color: #f4b400;
+}
+
+.sentiment-ui-rating .concern-rating-star--empty {
+    color: #d8dee6;
+}
+
+@media (max-width: 920px) {
+    .sentiment-ui-headline {
+        flex-direction: column;
+    }
+
+    .sentiment-ui-score {
+        text-align: left;
+        min-width: 0;
+    }
+
+    .sentiment-ui-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .sentiment-ui-rating {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .sentiment-rating-line__title-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .sentiment-rating-line__legend--boxed {
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+}
+
+.sentiment-rating-line {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.sentiment-rating-line__head {
+    margin-bottom: 0.65rem;
+}
+
+.sentiment-rating-line__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+}
+
+.sentiment-rating-line__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #111827;
+    letter-spacing: 0.02em;
+    flex: 1 1 12rem;
+}
+
+.sentiment-rating-line__summary {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.sentiment-rating-line__chart {
+    width: 100%;
+    min-height: 11rem;
+    overflow-x: auto;
+}
+
+.sentiment-rating-line__chart svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.sentiment-rating-line__empty {
+    margin: 0;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px dashed #cbd5e1;
+}
+
+.sentiment-rating-line__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #3f2e1f;
+}
+
+.sentiment-rating-line__legend--boxed {
+    margin: 0 0 0.35rem auto;
+    padding: 0.45rem 0.65rem;
+    border: 2px solid #8b7355;
+    border-radius: 6px;
+    background: #fffefb;
+    box-shadow: 0 1px 0 rgba(62, 47, 32, 0.06);
+}
+
+.sentiment-rating-line__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.sentiment-rating-line__legend-item i {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 2px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.sentiment-rating-line__legend-item--positive i {
+    background: #009a44;
+}
+
+.sentiment-rating-line__legend-item--negative i {
+    background: #e82127;
+}
+
+.sentiment-rating-line__axis-label {
+    font-size: 0.62rem;
+    fill: #57534e;
+    font-weight: 600;
+}
+
+.sentiment-rating-line__axis-title {
+    font-size: 0.58rem;
+    fill: #44403c;
+    font-weight: 700;
+}
+
+.sentiment-rating-line__axis {
+    stroke: #78716c;
+    stroke-width: 1.25;
+}
+
+.sentiment-rating-line__tick-y {
+    stroke: #78716c;
+    stroke-width: 1;
+}
+
+.sentiment-rating-line__line--negative {
+    fill: none;
+    stroke: #e82127;
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.sentiment-rating-line__line--positive {
+    fill: none;
+    stroke: #009a44;
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.sentiment-rating-line__dot--negative {
+    fill: #e82127;
+}
+
+.sentiment-rating-line__dot--positive {
+    fill: #009a44;
 }
 

@@ -65,6 +65,10 @@
                             <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-briefcase"></i></span>
                             <span class="analytics-tab-btn-text">Jobseeker Report</span>
                         </button>
+                        <button type="button" class="analytics-tab-btn" id="analyticsTabBtnSentiment" role="tab" aria-selected="false" aria-controls="analyticsPanelSentiment" data-tab="sentiment" title="Sentiment Analysis">
+                            <span class="analytics-tab-btn-icon" aria-hidden="true"><i class="fas fa-face-smile"></i></span>
+                            <span class="analytics-tab-btn-text">Sentiment Analysis</span>
+                        </button>
                     </nav>
                     </div>
                 </aside>
@@ -312,6 +316,14 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="analytics-census-senior-interpretation-wrap no-print" id="censusAnalyticsSeniorInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-senior-interpretation__label">Interpretation — pagtukoy ng populasyon (mga senior sa bawat sitio)</p>
+                                        <div class="analytics-census-senior-interpretation__body" id="censusAnalyticsSeniorInterpretationSlot"></div>
+                                        <div class="analytics-census-senior-recommendations no-print" id="censusAnalyticsSeniorRecommendationsWrap" hidden>
+                                            <p class="analytics-census-senior-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-senior-recommendations__body" id="censusAnalyticsSeniorRecommendationsSlot"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="analytics-census-widowed-section" id="censusAnalyticsWidowedSection" hidden>
                                     <h6 class="analytics-census-subheading" id="censusAnalyticsWidowedHeading">Widowed</h6>
@@ -330,6 +342,14 @@
                                                 </tr>
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div class="analytics-census-widowed-interpretation-wrap no-print" id="censusAnalyticsWidowedInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-widowed-interpretation__label">Interpretation — pagtukoy ng populasyon (mga widowed sa bawat sitio)</p>
+                                        <div class="analytics-census-widowed-interpretation__body" id="censusAnalyticsWidowedInterpretationSlot"></div>
+                                        <div class="analytics-census-widowed-recommendations no-print" id="censusAnalyticsWidowedRecommendationsWrap" hidden>
+                                            <p class="analytics-census-widowed-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-widowed-recommendations__body" id="censusAnalyticsWidowedRecommendationsSlot"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="analytics-census-employed-section" id="censusAnalyticsEmployedSection" hidden>
@@ -350,6 +370,14 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="analytics-census-employed-interpretation-wrap no-print" id="censusAnalyticsEmployedInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-employed-interpretation__label">Interpretation — pagtukoy ng populasyon (mga employed sa bawat sitio)</p>
+                                        <div class="analytics-census-employed-interpretation__body" id="censusAnalyticsEmployedInterpretationSlot"></div>
+                                        <div class="analytics-census-employed-recommendations no-print" id="censusAnalyticsEmployedRecommendationsWrap" hidden>
+                                            <p class="analytics-census-employed-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-employed-recommendations__body" id="censusAnalyticsEmployedRecommendationsSlot"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="analytics-census-unemployed-section" id="censusAnalyticsUnemployedSection" hidden>
                                     <h6 class="analytics-census-subheading" id="censusAnalyticsUnemployedHeading">Unemployed</h6>
@@ -368,6 +396,14 @@
                                                 </tr>
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div class="analytics-census-unemployed-interpretation-wrap no-print" id="censusAnalyticsUnemployedInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-unemployed-interpretation__label">Interpretation — pagtukoy ng populasyon (mga unemployed sa bawat sitio)</p>
+                                        <div class="analytics-census-unemployed-interpretation__body" id="censusAnalyticsUnemployedInterpretationSlot"></div>
+                                        <div class="analytics-census-unemployed-recommendations no-print" id="censusAnalyticsUnemployedRecommendationsWrap" hidden>
+                                            <p class="analytics-census-unemployed-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-unemployed-recommendations__body" id="censusAnalyticsUnemployedRecommendationsSlot"></div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="analytics-census-students-section" id="censusAnalyticsStudentsSection" hidden>
@@ -388,6 +424,14 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="analytics-census-students-interpretation-wrap no-print" id="censusAnalyticsStudentsInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-students-interpretation__label">Interpretation — pagtukoy ng populasyon (mga student sa bawat sitio)</p>
+                                        <div class="analytics-census-students-interpretation__body" id="censusAnalyticsStudentsInterpretationSlot"></div>
+                                        <div class="analytics-census-students-recommendations no-print" id="censusAnalyticsStudentsRecommendationsWrap" hidden>
+                                            <p class="analytics-census-students-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-students-recommendations__body" id="censusAnalyticsStudentsRecommendationsSlot"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="analytics-census-pwd-section" id="censusAnalyticsPwdSection" hidden>
                                     <h6 class="analytics-census-subheading" id="censusAnalyticsPwdHeading">PWD</h6>
@@ -407,6 +451,14 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="analytics-census-pwd-interpretation-wrap no-print" id="censusAnalyticsPwdInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-pwd-interpretation__label">Interpretation — pagtukoy ng populasyon (mga resident na may PWD record sa bawat sitio)</p>
+                                        <div class="analytics-census-pwd-interpretation__body" id="censusAnalyticsPwdInterpretationSlot"></div>
+                                        <div class="analytics-census-pwd-recommendations no-print" id="censusAnalyticsPwdRecommendationsWrap" hidden>
+                                            <p class="analytics-census-pwd-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-pwd-recommendations__body" id="censusAnalyticsPwdRecommendationsSlot"></div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="analytics-census-indigenous-section" id="censusAnalyticsIndigenousSection" hidden>
                                     <h6 class="analytics-census-subheading" id="censusAnalyticsIndigenousHeading">Indigenous (IP)</h6>
@@ -425,6 +477,14 @@
                                                 </tr>
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div class="analytics-census-indigenous-interpretation-wrap no-print" id="censusAnalyticsIndigenousInterpretationWrap" hidden aria-live="polite">
+                                        <p class="analytics-census-indigenous-interpretation__label">Interpretation — pagtukoy ng populasyon (mga resident na nakatala bilang IP sa bawat sitio)</p>
+                                        <div class="analytics-census-indigenous-interpretation__body" id="censusAnalyticsIndigenousInterpretationSlot"></div>
+                                        <div class="analytics-census-indigenous-recommendations no-print" id="censusAnalyticsIndigenousRecommendationsWrap" hidden>
+                                            <p class="analytics-census-indigenous-recommendations__label">Posibleng epekto at rekomendasyon</p>
+                                            <div class="analytics-census-indigenous-recommendations__body" id="censusAnalyticsIndigenousRecommendationsSlot"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -487,6 +547,60 @@
                                             </tr>
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                                    </div>
+
+                                    <div id="analyticsPanelSentiment" class="analytics-tab-panel" data-tab-panel="sentiment" role="tabpanel" aria-labelledby="analyticsTabBtnSentiment" hidden>
+                            <div class="analytics-table-container">
+                                <div class="table-header">
+                                    <div>
+                                        <h5>Sentiment Analysis</h5>
+                                        <p class="table-subtitle">Quick emotional pulse from concern feedback</p>
+                                    </div>
+                                </div>
+                                <div class="sentiment-ui-showcase" aria-label="Sentiment analysis overview">
+                                    <div class="sentiment-ui-headline">
+                                        <h6><span>SENTIMENT</span> ANALYSIS</h6>
+                                        <div class="sentiment-ui-score">
+                                            <strong id="sentimentFeedbackTotal">0</strong>
+                                            <p>Total analyzed feedback</p>
+                                        </div>
+                                    </div>
+                                    <div class="sentiment-ui-cards">
+                                        <article class="sentiment-ui-card sentiment-ui-card--positive">
+                                            <div class="sentiment-ui-card-top">
+                                                <div class="sentiment-ui-title">
+                                                    <h6>Positive</h6>
+                                                    <p class="sentiment-ui-rate-count" id="sentimentPositiveRateCount">Rate count: 0</p>
+                                                    <p>Energy Vibe</p>
+                                                </div>
+                                                <span class="sentiment-ui-emoji" aria-hidden="true">😄</span>
+                                            </div>
+                                            <p class="sentiment-ui-description" id="sentimentPositiveInterpretation">Brilliant effort from the team. Fast response and very helpful support.</p>
+                                            <div class="sentiment-ui-tags" id="sentimentPositiveWords">
+                                                <span>MAINGAT</span>
+                                                <span>MAAYOS</span>
+                                                <span>MABILIS</span>
+                                            </div>
+                                        </article>
+                                        <article class="sentiment-ui-card sentiment-ui-card--negative">
+                                            <div class="sentiment-ui-card-top">
+                                                <div class="sentiment-ui-title">
+                                                    <h6>Negative</h6>
+                                                    <p class="sentiment-ui-rate-count" id="sentimentNegativeRateCount">Rate count: 0</p>
+                                                    <p>Energy Vibe</p>
+                                                </div>
+                                                <span class="sentiment-ui-emoji" aria-hidden="true">😠</span>
+                                            </div>
+                                            <p class="sentiment-ui-description" id="sentimentNegativeInterpretation">Totally dissatisfied with the service. Worst customer care ever.</p>
+                                            <div class="sentiment-ui-tags" id="sentimentNegativeWords">
+                                                <span>MAGULO</span>
+                                                <span>MATAGAL</span>
+                                                <span>MAHIRAP</span>
+                                            </div>
+                                        </article>
+                                    </div>
                                 </div>
                             </div>
                                     </div>

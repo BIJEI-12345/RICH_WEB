@@ -657,6 +657,11 @@ function populateAnalytics(data, period = 'month') {
     populateSectionPanel(currentSection);
     renderGraphPlaceholders(data);
     renderActivitySummaryTable(data, period);
+    updateSentimentFeedbackTotal(data, period);
+    updateSentimentRateCounts(data);
+    updateSentimentInsightPanel(data, period);
+    updateSentimentConcernStarsFromAverage(data);
+    updateSentimentRatingLineChart(data);
     renderEmergencyAlertsTable(data, period);
     renderDocumentRequestsTable(data, period);
     renderConcernsTableChart(data);
@@ -1063,6 +1068,226 @@ function renderActivitySummaryTable(data, period = 'month') {
     const monthResolved = monthData.resolved || 0;
 
     subtitleEl.textContent = `${currentLabel} · Reported ${monthReported} · Resolved ${monthResolved}`;
+}
+
+function updateSentimentFeedbackTotal(data, period = 'month') {
+    const totalEl = document.getElementById('sentimentFeedbackTotal');
+    if (!totalEl) {
+        return;
+    }
+
+    const concernBlock = period === 'year' ? data?.concerns?.year : data?.concerns?.month;
+    const reportedCount = Number(concernBlock?.reported);
+    totalEl.textContent = Number.isFinite(reportedCount) ? reportedCount.toLocaleString() : '0';
+}
+
+function updateSentimentRateCounts(data) {
+    const positiveCountEl = document.getElementById('sentimentPositiveRateCount');
+    const negativeCountEl = document.getElementById('sentimentNegativeRateCount');
+    if (!positiveCountEl && !negativeCountEl) {
+        return;
+    }
+
+    const totals = data?.concerns?.ratingLineSeries?.totals || {};
+    const low = Number(totals.low) || 0; // rating 1-2
+    const mid = Number(totals.mid) || 0; // rating 3
+    const high = Number(totals.high) || 0; // rating 4-5
+
+    // Rule: Positive = 3 and above; Negative = 2 and below.
+    const positiveCount = mid + high;
+    const negativeCount = low;
+
+    if (positiveCountEl) {
+        positiveCountEl.textContent = `Rate count: ${positiveCount.toLocaleString()}`;
+    }
+    if (negativeCountEl) {
+        negativeCountEl.textContent = `Rate count: ${negativeCount.toLocaleString()}`;
+    }
+}
+
+function updateSentimentInsightPanel(data, period = 'month') {
+    const block = period === 'year' ? data?.concerns?.sentimentInsights?.year : data?.concerns?.sentimentInsights?.month;
+    const positiveInterpretation = document.getElementById('sentimentPositiveInterpretation');
+    const negativeInterpretation = document.getElementById('sentimentNegativeInterpretation');
+    const positiveWordsWrap = document.getElementById('sentimentPositiveWords');
+    const negativeWordsWrap = document.getElementById('sentimentNegativeWords');
+
+    if (positiveInterpretation && block?.positiveInterpretation) {
+        positiveInterpretation.textContent = block.positiveInterpretation;
+    }
+    if (negativeInterpretation && block?.negativeInterpretation) {
+        negativeInterpretation.textContent = block.negativeInterpretation;
+    }
+
+    const renderWordTags = (target, words, fallbackWords) => {
+        if (!target) {
+            return;
+        }
+        const useWords = Array.isArray(words) && words.length > 0 ? words : fallbackWords;
+        target.innerHTML = useWords.map(word => `<span>${escapeChartText(word)}</span>`).join('');
+    };
+
+    renderWordTags(positiveWordsWrap, block?.positiveWords, ['MAINGAT', 'MAAYOS', 'MABILIS']);
+    renderWordTags(negativeWordsWrap, block?.negativeWords, ['MAGULO', 'MATAGAL', 'MAHIRAP']);
+}
+
+function updateSentimentConcernStarsFromAverage(data) {
+    const wrap = document.getElementById('sentimentConcernRatingStars');
+    if (!wrap) {
+        return;
+    }
+    const avg = data?.concerns?.ratingLineSeries?.average;
+    const n = avg == null || Number.isNaN(Number(avg)) ? 0 : Math.min(5, Math.max(0, Math.round(Number(avg))));
+    const parts = [];
+    for (let i = 1; i <= 5; i += 1) {
+        const emptyClass = i <= n ? '' : ' concern-rating-star--empty';
+        parts.push(`<span${emptyClass ? ` class="${emptyClass.trim()}"` : ''} aria-hidden="true">★</span>`);
+    }
+    wrap.setAttribute('aria-label', n > 0 ? `${n} out of 5 stars average` : 'Walang average rating sa sakop na petsa');
+    wrap.innerHTML = parts.join('');
+}
+
+function updateSentimentRatingLineChart(data) {
+    const blockEl = document.getElementById('sentimentRatingLineBlock');
+    const host = document.getElementById('sentimentRatingLineHost');
+    const summaryEl = document.getElementById('sentimentRatingLineSummary');
+    if (!host || !blockEl) {
+        return;
+    }
+
+    const series = data?.concerns?.ratingLineSeries;
+    if (!series?.hasRatingColumn) {
+        blockEl.hidden = true;
+        host.innerHTML = '';
+        if (summaryEl) {
+            summaryEl.textContent = '';
+        }
+        return;
+    }
+
+    blockEl.hidden = false;
+    const labels = Array.isArray(series.labels) ? series.labels : [];
+    const low = Array.isArray(series.low) ? series.low : [];
+    const high = Array.isArray(series.high) ? series.high : [];
+    const t = series.totals || {};
+
+    if (summaryEl) {
+        const avgPart = series.average != null ? ` · Average: ${series.average}` : '';
+        summaryEl.textContent = `Negative (1–2): ${t.low ?? 0} · Positive (4–5): ${t.high ?? 0} · May rating: ${t.rated ?? 0}${avgPart}`;
+    }
+
+    if (labels.length === 0) {
+        host.innerHTML = '<p class="sentiment-rating-line__empty">Walang nag-rate sa sakop na petsa.</p>';
+        return;
+    }
+
+    const W = 420;
+    const H = 200;
+    const pl = 40;
+    const pr = 12;
+    const pt = 16;
+    const pb = 36;
+    const plotW = W - pl - pr;
+    const plotH = H - pt - pb;
+    const n = labels.length;
+    const maxV = Math.max(1, ...low.map(Number), ...high.map(Number));
+
+    const xAt = i => (n <= 1 ? pl + plotW / 2 : pl + (i / (n - 1)) * plotW);
+    const yAt = v => pt + plotH - (Math.max(0, Number(v) || 0) / maxV) * plotH;
+
+    const buildSmoothLinePath = points => {
+        if (!Array.isArray(points) || points.length === 0) {
+            return '';
+        }
+        if (points.length === 1) {
+            return `M ${points[0].x} ${points[0].y}`;
+        }
+
+        const smoothing = 0.18;
+        const segment = (a, b) => {
+            const lengthX = b.x - a.x;
+            const lengthY = b.y - a.y;
+            return {
+                length: Math.hypot(lengthX, lengthY),
+                angle: Math.atan2(lengthY, lengthX)
+            };
+        };
+        const controlPoint = (current, previous, next, reverse = false) => {
+            const p = previous || current;
+            const nPoint = next || current;
+            const seg = segment(p, nPoint);
+            const angle = seg.angle + (reverse ? Math.PI : 0);
+            const length = seg.length * smoothing;
+            return {
+                x: current.x + Math.cos(angle) * length,
+                y: current.y + Math.sin(angle) * length
+            };
+        };
+
+        let d = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 1; i < points.length; i += 1) {
+            const current = points[i];
+            const prev = points[i - 1];
+            const prevPrev = points[i - 2];
+            const next = points[i + 1];
+            const cps = controlPoint(prev, prevPrev, current);
+            const cpe = controlPoint(current, prev, next, true);
+            d += ` C ${cps.x} ${cps.y}, ${cpe.x} ${cpe.y}, ${current.x} ${current.y}`;
+        }
+        return d;
+    };
+
+    const lowPointPairs = low.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+    const highPointPairs = high.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+    const lowPath = buildSmoothLinePath(lowPointPairs);
+    const highPath = buildSmoothLinePath(highPointPairs);
+
+    const tickCount = 4;
+    const yAxisParts = [];
+    for (let g = 0; g <= tickCount; g += 1) {
+        const y = pt + (plotH * g) / tickCount;
+        const val = Math.round((maxV * (tickCount - g)) / tickCount);
+        yAxisParts.push(
+            `<line class="sentiment-rating-line__tick-y" x1="${pl - 4}" y1="${y}" x2="${pl}" y2="${y}" />` +
+                `<text class="sentiment-rating-line__axis-label" x="${pl - 6}" y="${y + 4}" text-anchor="end">${escapeChartText(
+                    String(val)
+                )}</text>`
+        );
+    }
+
+    const axisFrame =
+        `<line class="sentiment-rating-line__axis" x1="${pl}" y1="${pt}" x2="${pl}" y2="${pt + plotH}" />` +
+        `<line class="sentiment-rating-line__axis" x1="${pl}" y1="${pt + plotH}" x2="${pl + plotW}" y2="${pt + plotH}" />` +
+        `<text class="sentiment-rating-line__axis-title" x="${pl - 2}" y="${pt - 4}" text-anchor="start">${escapeChartText('Bilang')}</text>`;
+
+    const labelStep = n > 16 ? Math.ceil(n / 16) : 1;
+    const xLabels = [];
+    for (let i = 0; i < n; i += 1) {
+        if (i % labelStep !== 0 && i !== n - 1) {
+            continue;
+        }
+        const lab = String(labels[i] ?? '');
+        const x = xAt(i);
+        xLabels.push(
+            `<text class="sentiment-rating-line__axis-label" x="${x}" y="${H - 10}" text-anchor="middle">${escapeChartText(lab)}</text>`
+        );
+    }
+
+    const lowDots = low
+        .map((v, i) => `<circle class="sentiment-rating-line__dot--negative" cx="${xAt(i)}" cy="${yAt(v)}" r="3.5" />`)
+        .join('');
+    const highDots = high
+        .map((v, i) => `<circle class="sentiment-rating-line__dot--positive" cx="${xAt(i)}" cy="${yAt(v)}" r="3.5" />`)
+        .join('');
+
+    host.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
+        ${axisFrame}
+        ${yAxisParts.join('')}
+        <path class="sentiment-rating-line__line--negative" d="${lowPath}" />
+        <path class="sentiment-rating-line__line--positive" d="${highPath}" />
+        ${lowDots}${highDots}
+        ${xLabels.join('')}
+    </svg>`;
 }
 
 function formatTableChange(diff) {
@@ -2848,6 +3073,20 @@ function buildEmergencyBarAiInterpretationHtml(rawText) {
 
 /** Groq lamang — php/emergency_heatmap_interpretation.php */
 let emergencyHeatmapAiAbort = null;
+/** Census seniors by sitio — php/census_senior_sitio_interpretation.php */
+let censusSeniorAiAbort = null;
+/** Census widowed by sitio — php/census_widowed_sitio_interpretation.php */
+let censusWidowedAiAbort = null;
+/** Census employed by sitio — php/census_employed_sitio_interpretation.php */
+let censusEmployedAiAbort = null;
+/** Census unemployed by sitio — php/census_unemployed_sitio_interpretation.php */
+let censusUnemployedAiAbort = null;
+/** Census students by sitio — php/census_students_sitio_interpretation.php */
+let censusStudentsAiAbort = null;
+/** Census PWD by sitio — php/census_pwd_sitio_interpretation.php */
+let censusPwdAiAbort = null;
+/** Census Indigenous (IP) by sitio — php/census_indigenous_sitio_interpretation.php */
+let censusIndigenousAiAbort = null;
 
 function buildEmergencyHeatmapGroqInterpretationBlock(text, groqConfigured) {
     const t = String(text || '').trim();
@@ -2883,7 +3122,7 @@ async function loadEmergencyHeatmapGroqInterpretation(year, month, sitio) {
     if (sitio && String(sitio).trim()) {
         params.set('sitio', String(sitio).trim());
     }
-    slot.innerHTML = '<p class="emergency-heatmap-ai-slot__loading">Kumukuha ng buod (Groq)…</p>';
+    slot.innerHTML = '<p class="emergency-heatmap-ai-slot__loading">Kumukuha ng buod…</p>';
     try {
         const res = await fetch(`php/emergency_heatmap_interpretation.php?${params}`, {
             credentials: 'same-origin',
@@ -3436,9 +3675,10 @@ function renderEmergencyCurrentMonthDailyHeatmap(containerId, daily, subheading,
         const st = emergencyReportedYellowRedHeatStyle(v, max);
         const isPeak = peakDay != null && peakDay === day && v > 0;
         const peakClass = isPeak ? ' emergency-heatmap__mosaic-cell--peak' : '';
-        const aria = `${monthTitle} day ${day}: ${v} reported`;
+        const aria = `${monthTitle}, araw ${day}: ${v.toLocaleString()} na ulat`;
+        const countStr = v.toLocaleString();
         mosaicCells.push(
-            `<div class="emergency-heatmap__mosaic-cell emergency-heatmap__mosaic-cell--data${peakClass}" role="gridcell" style="background:${st.background};color:${st.color}" aria-label="${escapeChartText(aria)}">${v.toLocaleString()}</div>`
+            `<div class="emergency-heatmap__mosaic-cell emergency-heatmap__mosaic-cell--data${peakClass}" role="gridcell" tabindex="0" style="background:${st.background};color:${st.color}" aria-label="${escapeChartText(aria)}"><span class="emergency-heatmap__mosaic-day-num" aria-hidden="true">${day}</span><div class="emergency-heatmap__mosaic-hover-panel" aria-hidden="true"><span class="emergency-heatmap__mosaic-hover-panel__title">Kabuuang ulat</span><span class="emergency-heatmap__mosaic-hover-panel__count">${countStr}</span></div></div>`
         );
     }
     for (let i = 0; i < padCells; i++) {
@@ -3452,7 +3692,7 @@ function renderEmergencyCurrentMonthDailyHeatmap(containerId, daily, subheading,
         peakNote = 'No reported cases yet this month. ';
     }
     const monthNote = monthLabel ? `Range: <strong>${escapeChartText(monthLabel)}</strong>. ` : '';
-    const scaleNote = `Darker red = more reports (max this month: ${max.toLocaleString()}).`;
+    const scaleNote = `Ang numero sa loob ng cell ay ang petsa (araw) ng buwan; ilipad ang cursor sa cell para sa kabuuang bilang ng ulat. Mas matingkad na pula = mas maraming ulat (pinakamataas sa buwang ito: ${max.toLocaleString()}).`;
 
     const calYear = Number(toolbarOpts?.calendarYear) || y;
     const selKey = toolbarOpts?.selectedMonthKey ? String(toolbarOpts.selectedMonthKey).trim() : '';
@@ -3495,7 +3735,7 @@ function renderEmergencyCurrentMonthDailyHeatmap(containerId, daily, subheading,
             </div>
             <p class="emergency-heatmap__scale-note emergency-heatmap__scale-note--mosaic">${peakNote}${monthNote}${scaleNote}</p>
             <div id="emergencyHeatmapAiSlot" class="emergency-heatmap-ai-slot" aria-live="polite">
-                <p class="emergency-heatmap-ai-slot__loading">Kumukuha ng buod (Groq)…</p>
+                <p class="emergency-heatmap-ai-slot__loading">Kumukuha ng buod…</p>
             </div>
         </div>`;
 
@@ -4446,7 +4686,985 @@ function filterCensusDemographicBySitioNonZero(rows) {
     return (rows || []).filter((r) => Number(r.residents ?? r.count ?? 0) > 0);
 }
 
+/**
+ * Ilabas ang tamang teksto kung ang API o modelo ay nagbalik ng JSON string sa loob ng interpretation.
+ * @param {{ interpretation?: unknown, recommendations?: unknown }} out
+ * @returns {{ interpretation: string, recommendations: string }}
+ */
+function normalizeCensusAiInterpretationOut(out) {
+    let interp = String(out?.interpretation ?? '').trim();
+    let rec = String(out?.recommendations ?? '').trim();
+    if (interp.startsWith('{') && /"interpretation"\s*:/.test(interp)) {
+        try {
+            const parsed = JSON.parse(interp);
+            if (parsed && typeof parsed === 'object' && typeof parsed.interpretation === 'string') {
+                interp = parsed.interpretation.trim();
+                if ((!rec || rec === '') && typeof parsed.recommendations === 'string') {
+                    rec = parsed.recommendations.trim();
+                }
+            }
+        } catch (e) {
+            /* hindi JSON — gamitin ang orihinal */
+        }
+    }
+    if (interp.includes('\\n') && !/\n/.test(interp)) {
+        interp = interp.replace(/\\n/g, '\n');
+    }
+    if (rec.includes('\\n') && !/\n/.test(rec)) {
+        rec = rec.replace(/\\n/g, '\n');
+    }
+    rec = rec.replace(/\s+/g, ' ').trim();
+    return { interpretation: interp, recommendations: rec };
+}
+
+/**
+ * Ipakita ang rekomendasyon sa ilalim ng interpretation; itago kung walang laman.
+ * @param {HTMLElement | null} recWrap
+ * @param {HTMLElement | null} recSlot
+ * @param {unknown} rawText
+ * @param {string} textClassName
+ */
+function applyCensusInterpretationRecommendations(recWrap, recSlot, rawText, textClassName) {
+    if (!recWrap || !recSlot) {
+        return;
+    }
+    let t = String(rawText ?? '').trim();
+    if (t.includes('\\n') && !/\n/.test(t)) {
+        t = t.replace(/\\n/g, '\n');
+    }
+    t = t.replace(/\s+/g, ' ').trim();
+    if (!t) {
+        recSlot.innerHTML = '';
+        recWrap.hidden = true;
+        return;
+    }
+    const parts = t.split(/(?<=[.!?])\s+/).filter((p) => p.length > 0);
+    if (parts.length <= 1) {
+        recSlot.innerHTML = `<p class="${textClassName}">${escapeChartText(t)}</p>`;
+    } else {
+        recSlot.innerHTML = parts
+            .map((p) => `<p class="${textClassName}">${escapeChartText(p.trim())}</p>`)
+            .join('');
+    }
+    recWrap.hidden = false;
+}
+
+/**
+ * Groq: paliwanag ng bilang ng seniors bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_SENIOR_CITIZENS).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} seniorRows
+ */
+async function loadCensusSeniorSitioInterpretation(seniorRows, totalSeniors, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsSeniorInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsSeniorInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsSeniorRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsSeniorRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusSeniorAiAbort) {
+        censusSeniorAiAbort.abort();
+    }
+    if (censusEmpty || !seniorRows || seniorRows.length === 0 || !(Number(totalSeniors) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-senior-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusSeniorAiAbort = new AbortController();
+    const payload = {
+        seniorBySitio: seniorRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalSeniors: Number(totalSeniors) || 0
+    };
+    try {
+        const res = await fetch('php/census_senior_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusSeniorAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-senior-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-senior-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-senior-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-senior-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_SENIOR_CITIZENS</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-senior-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = `<p class="analytics-census-senior-interpretation__text">${escapeChartText(text)}</p>`;
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-senior-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-senior-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * Groq: paliwanag ng bilang ng widowed bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_WIDOWED).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} widowedRows
+ */
+async function loadCensusWidowedSitioInterpretation(widowedRows, totalWidowed, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsWidowedInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsWidowedInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsWidowedRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsWidowedRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusWidowedAiAbort) {
+        censusWidowedAiAbort.abort();
+    }
+    if (censusEmpty || !widowedRows || widowedRows.length === 0 || !(Number(totalWidowed) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-widowed-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusWidowedAiAbort = new AbortController();
+    const payload = {
+        widowedBySitio: widowedRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalWidowed: Number(totalWidowed) || 0
+    };
+    try {
+        const res = await fetch('php/census_widowed_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusWidowedAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-widowed-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-widowed-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-widowed-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-widowed-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_WIDOWED</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-widowed-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = `<p class="analytics-census-widowed-interpretation__text">${escapeChartText(text)}</p>`;
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-widowed-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-widowed-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * I-render ang paliwanag ng Employed: buod na talata + mga bullet bawat sitio bilang &lt;ul&gt;.
+ * @param {string} raw
+ * @returns {string}
+ */
+function formatEmployedInterpretationHtml(raw) {
+    const esc = escapeChartText;
+    let normalized = String(raw ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    if (!normalized) {
+        return '';
+    }
+    if (normalized.includes('\\n') && !/\n/.test(normalized)) {
+        normalized = normalized.replace(/\\n/g, '\n');
+    }
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    const intro = [];
+    const bullets = [];
+    let seenBullet = false;
+    for (const line of lines) {
+        const m = line.match(/^([•\u2022*\-])\s*(.+)$/);
+        if (m) {
+            seenBullet = true;
+            bullets.push(m[2]);
+        } else if (seenBullet && bullets.length > 0) {
+            bullets[bullets.length - 1] += ` ${line}`;
+        } else {
+            intro.push(line);
+        }
+    }
+    let html = '';
+    if (intro.length > 0) {
+        html += `<p class="analytics-census-employed-interpretation__intro">${esc(intro.join(' '))}</p>`;
+    }
+    if (bullets.length > 0) {
+        html += '<ul class="analytics-census-employed-interpretation__list">';
+        for (const b of bullets) {
+            html += `<li>${esc(b)}</li>`;
+        }
+        html += '</ul>';
+    }
+    if (!html) {
+        return `<p class="analytics-census-employed-interpretation__text">${esc(normalized)}</p>`;
+    }
+    return html;
+}
+
+/**
+ * Pareho sa Employed: buod + &lt;ul&gt; bullets bawat sitio.
+ * @param {string} raw
+ * @returns {string}
+ */
+function formatUnemployedInterpretationHtml(raw) {
+    const esc = escapeChartText;
+    let normalized = String(raw ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    if (!normalized) {
+        return '';
+    }
+    if (normalized.includes('\\n') && !/\n/.test(normalized)) {
+        normalized = normalized.replace(/\\n/g, '\n');
+    }
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    const intro = [];
+    const bullets = [];
+    let seenBullet = false;
+    for (const line of lines) {
+        const m = line.match(/^([•\u2022*\-])\s*(.+)$/);
+        if (m) {
+            seenBullet = true;
+            bullets.push(m[2]);
+        } else if (seenBullet && bullets.length > 0) {
+            bullets[bullets.length - 1] += ` ${line}`;
+        } else {
+            intro.push(line);
+        }
+    }
+    let html = '';
+    if (intro.length > 0) {
+        html += `<p class="analytics-census-unemployed-interpretation__intro">${esc(intro.join(' '))}</p>`;
+    }
+    if (bullets.length > 0) {
+        html += '<ul class="analytics-census-unemployed-interpretation__list">';
+        for (const b of bullets) {
+            html += `<li>${esc(b)}</li>`;
+        }
+        html += '</ul>';
+    }
+    if (!html) {
+        return `<p class="analytics-census-unemployed-interpretation__text">${esc(normalized)}</p>`;
+    }
+    return html;
+}
+
+/**
+ * Buod + &lt;ul&gt; bullets bawat sitio — pareho sa Employed/Unemployed.
+ * @param {string} raw
+ * @returns {string}
+ */
+function formatStudentsInterpretationHtml(raw) {
+    const esc = escapeChartText;
+    let normalized = String(raw ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    if (!normalized) {
+        return '';
+    }
+    if (normalized.includes('\\n') && !/\n/.test(normalized)) {
+        normalized = normalized.replace(/\\n/g, '\n');
+    }
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    const intro = [];
+    const bullets = [];
+    let seenBullet = false;
+    for (const line of lines) {
+        const m = line.match(/^([•\u2022*\-])\s*(.+)$/);
+        if (m) {
+            seenBullet = true;
+            bullets.push(m[2]);
+        } else if (seenBullet && bullets.length > 0) {
+            bullets[bullets.length - 1] += ` ${line}`;
+        } else {
+            intro.push(line);
+        }
+    }
+    let html = '';
+    if (intro.length > 0) {
+        html += `<p class="analytics-census-students-interpretation__intro">${esc(intro.join(' '))}</p>`;
+    }
+    if (bullets.length > 0) {
+        html +=
+            '<p class="analytics-census-students-interpretation__list-heading">Tala ayon sa sitio</p>';
+        html += '<ul class="analytics-census-students-interpretation__list">';
+        for (const b of bullets) {
+            html += `<li>${esc(b)}</li>`;
+        }
+        html += '</ul>';
+    }
+    if (!html) {
+        return `<p class="analytics-census-students-interpretation__text">${esc(normalized)}</p>`;
+    }
+    return html;
+}
+
+/**
+ * Buod + listahan bawat sitio — PWD (pareho sa Students).
+ * @param {string} raw
+ * @returns {string}
+ */
+function formatPwdInterpretationHtml(raw) {
+    const esc = escapeChartText;
+    let normalized = String(raw ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    if (!normalized) {
+        return '';
+    }
+    if (normalized.includes('\\n') && !/\n/.test(normalized)) {
+        normalized = normalized.replace(/\\n/g, '\n');
+    }
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    const intro = [];
+    const bullets = [];
+    let seenBullet = false;
+    for (const line of lines) {
+        const m = line.match(/^([•\u2022*\-])\s*(.+)$/);
+        if (m) {
+            seenBullet = true;
+            bullets.push(m[2]);
+        } else if (seenBullet && bullets.length > 0) {
+            bullets[bullets.length - 1] += ` ${line}`;
+        } else {
+            intro.push(line);
+        }
+    }
+    let html = '';
+    if (intro.length > 0) {
+        html += `<p class="analytics-census-pwd-interpretation__intro">${esc(intro.join(' '))}</p>`;
+    }
+    if (bullets.length > 0) {
+        html += '<p class="analytics-census-pwd-interpretation__list-heading">Tala ayon sa sitio</p>';
+        html += '<ul class="analytics-census-pwd-interpretation__list">';
+        for (const b of bullets) {
+            html += `<li>${esc(b)}</li>`;
+        }
+        html += '</ul>';
+    }
+    if (!html) {
+        return `<p class="analytics-census-pwd-interpretation__text">${esc(normalized)}</p>`;
+    }
+    return html;
+}
+
+/**
+ * Buod + listahan bawat sitio — Indigenous / IP.
+ * @param {string} raw
+ * @returns {string}
+ */
+function formatIndigenousInterpretationHtml(raw) {
+    const esc = escapeChartText;
+    let normalized = String(raw ?? '')
+        .replace(/\r\n/g, '\n')
+        .trim();
+    if (!normalized) {
+        return '';
+    }
+    if (normalized.includes('\\n') && !/\n/.test(normalized)) {
+        normalized = normalized.replace(/\\n/g, '\n');
+    }
+    const lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+    const intro = [];
+    const bullets = [];
+    let seenBullet = false;
+    for (const line of lines) {
+        const m = line.match(/^([•\u2022*\-])\s*(.+)$/);
+        if (m) {
+            seenBullet = true;
+            bullets.push(m[2]);
+        } else if (seenBullet && bullets.length > 0) {
+            bullets[bullets.length - 1] += ` ${line}`;
+        } else {
+            intro.push(line);
+        }
+    }
+    let html = '';
+    if (intro.length > 0) {
+        html += `<p class="analytics-census-indigenous-interpretation__intro">${esc(intro.join(' '))}</p>`;
+    }
+    if (bullets.length > 0) {
+        html += '<p class="analytics-census-indigenous-interpretation__list-heading">Tala ayon sa sitio</p>';
+        html += '<ul class="analytics-census-indigenous-interpretation__list">';
+        for (const b of bullets) {
+            html += `<li>${esc(b)}</li>`;
+        }
+        html += '</ul>';
+    }
+    if (!html) {
+        return `<p class="analytics-census-indigenous-interpretation__text">${esc(normalized)}</p>`;
+    }
+    return html;
+}
+
+/**
+ * Groq: paliwanag ng bilang ng employed bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_EMPLOYED).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} employedRows
+ */
+async function loadCensusEmployedSitioInterpretation(employedRows, totalEmployed, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsEmployedInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsEmployedInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsEmployedRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsEmployedRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusEmployedAiAbort) {
+        censusEmployedAiAbort.abort();
+    }
+    if (censusEmpty || !employedRows || employedRows.length === 0 || !(Number(totalEmployed) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-employed-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusEmployedAiAbort = new AbortController();
+    const payload = {
+        employedBySitio: employedRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalEmployed: Number(totalEmployed) || 0
+    };
+    try {
+        const res = await fetch('php/census_employed_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusEmployedAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-employed-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-employed-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-employed-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-employed-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_EMPLOYED</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-employed-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = formatEmployedInterpretationHtml(text);
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-employed-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-employed-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * Groq: unemployed bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_UNEMPLOYED).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} unemployedRows
+ */
+async function loadCensusUnemployedSitioInterpretation(unemployedRows, totalUnemployed, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsUnemployedInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsUnemployedInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsUnemployedRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsUnemployedRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusUnemployedAiAbort) {
+        censusUnemployedAiAbort.abort();
+    }
+    if (censusEmpty || !unemployedRows || unemployedRows.length === 0 || !(Number(totalUnemployed) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-unemployed-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusUnemployedAiAbort = new AbortController();
+    const payload = {
+        unemployedBySitio: unemployedRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalUnemployed: Number(totalUnemployed) || 0
+    };
+    try {
+        const res = await fetch('php/census_unemployed_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusUnemployedAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-unemployed-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-unemployed-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-unemployed-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-unemployed-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_UNEMPLOYED</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-unemployed-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = formatUnemployedInterpretationHtml(text);
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-unemployed-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-unemployed-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * Groq: students bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_STUDENTS).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} studentsRows
+ */
+async function loadCensusStudentsSitioInterpretation(studentsRows, totalStudents, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsStudentsInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsStudentsInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsStudentsRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsStudentsRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusStudentsAiAbort) {
+        censusStudentsAiAbort.abort();
+    }
+    if (censusEmpty || !studentsRows || studentsRows.length === 0 || !(Number(totalStudents) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-students-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusStudentsAiAbort = new AbortController();
+    const payload = {
+        studentsBySitio: studentsRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalStudents: Number(totalStudents) || 0
+    };
+    try {
+        const res = await fetch('php/census_students_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusStudentsAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-students-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-students-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-students-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-students-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_STUDENTS</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-students-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = formatStudentsInterpretationHtml(text);
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-students-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-students-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * Groq: PWD bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_PWD).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} pwdRows
+ */
+async function loadCensusPwdSitioInterpretation(pwdRows, totalPwd, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsPwdInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsPwdInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsPwdRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsPwdRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusPwdAiAbort) {
+        censusPwdAiAbort.abort();
+    }
+    if (censusEmpty || !pwdRows || pwdRows.length === 0 || !(Number(totalPwd) > 0)) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-pwd-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusPwdAiAbort = new AbortController();
+    const payload = {
+        pwdBySitio: pwdRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalPwd: Number(totalPwd) || 0
+    };
+    try {
+        const res = await fetch('php/census_pwd_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusPwdAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-pwd-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-pwd-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-pwd-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-pwd-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_PWD</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-pwd-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = formatPwdInterpretationHtml(text);
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-pwd-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-pwd-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
+/**
+ * Groq: Indigenous (IP) bawat sitio + kabuuan (GROQ_API_KEY_CENSUS_INDIGENOUS).
+ * @param {Array<{sitio?: string, residents?: number, count?: number}>} indigenousRows
+ */
+async function loadCensusIndigenousSitioInterpretation(indigenousRows, totalIndigenous, censusEmpty) {
+    const wrap = document.getElementById('censusAnalyticsIndigenousInterpretationWrap');
+    const slot = document.getElementById('censusAnalyticsIndigenousInterpretationSlot');
+    const recWrap = document.getElementById('censusAnalyticsIndigenousRecommendationsWrap');
+    const recSlot = document.getElementById('censusAnalyticsIndigenousRecommendationsSlot');
+    if (!wrap || !slot) {
+        return;
+    }
+    if (censusIndigenousAiAbort) {
+        censusIndigenousAiAbort.abort();
+    }
+    if (
+        censusEmpty ||
+        !indigenousRows ||
+        indigenousRows.length === 0 ||
+        !(Number(totalIndigenous) > 0)
+    ) {
+        wrap.hidden = true;
+        slot.innerHTML = '';
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        return;
+    }
+    wrap.hidden = false;
+    applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+    slot.innerHTML =
+        '<p class="analytics-census-indigenous-interpretation__loading">Kumukuha ng paliwanag…</p>';
+    censusIndigenousAiAbort = new AbortController();
+    const payload = {
+        indigenousBySitio: indigenousRows.map((r) => ({
+            sitio: r.sitio ?? '',
+            count: Number(r.residents ?? r.count ?? 0)
+        })),
+        totalIndigenous: Number(totalIndigenous) || 0
+    };
+    try {
+        const res = await fetch('php/census_indigenous_sitio_interpretation.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: censusIndigenousAiAbort.signal
+        });
+        if (res.status === 403) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-indigenous-interpretation__err">Walang access sa paliwanag na ito.</p>';
+            return;
+        }
+        if (!res.ok) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-indigenous-interpretation__err">Hindi ma-load ang paliwanag.</p>';
+            return;
+        }
+        const out = await res.json();
+        if (!out || out.success !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-indigenous-interpretation__err">Walang tugon mula sa server.</p>';
+            return;
+        }
+        if (out.groqConfigured !== true) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML = `<p class="analytics-census-indigenous-interpretation__hint">Maglagay ng <strong>GROQ_API_KEY_CENSUS_INDIGENOUS</strong> sa .env para sa paliwanag na ito (Groq).</p>`;
+            return;
+        }
+        const norm = normalizeCensusAiInterpretationOut(out);
+        const text = norm.interpretation;
+        if (!text) {
+            applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+            slot.innerHTML =
+                '<p class="analytics-census-indigenous-interpretation__hint">Walang lumabas na paliwanag. Subukan muli mamaya.</p>';
+            return;
+        }
+        slot.innerHTML = formatIndigenousInterpretationHtml(text);
+        applyCensusInterpretationRecommendations(
+            recWrap,
+            recSlot,
+            norm.recommendations,
+            'analytics-census-indigenous-recommendations__text'
+        );
+    } catch (e) {
+        if (e && e.name === 'AbortError') {
+            return;
+        }
+        applyCensusInterpretationRecommendations(recWrap, recSlot, '', '');
+        slot.innerHTML =
+            '<p class="analytics-census-indigenous-interpretation__err">Error sa pagkuha ng paliwanag.</p>';
+    }
+}
+
 function renderCensusAnalyticsPanel(data) {
+    if (censusSeniorAiAbort) {
+        censusSeniorAiAbort.abort();
+    }
+    if (censusWidowedAiAbort) {
+        censusWidowedAiAbort.abort();
+    }
+    if (censusEmployedAiAbort) {
+        censusEmployedAiAbort.abort();
+    }
+    if (censusUnemployedAiAbort) {
+        censusUnemployedAiAbort.abort();
+    }
+    if (censusStudentsAiAbort) {
+        censusStudentsAiAbort.abort();
+    }
+    if (censusPwdAiAbort) {
+        censusPwdAiAbort.abort();
+    }
+    if (censusIndigenousAiAbort) {
+        censusIndigenousAiAbort.abort();
+    }
     const sub = document.getElementById('censusAnalyticsSubtitle');
     const sum = document.getElementById('censusAnalyticsSummary');
     const tbody = document.getElementById('censusAnalyticsBySitioBody');
@@ -4598,6 +5816,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusSeniorSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.seniorCitizensBySitio || []),
+        totalSeniors,
+        rows.length === 0
+    );
 
     const widowedRows = filterCensusDemographicBySitioNonZero(c.widowedBySitio || []);
     if (widowedTbody) {
@@ -4632,6 +5855,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusWidowedSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.widowedBySitio || []),
+        totalWidowed,
+        rows.length === 0
+    );
 
     const employedRows = filterCensusDemographicBySitioNonZero(c.employedBySitio || []);
     if (employedTbody) {
@@ -4666,6 +5894,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusEmployedSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.employedBySitio || []),
+        totalEmployed,
+        rows.length === 0
+    );
 
     const unemployedRows = filterCensusDemographicBySitioNonZero(c.unemployedBySitio || []);
     if (unemployedTbody) {
@@ -4700,6 +5933,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusUnemployedSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.unemployedBySitio || []),
+        totalUnemployed,
+        rows.length === 0
+    );
 
     const studentsRows = filterCensusDemographicBySitioNonZero(c.studentsBySitio || []);
     if (studentsTbody) {
@@ -4734,6 +5972,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusStudentsSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.studentsBySitio || []),
+        totalStudents,
+        rows.length === 0
+    );
 
     const pwdRows = filterCensusDemographicBySitioNonZero(c.pwdBySitio || []);
     if (pwdTbody) {
@@ -4768,6 +6011,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusPwdSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.pwdBySitio || []),
+        totalPwd,
+        rows.length === 0
+    );
 
     const indigenousRows = filterCensusDemographicBySitioNonZero(c.indigenousBySitio || []);
     if (indigenousTbody) {
@@ -4802,6 +6050,11 @@ function renderCensusAnalyticsPanel(data) {
             }
         }
     }
+    void loadCensusIndigenousSitioInterpretation(
+        filterCensusDemographicBySitioNonZero(c.indigenousBySitio || []),
+        totalIndigenous,
+        rows.length === 0
+    );
 }
 
 function renderJobseekerReportTable(data) {

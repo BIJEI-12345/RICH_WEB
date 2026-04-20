@@ -932,6 +932,361 @@ function fetchConcernStatementRows(PDO $pdo, string $start, string $end): array 
 }
 
 /**
+ * Line chart series: resident concern ratings — mababa (1–2) vs mataas (4–5) over time.
+ *
+ * @return array{
+ *   labels: array<int,string>,
+ *   low: array<int,int>,
+ *   high: array<int,int>,
+ *   totals: array{low:int,high:int,mid:int,rated:int},
+ *   average: float|null,
+ *   bucket: string,
+ *   hasRatingColumn: bool
+ * }
+ */
+function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rangeEnd, string $period, DateTimeZone $timezone): array {
+    $base = [
+        'labels' => [],
+        'low' => [],
+        'high' => [],
+        'totals' => ['low' => 0, 'high' => 0, 'mid' => 0, 'rated' => 0],
+        'average' => null,
+        'bucket' => 'day',
+        'hasRatingColumn' => false,
+    ];
+    $cols = getColumnNames($pdo, 'concerns');
+    if (!in_array('rating', $cols, true)) {
+        return $base;
+    }
+    $base['hasRatingColumn'] = true;
+
+    try {
+        $startDt = new DateTime($rangeStart, $timezone);
+        $endDt = new DateTime($rangeEnd, $timezone);
+    } catch (Exception $e) {
+        return $base;
+    }
+
+    $spanDays = max(1, (int) floor(($endDt->getTimestamp() - $startDt->getTimestamp()) / 86400) + 1);
+    $useMonthlyBuckets = ($period === 'year') || $spanDays > 62;
+
+    $totStmt = $pdo->prepare("
+        SELECT
+            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) = 3 THEN 1 ELSE 0 END), 0) AS mid_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt,
+            COALESCE(COUNT(*), 0) AS rated_cnt,
+            AVG(CAST(rating AS SIGNED)) AS avg_rating
+        FROM concerns
+        WHERE date_and_time BETWEEN :start AND :end
+          AND rating IS NOT NULL
+          AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
+    ");
+    $totStmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
+    $tr = $totStmt->fetch(PDO::FETCH_ASSOC);
+    if ($tr) {
+        $base['totals'] = [
+            'low' => (int)($tr['low_cnt'] ?? 0),
+            'mid' => (int)($tr['mid_cnt'] ?? 0),
+            'high' => (int)($tr['high_cnt'] ?? 0),
+            'rated' => (int)($tr['rated_cnt'] ?? 0),
+        ];
+        $avgRaw = $tr['avg_rating'] ?? null;
+        $base['average'] = $avgRaw !== null && $avgRaw !== '' ? round((float)$avgRaw, 2) : null;
+    }
+
+    if ($useMonthlyBuckets) {
+        $base['bucket'] = 'month';
+        $stmt = $pdo->prepare("
+            SELECT DATE_FORMAT(date_and_time, '%Y-%m') AS ym,
+                   COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+                   COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
+            FROM concerns
+            WHERE date_and_time BETWEEN :start AND :end
+              AND rating IS NOT NULL
+              AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
+            GROUP BY DATE_FORMAT(date_and_time, '%Y-%m')
+        ");
+        $stmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
+        $byYm = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $ym = (string)($row['ym'] ?? '');
+            if ($ym !== '') {
+                $byYm[$ym] = [
+                    'low' => (int)($row['low_cnt'] ?? 0),
+                    'high' => (int)($row['high_cnt'] ?? 0),
+                ];
+            }
+        }
+        $cur = (clone $startDt)->modify('first day of this month')->setTime(0, 0, 0);
+        $endMonth = (clone $endDt)->modify('first day of this month')->setTime(0, 0, 0);
+        while ($cur <= $endMonth) {
+            $ym = $cur->format('Y-m');
+            $base['labels'][] = $cur->format('M Y');
+            $base['low'][] = (int)($byYm[$ym]['low'] ?? 0);
+            $base['high'][] = (int)($byYm[$ym]['high'] ?? 0);
+            $cur->modify('first day of next month');
+        }
+        return $base;
+    }
+
+    $base['bucket'] = 'day';
+    $stmt = $pdo->prepare("
+        SELECT DATE(date_and_time) AS d,
+               COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+               COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
+        FROM concerns
+        WHERE date_and_time BETWEEN :start AND :end
+          AND rating IS NOT NULL
+          AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
+        GROUP BY DATE(date_and_time)
+    ");
+    $stmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
+    $byDay = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $d = (string)($row['d'] ?? '');
+        if ($d !== '') {
+            $byDay[$d] = [
+                'low' => (int)($row['low_cnt'] ?? 0),
+                'high' => (int)($row['high_cnt'] ?? 0),
+            ];
+        }
+    }
+    $cur = (clone $startDt)->setTime(0, 0, 0);
+    $endDay = (clone $endDt)->setTime(0, 0, 0);
+    while ($cur <= $endDay) {
+        $key = $cur->format('Y-m-d');
+        $base['labels'][] = $cur->format('j');
+        $base['low'][] = (int)($byDay[$key]['low'] ?? 0);
+        $base['high'][] = (int)($byDay[$key]['high'] ?? 0);
+        $cur->modify('+1 day');
+    }
+
+    return $base;
+}
+
+/**
+ * @return array{positiveWords:array<int,string>,negativeWords:array<int,string>,positiveInterpretation:string,negativeInterpretation:string}
+ */
+function defaultConcernSentimentInsight(): array {
+    return [
+        'positiveWords' => [],
+        'negativeWords' => [],
+        'positiveInterpretation' => '',
+        'negativeInterpretation' => '',
+    ];
+}
+
+/**
+ * @return array{positive:array<string,array<int,string>>,negative:array<string,array<int,string>>}
+ */
+function concernSentimentWordLexicon(): array {
+    return [
+        'positive' => [
+            'maayos' => ['maayos', 'organisado', 'organized'],
+            'mabilis' => ['mabilis', 'agad', 'agarang', 'quick', 'fast'],
+            'malinis' => ['malinis', 'malinaw', 'clear'],
+            'maingat' => ['maingat', 'ingat', 'ingatang'],
+            'maganda' => ['maganda', 'okay', 'ok', 'ayos', 'good'],
+            'mahusay' => ['mahusay', 'epektibo', 'excellent'],
+            'responsive' => ['responsive', 'tumutugon', 'sumasagot'],
+            'helpful' => ['helpful', 'matulungin', 'tumulong'],
+        ],
+        'negative' => [
+            'magulo' => ['magulo', 'gulo', 'disorganized'],
+            'matagal' => ['matagal', 'mabagal', 'delay', 'delayed'],
+            'mahirap' => ['mahirap', 'hirap', 'complicated'],
+            'marumi' => ['marumi', 'dumi', 'madumi'],
+            'mapanganib' => ['mapanganib', 'delikado', 'danger'],
+            'kulang' => ['kulang', 'insufficient', 'bitin'],
+            'sira' => ['sira', 'sirang', 'broken'],
+            'reklamo' => ['reklamo', 'complaint'],
+        ],
+    ];
+}
+
+/**
+ * @param array<int,string> $statements
+ * @param 'positive'|'negative' $sentiment
+ * @param int|null $limit
+ * @return array<int,string>
+ */
+function extractFrequentSentimentWordsFromStatements(array $statements, string $sentiment, ?int $limit = null): array {
+    $lexicon = concernSentimentWordLexicon();
+    $bucket = isset($lexicon[$sentiment]) && is_array($lexicon[$sentiment]) ? $lexicon[$sentiment] : [];
+    if (count($bucket) === 0 || count($statements) === 0) {
+        return [];
+    }
+
+    $counts = [];
+    foreach ($bucket as $canonical => $variants) {
+        $counts[(string)$canonical] = 0;
+        $list = is_array($variants) ? $variants : [];
+        foreach ($statements as $statement) {
+            $text = mb_strtolower(trim((string)$statement));
+            if ($text === '') {
+                continue;
+            }
+            foreach ($list as $variant) {
+                $needle = mb_strtolower(trim((string)$variant));
+                if ($needle === '') {
+                    continue;
+                }
+                if (mb_strpos($text, $needle) !== false) {
+                    $counts[(string)$canonical]++;
+                    break;
+                }
+            }
+        }
+    }
+
+    arsort($counts);
+    $out = [];
+    foreach ($counts as $word => $count) {
+        if ((int)$count <= 0) {
+            continue;
+        }
+        $out[] = mb_strtoupper((string)$word);
+        if ($limit !== null && $limit > 0 && count($out) >= $limit) {
+            break;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Sentiment word filtering from concerns.statement via Groq.
+ *
+ * @param array<int, array{location:string, statement:string}> $rows
+ * @return array{positiveWords:array<int,string>,negativeWords:array<int,string>,positiveInterpretation:string,negativeInterpretation:string}
+ */
+function buildConcernSentimentInsight(array $rows): array {
+    $empty = defaultConcernSentimentInsight();
+    $apiKey = defined('SENTIMENT_ANALYSIS_API_KEY') ? trim((string) SENTIMENT_ANALYSIS_API_KEY) : '';
+    if ($apiKey === '' || count($rows) === 0) {
+        return $empty;
+    }
+
+    $statements = [];
+    foreach ($rows as $row) {
+        $text = trim((string)($row['statement'] ?? ''));
+        if ($text === '') {
+            continue;
+        }
+        $statements[] = $text;
+        if (count($statements) >= 80) {
+            break;
+        }
+    }
+    if (count($statements) === 0) {
+        return $empty;
+    }
+
+    $freqPositiveWords = extractFrequentSentimentWordsFromStatements($statements, 'positive');
+    $freqNegativeWords = extractFrequentSentimentWordsFromStatements($statements, 'negative');
+
+    $prompt = "Analyze these concern statements from a barangay system.\n";
+    $prompt .= "Return STRICT JSON only with keys: positiveWords, negativeWords, positiveInterpretation, negativeInterpretation.\n";
+    $prompt .= "Rules:\n";
+    $prompt .= "- positiveWords: array of concise Filipino words that indicate positive interpretation/action (single word each, no duplicates), ordered by most frequent first.\n";
+    $prompt .= "- negativeWords: array of concise Filipino words reflecting common negative sentiment in statements, ordered by most frequent first.\n";
+    $prompt .= "- positiveInterpretation: 1 short Filipino sentence reframing the feedback into constructive positive direction.\n";
+    $prompt .= "- negativeInterpretation: 1 short Filipino sentence summarizing the negative tone.\n";
+    $prompt .= "- No markdown, no backticks, no extra keys.\n";
+    if (count($freqPositiveWords) > 0) {
+        $prompt .= "- Priority hint: frequent positive words detected from statements = " . implode(', ', $freqPositiveWords) . ". Keep aligned.\n";
+    }
+    $prompt .= "Statements:\n- " . implode("\n- ", $statements);
+
+    $requestData = [
+        'model' => 'llama-3.1-8b-instant',
+        'messages' => [
+            ['role' => 'system', 'content' => 'Return strict JSON only. Keep responses concise and in Filipino.'],
+            ['role' => 'user', 'content' => $prompt],
+        ],
+        'temperature' => 0.2,
+        'max_tokens' => 280,
+    ];
+
+    $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiKey,
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 16);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false || $curlError !== '' || $httpCode !== 200) {
+        error_log("Groq API error (concern sentiment): HTTP {$httpCode}, Error: {$curlError}");
+        return $empty;
+    }
+
+    $parsed = json_decode((string)$response, true);
+    $content = trim((string)($parsed['choices'][0]['message']['content'] ?? ''));
+    if ($content === '') {
+        return $empty;
+    }
+    if (preg_match('/\{[\s\S]*\}/', $content, $m)) {
+        $content = trim($m[0]);
+    }
+    $decoded = json_decode($content, true);
+    if (!is_array($decoded)) {
+        return $empty;
+    }
+
+    $sanitizeWord = static function ($word): string {
+        $w = trim((string)$word);
+        $w = preg_replace('/[^[:alpha:]\- ]/u', '', $w) ?? '';
+        $w = preg_replace('/\s+/', ' ', $w) ?? '';
+        $w = trim($w);
+        if ($w === '') {
+            return '';
+        }
+        return mb_strtoupper(mb_substr($w, 0, 20));
+    };
+    $sanitizeText = static function ($text): string {
+        $s = preg_replace('/\s+/', ' ', trim((string)$text));
+        if ($s === null) {
+            return '';
+        }
+        return mb_substr($s, 0, 220);
+    };
+    $sanitizeWords = static function ($items) use ($sanitizeWord): array {
+        $out = [];
+        if (!is_array($items)) {
+            return $out;
+        }
+        foreach ($items as $item) {
+            $w = $sanitizeWord($item);
+            if ($w === '' || in_array($w, $out, true)) {
+                continue;
+            }
+            $out[] = $w;
+        }
+        return $out;
+    };
+
+    $positiveWords = count($freqPositiveWords) > 0 ? $freqPositiveWords : $sanitizeWords($decoded['positiveWords'] ?? []);
+    $negativeWords = count($freqNegativeWords) > 0 ? $freqNegativeWords : $sanitizeWords($decoded['negativeWords'] ?? []);
+
+    return [
+        'positiveWords' => $positiveWords,
+        'negativeWords' => $negativeWords,
+        'positiveInterpretation' => $sanitizeText($decoded['positiveInterpretation'] ?? ''),
+        'negativeInterpretation' => $sanitizeText($decoded['negativeInterpretation'] ?? ''),
+    ];
+}
+
+/**
  * @return array<string, array{label:string, recommendation:string, keywords:string[]}>
  */
 function concernStatementTopicCatalog(): array {
@@ -1608,6 +1963,8 @@ $concernsRangeGroups = fetchConcernLocationGroups($pdo, $rangeStart, $rangeEnd);
 $concernsYearGroups = fetchConcernLocationGroups($pdo, $yearStart, $yearEnd);
 $concernsMonthStatementRows = fetchConcernStatementRows($pdo, $rangeStart, $rangeEnd);
 $concernsYearStatementRows = fetchConcernStatementRows($pdo, $yearStart, $yearEnd);
+$concernsMonthSentimentInsight = buildConcernSentimentInsight($concernsMonthStatementRows);
+$concernsYearSentimentInsight = buildConcernSentimentInsight($concernsYearStatementRows);
 $concernsStatementInsightsBySitioMonth = buildConcernStatementInsightsBySitio($analyticsSitioList, $concernsMonthStatementRows);
 $concernsStatementInsightsBySitioYear = buildConcernStatementInsightsBySitio($analyticsSitioList, $concernsYearStatementRows);
 $emergRangeGroups = fetchEmergencyLocationGroups($pdo, $rangeStart, $rangeEnd);
@@ -1676,6 +2033,8 @@ $emergencyAiInterpretation = buildEmergencyAiInterpretation(
     $bySitio
 );
 
+$concernsRatingLineSeries = buildConcernRatingLineSeries($pdo, $rangeStart, $rangeEnd, $period, $timezone);
+
 $data = [
     'users' => [
         'activeUsers' => $activeUsers,
@@ -1687,6 +2046,11 @@ $data = [
         'month' => $concernsRange,
         'year' => $concernsYear,
         'yearByMonth' => $concernsYearByMonth,
+        'sentimentInsights' => [
+            'month' => $concernsMonthSentimentInsight,
+            'year' => $concernsYearSentimentInsight,
+        ],
+        'ratingLineSeries' => $concernsRatingLineSeries,
         'aiInterpretation' => $concernsAiInterpretation,
         'monthLabel' => $rangeLabel ?: (new DateTime($rangeStart, $timezone))->format('F Y'),
         'yearLabel' => $now->format('Y'),

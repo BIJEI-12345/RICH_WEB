@@ -42,6 +42,13 @@
     border-bottom: 1px solid #f1f5f9;
 }
 
+.doc-feedback-author {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin-bottom: 0.2rem;
+}
+
 .doc-feedback-item:last-child {
     border-bottom: none;
 }

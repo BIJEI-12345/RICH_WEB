@@ -166,13 +166,117 @@ function op_list_ordinance(PDO $pdo): array {
 }
 
 function op_feedback_rows_for_policy(PDO $pdo, int $policyId): array {
-    $st = $pdo->prepare(
-        'SELECT id, comment, rating, created_at FROM policy_board_feedback WHERE policy_board_id = ? ORDER BY created_at DESC, id DESC'
-    );
-    $st->execute([$policyId]);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+    $rows = [];
+    try {
+        // Preferred source if project already uses comment_policy.
+        $cols = [];
+        try {
+            $meta = $pdo->query('SHOW COLUMNS FROM comment_policy');
+            $metaRows = $meta ? $meta->fetchAll(PDO::FETCH_ASSOC) : [];
+            foreach ($metaRows as $mr) {
+                $c = strtolower((string) ($mr['Field'] ?? ''));
+                if ($c !== '') {
+                    $cols[$c] = true;
+                }
+            }
+        } catch (Throwable $eMeta) {
+            $cols = [];
+        }
+
+        $fkCandidates = ['policy_board_id', 'policy_id', 'board_id', 'image_id', 'policy_image_id', 'policyboard_id'];
+        $nameCandidates = ['name', 'full_name', 'resident_name', 'author_name', 'username', 'submitted_by'];
+        $createdCandidates = ['created_at', 'createdon', 'created_date', 'date_created', 'timestamp'];
+
+        $fkCol = '';
+        foreach ($fkCandidates as $cand) {
+            if (isset($cols[$cand])) {
+                $fkCol = $cand;
+                break;
+            }
+        }
+        $nameCol = '';
+        foreach ($nameCandidates as $cand) {
+            if (isset($cols[$cand])) {
+                $nameCol = $cand;
+                break;
+            }
+        }
+        $createdCol = '';
+        foreach ($createdCandidates as $cand) {
+            if (isset($cols[$cand])) {
+                $createdCol = $cand;
+                break;
+            }
+        }
+
+        if ($fkCol !== '' && isset($cols['comment'])) {
+            $selectName = $nameCol !== '' ? $nameCol : "''";
+            $selectCreated = $createdCol !== '' ? $createdCol : 'NULL';
+            $sql = "SELECT id, {$selectName} AS name, comment, {$selectCreated} AS created_at
+                    FROM comment_policy
+                    WHERE {$fkCol} = ?
+                    ORDER BY id DESC";
+            if ($createdCol !== '') {
+                $sql = "SELECT id, {$selectName} AS name, comment, {$selectCreated} AS created_at
+                        FROM comment_policy
+                        WHERE {$fkCol} = ?
+                        ORDER BY {$createdCol} DESC, id DESC";
+            }
+            $st = $pdo->prepare($sql);
+            $st->execute([$policyId]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (Throwable $e) {
+        try {
+            // Fallback to current feedback table and resolve name from user profile.
+            $st = $pdo->prepare(
+                'SELECT f.id, COALESCE(NULLIF(u.name, \'\'), f.submitted_by) AS name, f.comment, f.created_at
+                 FROM policy_board_feedback f
+                 LEFT JOIN brgy_users u ON u.email = f.submitted_by
+                 WHERE f.policy_board_id = ?
+                 ORDER BY f.created_at DESC, f.id DESC'
+            );
+            $st->execute([$policyId]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e2) {
+            try {
+                // Last fallback for old schema: no submitted_by join available.
+                $st = $pdo->prepare(
+                    'SELECT id, comment, created_at FROM policy_board_feedback WHERE policy_board_id = ? ORDER BY created_at DESC, id DESC'
+                );
+                $st->execute([$policyId]);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Throwable $e3) {
+                // Never break the whole page when feedback schema is different.
+                return [];
+            }
+        }
+    }
+    if (!$rows) {
+        try {
+            $st = $pdo->prepare(
+                'SELECT f.id, COALESCE(NULLIF(u.name, \'\'), f.submitted_by) AS name, f.comment, f.created_at
+                 FROM policy_board_feedback f
+                 LEFT JOIN brgy_users u ON u.email = f.submitted_by
+                 WHERE f.policy_board_id = ?
+                 ORDER BY f.created_at DESC, f.id DESC'
+            );
+            $st->execute([$policyId]);
+            $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e4) {
+            try {
+                $st = $pdo->prepare(
+                    'SELECT id, comment, created_at FROM policy_board_feedback WHERE policy_board_id = ? ORDER BY created_at DESC, id DESC'
+                );
+                $st->execute([$policyId]);
+                $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Throwable $e5) {
+                $rows = [];
+            }
+        }
+    }
     foreach ($rows as &$row) {
-        $row['rating'] = isset($row['rating']) ? (int) $row['rating'] : 0;
+        $row['name'] = trim((string) ($row['name'] ?? ''));
         $row['comment'] = (string) ($row['comment'] ?? '');
     }
     unset($row);
