@@ -955,7 +955,7 @@ function fetchConcernStatementRows(PDO $pdo, string $start, string $end): array 
  *   labels: array<int,string>,
  *   low: array<int,int>,
  *   high: array<int,int>,
- *   totals: array{low:int,high:int,mid:int,rated:int,positive:int,negative:int},
+ *   totals: array{low:int,high:int,mid:int,rated:int,positive:int,negative:int,positiveAverage:float|null,negativeAverage:float|null},
  *   average: float|null,
  *   bucket: string,
  *   hasRatingColumn: bool
@@ -966,7 +966,7 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
         'labels' => [],
         'low' => [],
         'high' => [],
-        'totals' => ['low' => 0, 'high' => 0, 'mid' => 0, 'rated' => 0, 'positive' => 0, 'negative' => 0],
+        'totals' => ['low' => 0, 'high' => 0, 'mid' => 0, 'rated' => 0, 'positive' => 0, 'negative' => 0, 'positiveAverage' => null, 'negativeAverage' => null],
         'average' => null,
         'bucket' => 'day',
         'hasRatingColumn' => false,
@@ -994,6 +994,8 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt,
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 3 AND 5 THEN 1 ELSE 0 END), 0) AS positive_cnt,
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS negative_cnt,
+            AVG(CASE WHEN CAST(rating AS SIGNED) BETWEEN 3 AND 5 THEN CAST(rating AS SIGNED) END) AS positive_avg_rating,
+            AVG(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN CAST(rating AS SIGNED) END) AS negative_avg_rating,
             COALESCE(COUNT(*), 0) AS rated_cnt,
             AVG(CAST(rating AS SIGNED)) AS avg_rating
         FROM concerns
@@ -1011,6 +1013,12 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
             'rated' => (int)($tr['rated_cnt'] ?? 0),
             'positive' => (int)($tr['positive_cnt'] ?? 0),
             'negative' => (int)($tr['negative_cnt'] ?? 0),
+            'positiveAverage' => ($tr['positive_avg_rating'] ?? null) !== null && ($tr['positive_avg_rating'] ?? '') !== ''
+                ? round((float)$tr['positive_avg_rating'], 2)
+                : null,
+            'negativeAverage' => ($tr['negative_avg_rating'] ?? null) !== null && ($tr['negative_avg_rating'] ?? '') !== ''
+                ? round((float)$tr['negative_avg_rating'], 2)
+                : null,
         ];
         $avgRaw = $tr['avg_rating'] ?? null;
         $base['average'] = $avgRaw !== null && $avgRaw !== '' ? round((float)$avgRaw, 2) : null;
@@ -1209,13 +1217,16 @@ function buildConcernSentimentInsight(array $rows): array {
     $prompt = "Analyze these concern statements from a barangay system.\n";
     $prompt .= "Return STRICT JSON only with keys: positiveWords, negativeWords, positiveInterpretation, negativeInterpretation.\n";
     $prompt .= "Rules:\n";
-    $prompt .= "- positiveWords: array of concise Filipino words that indicate positive interpretation/action (single word each, no duplicates), ordered by most frequent first.\n";
-    $prompt .= "- negativeWords: array of concise Filipino words reflecting common negative sentiment in statements, ordered by most frequent first.\n";
+    $prompt .= "- positiveWords: array of concise Filipino words found in the statements that indicate positive interpretation/action (single word each, no duplicates), ordered by most frequent first.\n";
+    $prompt .= "- negativeWords: array of concise Filipino words found in the statements that reflect common negative sentiment (single word each, no duplicates), ordered by most frequent first.\n";
     $prompt .= "- positiveInterpretation: 1 short Filipino sentence reframing the feedback into constructive positive direction.\n";
     $prompt .= "- negativeInterpretation: 1 short Filipino sentence summarizing the negative tone.\n";
     $prompt .= "- No markdown, no backticks, no extra keys.\n";
     if (count($freqPositiveWords) > 0) {
-        $prompt .= "- Priority hint: frequent positive words detected from statements = " . implode(', ', $freqPositiveWords) . ". Keep aligned.\n";
+        $prompt .= "- Priority hint: frequent positive words detected from statements = " . implode(', ', $freqPositiveWords) . ". Keep aligned but do not invent words outside the statements.\n";
+    }
+    if (count($freqNegativeWords) > 0) {
+        $prompt .= "- Priority hint: frequent negative words detected from statements = " . implode(', ', $freqNegativeWords) . ". Keep aligned but do not invent words outside the statements.\n";
     }
     $prompt .= "Statements:\n- " . implode("\n- ", $statements);
 
@@ -1296,8 +1307,14 @@ function buildConcernSentimentInsight(array $rows): array {
         return $out;
     };
 
-    $positiveWords = count($freqPositiveWords) > 0 ? $freqPositiveWords : $sanitizeWords($decoded['positiveWords'] ?? []);
-    $negativeWords = count($freqNegativeWords) > 0 ? $freqNegativeWords : $sanitizeWords($decoded['negativeWords'] ?? []);
+    $positiveWords = $sanitizeWords($decoded['positiveWords'] ?? []);
+    $negativeWords = $sanitizeWords($decoded['negativeWords'] ?? []);
+    if (count($positiveWords) === 0 && count($freqPositiveWords) > 0) {
+        $positiveWords = $freqPositiveWords;
+    }
+    if (count($negativeWords) === 0 && count($freqNegativeWords) > 0) {
+        $negativeWords = $freqNegativeWords;
+    }
 
     return [
         'positiveWords' => $positiveWords,

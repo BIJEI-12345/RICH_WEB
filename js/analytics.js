@@ -1085,8 +1085,10 @@ function updateSentimentFeedbackTotal(data, period = 'month') {
 function updateSentimentRateCounts(data) {
     const positiveCountEl = document.getElementById('sentimentPositiveRateCount');
     const negativeCountEl = document.getElementById('sentimentNegativeRateCount');
+    const positiveAvgEl = document.getElementById('sentimentPositiveRateAverage');
+    const negativeAvgEl = document.getElementById('sentimentNegativeRateAverage');
     const breakdownEl = document.getElementById('sentimentRatingBreakdown');
-    if (!positiveCountEl && !negativeCountEl && !breakdownEl) {
+    if (!positiveCountEl && !negativeCountEl && !positiveAvgEl && !negativeAvgEl && !breakdownEl) {
         return;
     }
 
@@ -1116,6 +1118,16 @@ function updateSentimentRateCounts(data) {
         if (breakdownEl) {
             breakdownEl.textContent = 'Walang rating column sa concerns — hindi maipakita ang bilang ayon sa rate.';
         }
+        if (positiveAvgEl) {
+            positiveAvgEl.classList.remove('sentiment-ui-rate-average--highlight');
+            positiveAvgEl.classList.add('sentiment-ui-rate-average--empty');
+            positiveAvgEl.textContent = 'Average rating: —';
+        }
+        if (negativeAvgEl) {
+            negativeAvgEl.classList.remove('sentiment-ui-rate-average--highlight');
+            negativeAvgEl.classList.add('sentiment-ui-rate-average--empty');
+            negativeAvgEl.textContent = 'Average rating: —';
+        }
         return;
     }
 
@@ -1124,6 +1136,32 @@ function updateSentimentRateCounts(data) {
     }
     if (negativeCountEl) {
         negativeCountEl.textContent = `Rate count: ${negativeCount.toLocaleString()}`;
+    }
+    const positiveAverageRaw = Number(totals.positiveAverage);
+    const negativeAverageRaw = Number(totals.negativeAverage);
+    if (positiveAvgEl) {
+        if (Number.isFinite(positiveAverageRaw) && positiveCount > 0) {
+            positiveAvgEl.classList.add('sentiment-ui-rate-average--highlight');
+            positiveAvgEl.classList.remove('sentiment-ui-rate-average--empty');
+            const n = positiveAverageRaw.toFixed(2);
+            positiveAvgEl.innerHTML = `Average rating: <span class="sentiment-ui-rate-average-value">${n}</span> rating`;
+        } else {
+            positiveAvgEl.classList.remove('sentiment-ui-rate-average--highlight');
+            positiveAvgEl.classList.add('sentiment-ui-rate-average--empty');
+            positiveAvgEl.textContent = 'Average rating: —';
+        }
+    }
+    if (negativeAvgEl) {
+        if (Number.isFinite(negativeAverageRaw) && negativeCount > 0) {
+            negativeAvgEl.classList.add('sentiment-ui-rate-average--highlight');
+            negativeAvgEl.classList.remove('sentiment-ui-rate-average--empty');
+            const n = negativeAverageRaw.toFixed(2);
+            negativeAvgEl.innerHTML = `Average rating: <span class="sentiment-ui-rate-average-value">${n}</span> rating`;
+        } else {
+            negativeAvgEl.classList.remove('sentiment-ui-rate-average--highlight');
+            negativeAvgEl.classList.add('sentiment-ui-rate-average--empty');
+            negativeAvgEl.textContent = 'Average rating: —';
+        }
     }
     if (breakdownEl) {
         if (rated === 0) {
@@ -1142,23 +1180,29 @@ function updateSentimentInsightPanel(data, period = 'month') {
     const positiveWordsWrap = document.getElementById('sentimentPositiveWords');
     const negativeWordsWrap = document.getElementById('sentimentNegativeWords');
 
-    if (positiveInterpretation && block?.positiveInterpretation) {
-        positiveInterpretation.textContent = block.positiveInterpretation;
+    if (positiveInterpretation) {
+        positiveInterpretation.textContent = block?.positiveInterpretation
+            || 'Walang sapat na positive interpretation mula sa current statements.';
     }
-    if (negativeInterpretation && block?.negativeInterpretation) {
-        negativeInterpretation.textContent = block.negativeInterpretation;
+    if (negativeInterpretation) {
+        negativeInterpretation.textContent = block?.negativeInterpretation
+            || 'Walang sapat na negative interpretation mula sa current statements.';
     }
 
-    const renderWordTags = (target, words, fallbackWords) => {
+    const renderWordTags = (target, words) => {
         if (!target) {
             return;
         }
-        const useWords = Array.isArray(words) && words.length > 0 ? words : fallbackWords;
+        const useWords = Array.isArray(words) ? words.filter(Boolean) : [];
+        if (useWords.length === 0) {
+            target.innerHTML = '<span>Walang sapat na words mula sa statements</span>';
+            return;
+        }
         target.innerHTML = useWords.map(word => `<span>${escapeChartText(word)}</span>`).join('');
     };
 
-    renderWordTags(positiveWordsWrap, block?.positiveWords, ['MAINGAT', 'MAAYOS', 'MABILIS']);
-    renderWordTags(negativeWordsWrap, block?.negativeWords, ['MAGULO', 'MATAGAL', 'MAHIRAP']);
+    renderWordTags(positiveWordsWrap, block?.positiveWords);
+    renderWordTags(negativeWordsWrap, block?.negativeWords);
 }
 
 function updateSentimentConcernStarsFromAverage(data) {

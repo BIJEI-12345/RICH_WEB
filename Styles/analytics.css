@@ -5443,6 +5443,67 @@
     font-weight: 800;
 }
 
+.sentiment-ui-rate-average {
+    margin: 0.35rem 0 0.25rem;
+    max-width: 100%;
+    display: inline-block;
+    padding: 0.4rem 0.65rem;
+    border-radius: 10px;
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    line-height: 1.35;
+    font-weight: 700;
+    text-transform: none;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #4b5563;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.sentiment-ui-rate-average--highlight {
+    border-width: 1px;
+    font-weight: 800;
+}
+
+.sentiment-ui-rate-average--empty {
+    opacity: 0.85;
+    font-weight: 600;
+}
+
+.sentiment-ui-rate-average-value {
+    display: inline-block;
+    margin: 0 0.12rem;
+    font-size: 1.05em;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.03em;
+}
+
+.sentiment-ui-card--positive .sentiment-ui-rate-average--highlight {
+    background: linear-gradient(145deg, #fdf2f8 0%, #fce7f3 55%, #fbcfe8 100%);
+    border-color: #f472b6;
+    color: #831843;
+    box-shadow: 0 2px 8px rgba(219, 39, 119, 0.18);
+}
+
+.sentiment-ui-card--positive .sentiment-ui-rate-average--highlight .sentiment-ui-rate-average-value {
+    color: #be185d;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.sentiment-ui-card--negative .sentiment-ui-rate-average--highlight {
+    background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 55%, #fed7aa 100%);
+    border-color: #fb923c;
+    color: #7c2d12;
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.2);
+}
+
+.sentiment-ui-card--negative .sentiment-ui-rate-average--highlight .sentiment-ui-rate-average-value {
+    color: #c2410c;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 .sentiment-ui-title p {
     margin: 0.15rem 0 0;
     color: #4b5563;
