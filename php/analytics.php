@@ -197,6 +197,23 @@ function fetchSummary(PDO $pdo, string $table, string $dateColumn, string $start
 }
 
 /**
+ * Concerns sa date range na hindi kasama ang status na "new" (case-insensitive).
+ * Ginagamit sa Sentiment Analysis total — hiwalay sa buong "reported" count.
+ */
+function fetchConcernReportedExcludingNew(PDO $pdo, string $start, string $end): int {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS c
+        FROM concerns
+        WHERE date_and_time BETWEEN :start AND :end
+          AND LOWER(TRIM(COALESCE(status, ''))) <> 'new'
+    ");
+    $stmt->execute([':start' => $start, ':end' => $end]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return (int)($row['c'] ?? 0);
+}
+
+/**
  * Canonical na listahan ng sitio (pareho sa analytics / census dropdown).
  *
  * @return list<string>
@@ -938,7 +955,7 @@ function fetchConcernStatementRows(PDO $pdo, string $start, string $end): array 
  *   labels: array<int,string>,
  *   low: array<int,int>,
  *   high: array<int,int>,
- *   totals: array{low:int,high:int,mid:int,rated:int},
+ *   totals: array{low:int,high:int,mid:int,rated:int,positive:int,negative:int},
  *   average: float|null,
  *   bucket: string,
  *   hasRatingColumn: bool
@@ -949,7 +966,7 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
         'labels' => [],
         'low' => [],
         'high' => [],
-        'totals' => ['low' => 0, 'high' => 0, 'mid' => 0, 'rated' => 0],
+        'totals' => ['low' => 0, 'high' => 0, 'mid' => 0, 'rated' => 0, 'positive' => 0, 'negative' => 0],
         'average' => null,
         'bucket' => 'day',
         'hasRatingColumn' => false,
@@ -975,6 +992,8 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) = 3 THEN 1 ELSE 0 END), 0) AS mid_cnt,
             COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 3 AND 5 THEN 1 ELSE 0 END), 0) AS positive_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS negative_cnt,
             COALESCE(COUNT(*), 0) AS rated_cnt,
             AVG(CAST(rating AS SIGNED)) AS avg_rating
         FROM concerns
@@ -990,6 +1009,8 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
             'mid' => (int)($tr['mid_cnt'] ?? 0),
             'high' => (int)($tr['high_cnt'] ?? 0),
             'rated' => (int)($tr['rated_cnt'] ?? 0),
+            'positive' => (int)($tr['positive_cnt'] ?? 0),
+            'negative' => (int)($tr['negative_cnt'] ?? 0),
         ];
         $avgRaw = $tr['avg_rating'] ?? null;
         $base['average'] = $avgRaw !== null && $avgRaw !== '' ? round((float)$avgRaw, 2) : null;
@@ -1852,7 +1873,9 @@ foreach ($documentTables as $label => $table) {
 $documentsYearByMonth['total'] = $documentsYearByMonthTotals;
 
 $concernsRange = fetchSummary($pdo, 'concerns', 'date_and_time', $rangeStart, $rangeEnd);
+$concernsRange['reportedExcludingNew'] = fetchConcernReportedExcludingNew($pdo, $rangeStart, $rangeEnd);
 $concernsYear = fetchSummary($pdo, 'concerns', 'date_and_time', $yearStart, $yearEnd);
+$concernsYear['reportedExcludingNew'] = fetchConcernReportedExcludingNew($pdo, $yearStart, $yearEnd);
 $concernsPrev = fetchSummary($pdo, 'concerns', 'date_and_time', $previousRangeStart, $previousRangeEnd);
 $concernsYearByMonth = fetchConcernsMonthlyReportedResolved($pdo, $yearStart, $yearEnd);
 

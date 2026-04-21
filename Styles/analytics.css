@@ -5386,6 +5386,14 @@
     font-weight: 800;
 }
 
+.sentiment-ui-rating-breakdown {
+    margin: 0 0 0.75rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #4b5563;
+    font-weight: 600;
+}
+
 .sentiment-ui-headline h6 span {
     color: #c85e09;
 }

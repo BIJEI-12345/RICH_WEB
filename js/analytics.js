@@ -1077,31 +1077,61 @@ function updateSentimentFeedbackTotal(data, period = 'month') {
     }
 
     const concernBlock = period === 'year' ? data?.concerns?.year : data?.concerns?.month;
-    const reportedCount = Number(concernBlock?.reported);
+    const rawExcl = concernBlock?.reportedExcludingNew;
+    const reportedCount = Number(rawExcl !== undefined && rawExcl !== null ? rawExcl : concernBlock?.reported);
     totalEl.textContent = Number.isFinite(reportedCount) ? reportedCount.toLocaleString() : '0';
 }
 
 function updateSentimentRateCounts(data) {
     const positiveCountEl = document.getElementById('sentimentPositiveRateCount');
     const negativeCountEl = document.getElementById('sentimentNegativeRateCount');
-    if (!positiveCountEl && !negativeCountEl) {
+    const breakdownEl = document.getElementById('sentimentRatingBreakdown');
+    if (!positiveCountEl && !negativeCountEl && !breakdownEl) {
         return;
     }
 
-    const totals = data?.concerns?.ratingLineSeries?.totals || {};
-    const low = Number(totals.low) || 0; // rating 1-2
+    const series = data?.concerns?.ratingLineSeries;
+    const totals = series?.totals || {};
+    const low = Number(totals.low) || 0; // rating 1–2
     const mid = Number(totals.mid) || 0; // rating 3
-    const high = Number(totals.high) || 0; // rating 4-5
+    const high = Number(totals.high) || 0; // rating 4–5
+    const rated = Number(totals.rated) || 0;
 
-    // Rule: Positive = 3 and above; Negative = 2 and below.
-    const positiveCount = mid + high;
-    const negativeCount = low;
+    let positiveCount = Number(totals.positive);
+    let negativeCount = Number(totals.negative);
+    if (!Number.isFinite(positiveCount) || totals.positive === undefined) {
+        positiveCount = mid + high;
+    }
+    if (!Number.isFinite(negativeCount) || totals.negative === undefined) {
+        negativeCount = low;
+    }
+
+    if (!series?.hasRatingColumn) {
+        if (positiveCountEl) {
+            positiveCountEl.textContent = 'Rate count: —';
+        }
+        if (negativeCountEl) {
+            negativeCountEl.textContent = 'Rate count: —';
+        }
+        if (breakdownEl) {
+            breakdownEl.textContent = 'Walang rating column sa concerns — hindi maipakita ang bilang ayon sa rate.';
+        }
+        return;
+    }
 
     if (positiveCountEl) {
         positiveCountEl.textContent = `Rate count: ${positiveCount.toLocaleString()}`;
     }
     if (negativeCountEl) {
         negativeCountEl.textContent = `Rate count: ${negativeCount.toLocaleString()}`;
+    }
+    if (breakdownEl) {
+        if (rated === 0) {
+            breakdownEl.textContent =
+                'Walang concern na may rating 1–5 sa napiling sakop ng petsa. Bawat bilang = isang concern.';
+        } else {
+            breakdownEl.textContent = `May rating na concern: ${rated.toLocaleString()} · Positive: ${positiveCount.toLocaleString()} · Negative: ${negativeCount.toLocaleString()} · Bawat bilang = isang concern.`;
+        }
     }
 }
 
