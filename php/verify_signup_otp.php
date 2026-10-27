@@ -10,7 +10,7 @@ date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Database connection failed']);

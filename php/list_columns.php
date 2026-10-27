@@ -2,7 +2,7 @@
 require "config.php";
 
 try {
-    $mysqli = getDatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
     
     $tables = [
         'registration_logs',
@@ -11,21 +11,19 @@ try {
     
     foreach ($tables as $table) {
         echo "Columns for $table:\n";
-        $res = $mysqli->query("SHOW COLUMNS FROM $table");
-        if (!$res) {
-            echo "  query failed: " . $mysqli->error . "\n";
-            continue;
-        }
-        while ($row = $res->fetch_assoc()) {
-            echo "  " . $row['Field'] . "\n";
+        $stmt = $pdo->prepare(
+            'SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? ORDER BY ordinal_position'
+        );
+        $stmt->execute([$table]);
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $column) {
+            echo "  " . $column . "\n";
         }
         echo "\n";
     }
     
-    $mysqli->close();
+    $pdo = null;
 } catch (Exception $e) {
     echo "Database connection failed: " . $e->getMessage() . PHP_EOL;
     exit(1);
 }
 ?>
-

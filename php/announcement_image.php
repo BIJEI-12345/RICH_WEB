@@ -1,21 +1,18 @@
 <?php
 /**
- * Announcement `image` column: store binary in LONGBLOB, expose URL via admin-dashboard.php?announcement_image=true&id=
+ * Announcement `image` column: store binary in PostgreSQL BYTEA and expose it through admin-dashboard.php.
  */
 
 function migrateAnnouncementImagePathsToBlob(PDO $pdo) {
     try {
-        $stmt = $pdo->query('SELECT id, image FROM announcements WHERE image IS NOT NULL AND LENGTH(image) > 0');
-        if (!$stmt) {
-            return;
-        }
+        $stmt = $pdo->query('SELECT id, image FROM announcements WHERE image IS NOT NULL AND octet_length(image) > 0');
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         return;
     }
     $baseReal = @realpath(__DIR__ . '/..');
     foreach ($rows as $row) {
-        $val = $row['image'];
+        $val = $row['image'] ?? null;
         if (!is_string($val) || $val === '') {
             continue;
         }
@@ -37,60 +34,28 @@ function migrateAnnouncementImagePathsToBlob(PDO $pdo) {
         if ($bin === false || $bin === '') {
             continue;
         }
-        $upd = $pdo->prepare('UPDATE announcements SET image = ? WHERE id = ?');
-        if ($upd->execute([$bin, $row['id']])) {
-            @unlink($full);
-        }
+        $upd = $pdo->prepare("UPDATE announcements SET image = decode(?, 'base64') WHERE id = ?");
+        $upd->execute([base64_encode($bin), $row['id']]);
     }
 }
 
 function ensureAnnouncementImageBlob(PDO $pdo) {
-    try {
-        $st = $pdo->query("SHOW COLUMNS FROM announcements LIKE 'image'");
-        $col = $st ? $st->fetch(PDO::FETCH_ASSOC) : false;
-    } catch (Throwable $e) {
+    $stmt = $pdo->prepare(
+        "SELECT data_type FROM information_schema.columns
+         WHERE table_schema = current_schema() AND table_name = 'announcements' AND column_name = 'image'"
+    );
+    $stmt->execute();
+    $dataType = $stmt->fetchColumn();
+
+    if ($dataType === false) {
+        $pdo->exec('ALTER TABLE announcements ADD COLUMN image BYTEA NULL');
         return;
     }
-    if (!$col) {
-        try {
-            $pdo->exec('ALTER TABLE announcements ADD COLUMN image LONGBLOB NULL');
-        } catch (Throwable $e) {
-        }
-        return;
+
+    if ($dataType !== 'bytea') {
+        throw new RuntimeException('The announcements.image column must use PostgreSQL BYTEA.');
     }
-    $type = strtolower((string)($col['Type'] ?? ''));
-    if (strpos($type, 'varchar') !== false || strpos($type, 'char') !== false || strpos($type, 'text') !== false) {
-        try {
-            $rows = $pdo->query('SELECT id, image FROM announcements WHERE image IS NOT NULL AND image != \'\'')->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Throwable $e) {
-            $rows = [];
-        }
-        $baseReal = @realpath(__DIR__ . '/..');
-        foreach ($rows as $row) {
-            $val = $row['image'];
-            if (!is_string($val) || $val === '' || strlen($val) >= 600) {
-                continue;
-            }
-            if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
-                continue;
-            }
-            $norm = str_replace('\\', '/', $val);
-            $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
-            if ($full && $baseReal && strpos($full, $baseReal) === 0 && is_file($full)) {
-                $bin = @file_get_contents($full);
-                if ($bin !== false && $bin !== '') {
-                    $upd = $pdo->prepare('UPDATE announcements SET image = ? WHERE id = ?');
-                    if ($upd->execute([$bin, $row['id']])) {
-                        @unlink($full);
-                    }
-                }
-            }
-        }
-        try {
-            $pdo->exec('ALTER TABLE announcements MODIFY COLUMN image LONGBLOB NULL');
-        } catch (Throwable $e) {
-        }
-    }
+
     migrateAnnouncementImagePathsToBlob($pdo);
 }
 
@@ -101,6 +66,9 @@ function ensureAnnouncementImageBlob(PDO $pdo) {
 function normalizeAnnouncementImageForJson($image, $announcementId) {
     if ($image === null || $image === '') {
         return '';
+    }
+    if (is_resource($image)) {
+        $image = stream_get_contents($image);
     }
     if (!is_string($image)) {
         return '';

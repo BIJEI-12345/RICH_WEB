@@ -20,7 +20,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection exception: " . $e->getMessage());
     http_response_code(500);
@@ -65,7 +65,7 @@ try {
     if (!$isBeaconRequest && (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in'])) {
         http_response_code(401);
         echo json_encode(["error" => "Not logged in"]);
-        $connection->close();
+        $connection = null;
         exit;
     }
 
@@ -73,7 +73,7 @@ try {
 if (empty($email) && !$isBeaconRequest) {
     http_response_code(400);
     echo json_encode(["error" => "User email not found. Please provide email in request body."]);
-    $connection->close();
+    $connection = null;
     exit;
 }
 
@@ -86,30 +86,28 @@ try {
         // This handles cases where session expired but user was still logged in
         // Use COALESCE to handle NULL total_active_hours
         $updateQuery = "UPDATE brgy_users 
-                       SET last_logout = '{$now}',
-                           total_active_hours = COALESCE(total_active_hours, 0) + (TIMESTAMPDIFF(SECOND, last_login, '{$now}') / 3600),
+                       SET last_logout = ?,
+                           total_active_hours = COALESCE(total_active_hours, 0) + (EXTRACT(EPOCH FROM (?::timestamp - last_login)) / 3600.0),
                            online_offline = 'offline'
                        WHERE last_login IS NOT NULL 
-                       AND last_login >= DATE_SUB('{$now}', INTERVAL 24 HOUR)
+                       AND last_login >= (?::timestamp - INTERVAL '24 hours')
                        AND (last_logout IS NULL OR last_logout < last_login)";
-        $connection->query($updateQuery);
+        $connection->prepare($updateQuery)->execute([$now, $now, $now]);
     } else if (!empty($email)) {
         // Normal logout with email
-        $emailEsc = $connection->real_escape_string($email);
-        
         // Verify the email exists in database and get last_login
-        $verifyQuery = "SELECT email, last_login FROM brgy_users WHERE email = '{$emailEsc}'";
-        $verifyResult = $connection->query($verifyQuery);
+        $verifyQuery = $connection->prepare("SELECT email, last_login FROM brgy_users WHERE email = ?");
+        $verifyQuery->execute([$email]);
+        $row = $verifyQuery->fetch(PDO::FETCH_ASSOC);
         
-        if (!$verifyResult || $verifyResult->num_rows === 0) {
+        if (!$row) {
             error_log("Logout failed: Email not found in database: " . $email);
             http_response_code(404);
             echo json_encode(["error" => "User not found"]);
-            $connection->close();
+            $connection = null;
             exit;
         }
         
-        $row = $verifyResult->fetch_assoc();
         $lastLogin = $row['last_login'];
         
         // Log for debugging - this helps identify which user is being logged out
@@ -133,15 +131,15 @@ try {
             // Update last_logout, ADD to total_active_hours (cumulative), and set online_offline to 'offline'
             // This keeps adding hours every logout, not replacing
             $updateQuery = "UPDATE brgy_users 
-                           SET last_logout = '{$now}',
-                               total_active_hours = COALESCE(total_active_hours, 0) + {$activeHours},
+                           SET last_logout = ?,
+                               total_active_hours = COALESCE(total_active_hours, 0) + ?,
                                online_offline = 'offline'
-                           WHERE email = '{$emailEsc}'";
-            $connection->query($updateQuery);
+                           WHERE email = ?";
+            $connection->prepare($updateQuery)->execute([$now, $activeHours, $email]);
         } else {
             // If no last_login, just set last_logout and online_offline to 'offline'
-            $updateQuery = "UPDATE brgy_users SET last_logout = '{$now}', online_offline = 'offline' WHERE email = '{$emailEsc}'";
-            $connection->query($updateQuery);
+            $updateQuery = "UPDATE brgy_users SET last_logout = ?, online_offline = 'offline' WHERE email = ?";
+            $connection->prepare($updateQuery)->execute([$now, $email]);
         }
         
         // Log audit trail for logout
@@ -149,10 +147,8 @@ try {
             require_once __DIR__ . '/audit_trail_helper.php';
             $userSql = "SELECT id, name FROM brgy_users WHERE email = ?";
             $userStmt = $connection->prepare($userSql);
-            $userStmt->bind_param('s', $emailEsc);
-            $userStmt->execute();
-            $userResult = $userStmt->get_result();
-            $userData = $userResult->fetch_assoc();
+            $userStmt->execute([$email]);
+            $userData = $userStmt->fetch(PDO::FETCH_ASSOC);
             
             if ($userData) {
                 logAuditTrail(
@@ -186,13 +182,12 @@ try {
         http_response_code(200);
     }
     
-    $connection->close();
+    $connection = null;
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(["error" => "An error occurred during logout"]);
     if (isset($connection)) {
-        $connection->close();
+        $connection = null;
     }
 }
 ?>
-

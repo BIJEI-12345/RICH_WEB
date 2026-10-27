@@ -7,16 +7,16 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
-} catch (Exception $e) {
+    $pdo = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
     error_log("Database connection error: " . $e->getMessage());
     header('Location: ../verify_code.html?error=' . urlencode('Database connection failed. Please try again later.'));
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email']);
-    $verification_code = trim($_POST['verification_code']);
+    $email = trim((string) ($_POST['email'] ?? ''));
+    $verification_code = trim((string) ($_POST['verification_code'] ?? ''));
     $action = isset($_POST['action']) ? $_POST['action'] : '';
     
     if (empty($email) || empty($verification_code)) {
@@ -81,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // If action is reset_password, handle password update
         if ($action === 'reset_password') {
-            $new_password = trim($_POST['new_password']);
-            $confirm_password = trim($_POST['confirm_password']);
+            $new_password = trim((string) ($_POST['new_password'] ?? ''));
+            $confirm_password = trim((string) ($_POST['confirm_password'] ?? ''));
             
             if (empty($new_password) || empty($confirm_password)) {
                 header('Location: ../verify_code.html?email=' . urlencode($email) . '&code=' . urlencode($verification_code) . '&error=' . urlencode('Please enter both password fields'));
@@ -102,10 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Hash passwords before storing in database
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
             $hashed_confirm_password = password_hash($confirm_password, PASSWORD_DEFAULT);
-            
-            // Log password reset attempt for debugging
-            error_log("Password reset attempt for email: " . $email);
-            error_log("New password length: " . strlen($new_password));
             
             // Update password in database as hashed and clear OTP
             $updateStmt = $pdo->prepare("UPDATE brgy_users SET password = ?, confirm_pass = ?, otp_code = NULL, otp_expires_at = NULL WHERE email = ?");
@@ -143,27 +139,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     // Verify hashed password using password_verify()
                     if (password_verify($new_password, $storedPasswordHash)) {
-                        error_log("Password reset successful for email: " . $email);
                         header('Location: ../index.php?success=' . urlencode('Password reset successfully! You can now login with your new password.'));
                         exit();
                     } else {
-                        error_log("Password reset verification failed for email: " . $email);
                         header('Location: ../index.php?success=' . urlencode('Password was updated. Please try logging in with your new password.'));
                         exit();
                     }
                 } else {
-                    error_log("Password reset failed: Could not retrieve updated password for email: " . $email);
+                    error_log("Password reset failed: Could not retrieve updated password.");
                     header('Location: ../verify_code.html?email=' . urlencode($email) . '&code=' . urlencode($verification_code) . '&error=' . urlencode('Failed to verify password update. Please try again.'));
                     exit();
                 }
             } else {
-                error_log("Password reset database update failed for email: " . $email);
+                error_log("Password reset database update failed.");
                 header('Location: ../verify_code.html?email=' . urlencode($email) . '&code=' . urlencode($verification_code) . '&error=' . urlencode('Failed to update password. Please try again.'));
                 exit();
             }
         } else {
             // Code is valid, show password reset form (don't clear OTP yet)
-            error_log("OTP verification successful for email: " . $email . " with code: " . $verification_code);
             header('Location: ../verify_code.html?email=' . urlencode($email) . '&code=' . urlencode($verification_code) . '&verified=1');
             exit();
         }

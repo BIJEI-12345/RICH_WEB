@@ -125,26 +125,13 @@ try {
 
     $actualTable = $allowed[$table];
 
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    if ($conn->connect_error) {
-        throw new Exception('Connection failed: ' . $conn->connect_error);
-    }
-    $conn->set_charset('utf8mb4');
+    $conn = getPostgreSQLDatabaseConnection();
 
-    // Forms store the uploaded ID image in `id_image` column (LONGBLOB)
-    // Need to fetch as binary data
-    $sql = "SELECT id_image FROM $actualTable WHERE id = ?";
+    $sql = "SELECT encode(id_image, 'base64') FROM $actualTable WHERE id = ?";
     $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Failed to prepare statement: ' . $conn->error);
-    }
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    
-    // For LONGBLOB, we need to bind result to handle binary data properly
-    $stmt->store_result();
-    $stmt->bind_result($imageBlob);
-    $stmt->fetch();
+    $stmt->execute([$id]);
+    $encodedImage = $stmt->fetchColumn();
+    $imageBlob = $encodedImage === false || $encodedImage === null ? null : base64_decode($encodedImage, true);
     
     if (!$imageBlob) {
         echo json_encode(['success' => true, 'imageData' => null, 'hasImage' => false]);
@@ -154,8 +141,7 @@ try {
     // Process the LONGBLOB binary data
     $imageData = safeImageData($imageBlob);
     
-    $stmt->close();
-    $conn->close();
+    $conn = null;
     
     echo json_encode(['success' => true, 'imageData' => $imageData, 'hasImage' => ($imageData !== null)]);
 } catch (Exception $e) {
@@ -163,5 +149,3 @@ try {
     echo json_encode(['success' => false, 'error' => $e->getMessage(), 'imageData' => null]);
 }
 ?>
-
-

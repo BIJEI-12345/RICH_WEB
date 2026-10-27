@@ -32,13 +32,9 @@ if ($loggedIn) {
     try {
         require_once __DIR__ . '/config.php';
         require_once __DIR__ . '/census_document_guard.php';
-        $conn = getDatabaseConnection();
-        if ($conn && !@$conn->connect_error) {
-            $conn->set_charset('utf8mb4');
-            if (rich_session_user_blocked_from_documents($conn)) {
-                $censusDocumentRequestsAllowed = false;
-            }
-            $conn->close();
+        $pdo = getPostgreSQLDatabaseConnection();
+        if (rich_session_user_blocked_from_documents($pdo)) {
+            $censusDocumentRequestsAllowed = false;
         }
     } catch (Throwable $e) {
         error_log('userSession census guard: ' . $e->getMessage());
@@ -57,5 +53,4 @@ http_response_code(200);
 echo json_encode($response);
 exit;
 ?>
-
 

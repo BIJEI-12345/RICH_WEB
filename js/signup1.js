@@ -210,12 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Get form data
       const formData = new FormData(form);
       
-      // Debug: Log form data being sent
-      console.log('Form data being sent:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key + ': ' + value);
-      }
-      
       // Send data to PHP file
       const response = await fetch('php/signup1.php', {
         method: 'POST',

@@ -17,7 +17,7 @@ date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log('cleanup_document_retention: DB error: ' . $e->getMessage());
     fwrite(STDERR, "Database connection failed.\n");
@@ -25,12 +25,12 @@ try {
 }
 
 // Finished rows older than this are eligible for deletion (except jobseeker certifications).
-$cutoffExpr = 'DATE_SUB(DATE_SUB(NOW(), INTERVAL 1 YEAR), INTERVAL 1 WEEK)';
+$cutoffExpr = "(CURRENT_TIMESTAMP - INTERVAL '1 year 1 week')";
 
 // --- certification_forms: sync is_permanent from purpose (jobseeker = 1) ---
 try {
     $synced = $pdo->exec(
-        "UPDATE certification_forms SET is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0)"
+        "UPDATE certification_forms SET is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END"
     );
     echo "certification_forms: synced is_permanent from purpose (" . (int) $synced . " row(s) affected).\n";
 } catch (Exception $e) {
@@ -46,7 +46,7 @@ $deleteSpecs = [
         // is_permanent = 1 (jobseeker) → never deleted; = 0 → eligible. Extra: never delete jobseeker by purpose.
         'sql'   => "
             DELETE FROM certification_forms
-            WHERE IFNULL(is_permanent, 0) = 0
+            WHERE COALESCE(is_permanent, 0) = 0
               AND LOWER(TRIM(COALESCE(purpose,''))) <> 'jobseeker'
               AND $finishedCond
         ",

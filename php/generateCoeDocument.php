@@ -486,13 +486,7 @@ try {
     }
     
     // Database connection
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    
-    if ($connection->connect_error) {
-        throw new Exception("Connection failed: " . $connection->connect_error);
-    }
-
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Try different possible table names for COE
     $possibleTables = ['coe_forms'];
@@ -500,24 +494,18 @@ try {
     $usedTable = '';
     
     foreach ($possibleTables as $table) {
-        $sql = "SELECT id, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, id_image, status, submitted_at FROM $table WHERE id = ?";
+        $sql = "SELECT id, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, encode(id_image, 'base64') AS id_image, status, submitted_at FROM $table WHERE id = ?";
         
         $stmt = $connection->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("i", $requestId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $usedTable = $table;
-                $stmt->close();
-                error_log("generateCoeDocument: Found data in table: $table");
-                break;
-            }
-            $stmt->close();
-        } else {
-            error_log("generateCoeDocument: Table $table not found or error: " . $connection->error);
+        $stmt->execute([$requestId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && $row['id_image'] !== null) {
+            $row['id_image'] = base64_decode($row['id_image'], true);
+        }
+        if ($row) {
+            $usedTable = $table;
+            error_log("generateCoeDocument: Found data in table: $table");
+            break;
         }
     }
     
@@ -574,19 +562,8 @@ try {
         $currentTime = date('Y-m-d H:i:s');
         $updateSql = "UPDATE $usedTable SET status = 'Processing', process_at = ? WHERE id = ?";
         $updateStmt = $connection->prepare($updateSql);
-        if (!$updateStmt) {
-            error_log("Failed to prepare update statement: " . $connection->error);
-            throw new Exception("Failed to prepare update statement: " . $connection->error);
-        }
-        
-        $updateStmt->bind_param("si", $currentTime, $requestId);
-        if (!$updateStmt->execute()) {
-            error_log("Failed to execute update statement: " . $updateStmt->error);
-            throw new Exception("Failed to execute update statement: " . $updateStmt->error);
-        }
-        
-        $updateStmt->close();
-        $connection->close();
+        $updateStmt->execute([$currentTime, $requestId]);
+        $connection = null;
         
         $finalFilename = $filename;
         $dlToken = rich_register_temp_download($fullOutputPath);

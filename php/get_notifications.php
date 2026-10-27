@@ -15,11 +15,32 @@ header('Expires: 0');
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/notification_access.php';
 
-/**
- * @param mysqli $conn
- * @return int
- */
-function rich_count_pending_documents($conn, $since) {
+function rich_postgres_table_exists(PDO $connection, string $table): bool
+{
+    $stmt = $connection->prepare(
+        'SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = current_schema() AND table_name = ?
+        )'
+    );
+    $stmt->execute([$table]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function rich_postgres_column_exists(PDO $connection, string $table, string $column): bool
+{
+    $stmt = $connection->prepare(
+        'SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?
+        )'
+    );
+    $stmt->execute([$table, $column]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function rich_count_pending_documents(PDO $connection, string $since): int
+{
     $tables = [
         'barangay_id_forms',
         'certification_forms',
@@ -29,116 +50,60 @@ function rich_count_pending_documents($conn, $since) {
     ];
     $total = 0;
     foreach ($tables as $t) {
-        $chk = $conn->query("SHOW TABLES LIKE '" . $conn->real_escape_string($t) . "'");
-        if (!$chk || $chk->num_rows === 0) {
+        if (!rich_postgres_table_exists($connection, $t)
+            || !rich_postgres_column_exists($connection, $t, 'submitted_at')
+            || !rich_postgres_column_exists($connection, $t, 'status')) {
             continue;
         }
-        $colSubmitted = $conn->query("SHOW COLUMNS FROM `$t` LIKE 'submitted_at'");
-        if (!$colSubmitted || $colSubmitted->num_rows === 0) {
-            continue;
-        }
-        $colStatus = $conn->query("SHOW COLUMNS FROM `$t` LIKE 'status'");
-        if (!$colStatus || $colStatus->num_rows === 0) {
-            continue;
-        }
-        // Notifications: "New" requests only (exclude Processing / Finished)
-        $sql = "SELECT COUNT(*) AS c FROM `$t` WHERE LOWER(TRIM(COALESCE(status, ''))) = 'new' AND submitted_at > ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            continue;
-        }
-        $stmt->bind_param('s', $since);
-        if (!$stmt->execute()) {
-            $stmt->close();
-            continue;
-        }
-        $res = $stmt->get_result();
-        if ($res) {
-            $row = $res->fetch_assoc();
-            $total += (int) ($row['c'] ?? 0);
-        }
-        $stmt->close();
+        $stmt = $connection->prepare(
+            "SELECT COUNT(*) FROM \"$t\"
+             WHERE LOWER(TRIM(COALESCE(status, ''))) = 'new' AND submitted_at > ?"
+        );
+        $stmt->execute([$since]);
+        $total += (int) $stmt->fetchColumn();
     }
     return $total;
 }
 
-/**
- * @param mysqli $conn
- * @return int
- */
-function rich_count_pending_concerns($conn, $since) {
-    $chk = $conn->query("SHOW TABLES LIKE 'concerns'");
-    if (!$chk || $chk->num_rows === 0) {
+function rich_count_pending_concerns(PDO $connection, string $since): int
+{
+    if (!rich_postgres_table_exists($connection, 'concerns')) {
         return 0;
     }
-    $sql = "SELECT COUNT(*) AS c FROM concerns WHERE status IN ('new', 'processing') AND date_and_time > ?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        return 0;
-    }
-    $stmt->bind_param('s', $since);
-    if (!$stmt->execute()) {
-        $stmt->close();
-        return 0;
-    }
-    $res = $stmt->get_result();
-    $row = $res ? $res->fetch_assoc() : null;
-    $stmt->close();
-    return (int) ($row['c'] ?? 0);
+    $stmt = $connection->prepare(
+        "SELECT COUNT(*) FROM concerns WHERE status IN ('new', 'processing') AND date_and_time > ?"
+    );
+    $stmt->execute([$since]);
+    return (int) $stmt->fetchColumn();
 }
 
-/**
- * @param mysqli $conn
- * @return int
- */
-function rich_count_pending_emergency($conn, $since) {
-    $chk = $conn->query("SHOW TABLES LIKE 'emergency_reports'");
-    if (!$chk || $chk->num_rows === 0) {
+function rich_count_pending_emergency(PDO $connection, string $since): int
+{
+    if (!rich_postgres_table_exists($connection, 'emergency_reports')) {
         return 0;
     }
-    // New emergency reports only (not processing / resolved)
-    $sql = "SELECT COUNT(*) AS c FROM emergency_reports WHERE UPPER(TRIM(COALESCE(status, ''))) = 'NEW' AND date_and_time > ?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        return 0;
-    }
-    $stmt->bind_param('s', $since);
-    if (!$stmt->execute()) {
-        $stmt->close();
-        return 0;
-    }
-    $res = $stmt->get_result();
-    $row = $res ? $res->fetch_assoc() : null;
-    $stmt->close();
-    return (int) ($row['c'] ?? 0);
+    $stmt = $connection->prepare(
+        "SELECT COUNT(*) FROM emergency_reports
+         WHERE UPPER(TRIM(COALESCE(status, ''))) = 'NEW' AND date_and_time > ?"
+    );
+    $stmt->execute([$since]);
+    return (int) $stmt->fetchColumn();
 }
 
-/**
- * @param mysqli $conn
- * @return int
- */
-function rich_count_pending_users($conn, $since) {
-    $sql = "SELECT COUNT(*) AS c FROM brgy_users 
-            WHERE verified_email = 1 AND (action = 'pending' OR action IS NULL OR action = '')
-            AND created_at > ?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        return 0;
-    }
-    $stmt->bind_param('s', $since);
-    if (!$stmt->execute()) {
-        $stmt->close();
-        return 0;
-    }
-    $res = $stmt->get_result();
-    $row = $res ? $res->fetch_assoc() : null;
-    $stmt->close();
-    return (int) ($row['c'] ?? 0);
+function rich_count_pending_users(PDO $connection, string $since): int
+{
+    $stmt = $connection->prepare(
+        "SELECT COUNT(*) FROM brgy_users
+         WHERE verified_email = 1 AND (action = 'pending' OR action IS NULL OR action = '')
+         AND created_at > ?"
+    );
+    $stmt->execute([$since]);
+    return (int) $stmt->fetchColumn();
 }
 
 try {
-    $connection = getDatabaseConnection();
-} catch (Exception $e) {
+    $connection = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
     error_log("Database connection error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed.']);
@@ -153,7 +118,6 @@ try {
             'total_unread' => 0,
             'accessible_categories' => [],
         ]);
-        $connection->close();
         exit;
     }
 
@@ -167,7 +131,6 @@ try {
             'total_unread' => 0,
             'accessible_categories' => [],
         ]);
-        $connection->close();
         exit;
     }
 
@@ -212,13 +175,13 @@ try {
         'total_unread' => $total,
         'accessible_categories' => $accessible,
     ]);
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    error_log("Notification query error: " . $e->getMessage());
+    http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch notifications: ' . $e->getMessage(),
+        'error' => 'Failed to fetch notifications.',
     ]);
 } finally {
-    if (isset($connection) && $connection) {
-        $connection->close();
-    }
+    $connection = null;
 }

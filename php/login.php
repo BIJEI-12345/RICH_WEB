@@ -31,10 +31,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/audit_trail_helper.php';
 
 try {
-  $connection = getDatabaseConnection();
-  // Log which database we're connected to
-  $host = $connection->host_info;
-  error_log("Connected to database: " . $host);
+  $connection = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
   error_log("Database connection exception: " . $e->getMessage());
   http_response_code(500);
@@ -47,9 +44,6 @@ try {
   $email = trim($input['email'] ?? '');
   $password = (string)($input['password'] ?? '');
   
-  // Debug logging (remove in production)
-  error_log("Login attempt - Email: " . $email . ", Password length: " . strlen($password));
-
   if ($email === '' || $password === '') {
     try {
       logFailedLoginAttempt($email !== '' ? $email : 'unknown', 'missing_credentials', null);
@@ -58,37 +52,14 @@ try {
     }
     http_response_code(400);
     echo json_encode(["error" => "Email and password are required", "received" => ["email" => $email, "password_len" => strlen($password)]]);
-    $connection->close();
     exit;
   }
 
-  // Use prepared statements to avoid encoding/corruption issues
   $stmt = $connection->prepare("SELECT id, email, password, verified_email, action, name, position FROM brgy_users WHERE email = ?");
-  if (!$stmt) {
-    error_log("Prepare failed: " . $connection->error);
-    http_response_code(500);
-    echo json_encode(["error" => "Database query error."]);
-    $connection->close();
-    exit;
-  }
+  $stmt->execute([$email]);
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
   
-  $stmt->bind_param("s", $email);
-  $stmt->execute();
-  $result = $stmt->get_result();
-  
-  if ($result && $row = $result->fetch_assoc()) {
-    error_log("User found: " . $row['email'] . ", Verified: " . $row['verified_email'] . ", Action: " . ($row['action'] ?? 'null'));
-    
-    // Log raw password hash from database
-    $rawPassword = $row['password'] ?? '';
-    error_log("Raw password from DB (type): " . gettype($rawPassword));
-    error_log("Raw password from DB (length): " . strlen($rawPassword));
-    error_log("Raw password from DB (first 50 chars): " . substr($rawPassword, 0, 50));
-    error_log("Raw password from DB (full): " . $rawPassword); // Show full hash for debugging
-    
-    error_log("Password verification attempt with length: " . strlen($password));
-    error_log("Input password: " . $password);
-    
+  if ($row) {
     // Check if account is verified
     if (intval($row['verified_email']) !== 1) {
       error_log("Login failed: Email not verified for " . $row['email']);
@@ -99,7 +70,6 @@ try {
       }
       http_response_code(403);
       echo json_encode(["error" => "Please verify your email first. Check your email for the verification link."]);
-      $connection->close();
       exit;
     }
     
@@ -123,7 +93,6 @@ try {
         $errorMsg = "Your account has been deactivated. Please contact administrator.";
       }
       echo json_encode(["error" => $errorMsg]);
-      $connection->close();
       exit;
     }
 
@@ -138,7 +107,6 @@ try {
       }
       http_response_code(401);
       echo json_encode(["error" => "Password not set. Please reset your password."]);
-      $connection->close();
       exit;
     }
     
@@ -164,33 +132,6 @@ try {
       // 2. Hash is corrupted/truncated
       // 3. Hash format is invalid
       $passwordValid = password_verify($inputPassword, $storedPasswordHash);
-      
-      if (!$passwordValid) {
-        error_log("Password verification FAILED for hashed password");
-        error_log("Hash length: " . strlen($storedPasswordHash));
-        error_log("Hash FULL VALUE: " . $storedPasswordHash);
-        error_log("Hash preview (first 30 chars): " . substr($storedPasswordHash, 0, 30));
-        error_log("Input password: " . $inputPassword);
-        error_log("Input password length: " . strlen($inputPassword));
-        
-        // Check if hash is valid format
-        if (substr($storedPasswordHash, 0, 4) !== '$2y$' && 
-            substr($storedPasswordHash, 0, 4) !== '$2a$' && 
-            substr($storedPasswordHash, 0, 4) !== '$2b$') {
-          error_log("CRITICAL: Hash format is invalid! Does not start with $2y$, $2a$, or $2b$");
-        }
-        
-        // Check if hash is truncated - if so, that's the problem!
-        $isTruncated = strlen($storedPasswordHash) !== 60;
-        if ($isTruncated) {
-          error_log("CRITICAL: Hash is truncated! Length: " . strlen($storedPasswordHash) . ", Expected: 60");
-        }
-        
-        // Check if hash contains all zeros (corrupted)
-        if (strpos($storedPasswordHash, '0000000000000000000000') !== false) {
-          error_log("CRITICAL: Hash appears corrupted! Contains many zeros.");
-        }
-      }
     } else {
       // Password is plain text - do direct comparison (backward compatibility)
       $passwordValid = ($storedPasswordHash === $inputPassword);
@@ -200,9 +141,7 @@ try {
       // Update last_login timestamp and set online_offline to 'online' using prepared statement
       $now = date('Y-m-d H:i:s');
       $updateStmt = $connection->prepare("UPDATE brgy_users SET last_login = ?, online_offline = 'online' WHERE email = ?");
-      $updateStmt->bind_param("ss", $now, $email);
-      $updateStmt->execute();
-      $updateStmt->close();
+      $updateStmt->execute([$now, $email]);
       
       // Set session variables
       $_SESSION['user_id'] = $row['email'];
@@ -252,33 +191,8 @@ try {
       }
       http_response_code(401);
       
-      // Return debug info to help diagnose the issue
-      $debugInfo = [];
-      if (isset($isHashed) && $isHashed) {
-        $debugInfo = [
-          "hash_length" => strlen($storedPasswordHash),
-          "expected_length" => 60,
-          "is_truncated" => strlen($storedPasswordHash) !== 60,
-          "hash_preview" => substr($storedPasswordHash, 0, 30) . "...",
-          "input_password_length" => strlen($inputPassword),
-          "password_format" => "hashed"
-        ];
-        
-        // If truncated, add warning
-        if (strlen($storedPasswordHash) !== 60) {
-          $debugInfo["warning"] = "Hash is truncated! Database column might be too short. Need to ALTER TABLE brgy_users MODIFY password VARCHAR(255);";
-        }
-      } else {
-        $debugInfo = [
-          "password_format" => "plain_text",
-          "stored_length" => strlen($storedPasswordHash),
-          "input_length" => strlen($inputPassword)
-        ];
-      }
-      
       echo json_encode([
-        "error" => "Invalid email or password. Please check your credentials or reset your password.",
-        "debug" => $debugInfo
+        "error" => "Invalid email or password. Please check your credentials or reset your password."
       ]);
     }
   } else {
@@ -291,17 +205,9 @@ try {
     echo json_encode(["error" => "Account not found. Please check your email or register first."]);
   }
 
-  if (isset($stmt)) {
-    $stmt->close();
-  }
-  $connection->close();
-} catch (Exception $e) {
+} catch (Throwable $e) {
+  error_log("Login processing exception: " . $e->getMessage());
   http_response_code(500);
   echo json_encode(["error" => "An unexpected error occurred. Please try again."]);
-  if (isset($connection)) {
-    $connection->close();
-  }
 }
 ?>
-
-

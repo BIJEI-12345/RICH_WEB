@@ -17,8 +17,8 @@ header('Cache-Control: post-check=0, pre-check=0', false);
 require_once __DIR__ . '/config.php';
 
 try {
-    $connection = getDatabaseConnection();
-} catch (Exception $e) {
+    $connection = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
     error_log("Database connection error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(["error" => "Database connection failed."]); 
@@ -35,13 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $action = $input['action'] ?? '';
 
   if ($userId > 0 && in_array($action, ['approve', 'deactivate', 'activate', 'reject'])) {
-    // Get user information before making changes
-    $userStmt = $connection->prepare("SELECT id, email, name, position, action FROM brgy_users WHERE id = ?");
-    $userStmt->bind_param("i", $userId);
-    $userStmt->execute();
-    $userResult = $userStmt->get_result();
-    $userData = $userResult->fetch_assoc();
-    $userStmt->close();
+  // Get user information before making changes
+  $userStmt = $connection->prepare("SELECT id, email, name, position, action FROM brgy_users WHERE id = ?");
+  $userStmt->execute([$userId]);
+  $userData = $userStmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$userData) {
         echo json_encode(["success" => false, "message" => "User not found."]);
@@ -90,9 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Delete the user account
         $stmt = $connection->prepare("DELETE FROM brgy_users WHERE id = ?");
-        $stmt->bind_param("i", $userId);
-        
-        if ($stmt->execute()) {
+        if ($stmt->execute([$userId])) {
           echo json_encode([
             "success" => true, 
             "message" => "User account deleted successfully.",
@@ -101,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
           echo json_encode(["success" => false, "message" => "Failed to delete user account."]);
         }
-        $stmt->close();
         exit;
     }
     
@@ -110,9 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $oldAction = $userData['action'] ?? 'pending';
       
       $stmt = $connection->prepare("UPDATE brgy_users SET action = ? WHERE id = ?");
-      $stmt->bind_param("si", $newAction, $userId);
       
-      if ($stmt->execute()) {
+      if ($stmt->execute([$newAction, $userId])) {
         // Log audit trail
         logCategoryAuditTrail(
             $userData['id'],
@@ -135,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       } else {
         echo json_encode(["success" => false, "message" => "Failed to update user."]);
       }
-      $stmt->close();
     }
     exit;
   } else {
@@ -183,8 +175,7 @@ switch($userType) {
 
 $result = $connection->query($sql);
 
-if ($result !== false) {
-  while ($row = $result->fetch_assoc()) {
+foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
     // Derive first/last name from name field
     $full = trim($row['name'] ?? '');
     $firstName = '';
@@ -208,11 +199,10 @@ if ($result !== false) {
       "verified_email" => $row['verified_email'], // 1 = verified, 0 = not verified
       "approved"  => $row['action'] === 'accepted' ? 1 : 0 // For frontend compatibility
     ];
-  }
 }
 
  
-$connection->close();
+$connection = null;
 echo json_encode(["users" => $users]);
 exit;
 ?>

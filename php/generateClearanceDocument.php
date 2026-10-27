@@ -27,8 +27,7 @@ try {
     rich_session_start();
     
     error_log("Getting database connection...");
-    $connection = getDatabaseConnection();
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     error_log("Setting timezone...");
     date_default_timezone_set('Asia/Manila');
@@ -55,14 +54,7 @@ try {
         $currentTime = date('Y-m-d H:i:s');
         $updateSql = "UPDATE clearance_forms SET status = 'Processing', process_at = ? WHERE id = ?";
         $updateStmt = $connection->prepare($updateSql);
-        if (!$updateStmt) {
-            throw new Exception('Failed to prepare status update query: ' . $connection->error);
-        }
-        $updateStmt->bind_param('si', $currentTime, $clearanceId);
-        
-        if (!$updateStmt->execute()) {
-            throw new Exception('Failed to update status to Processing: ' . $updateStmt->error);
-        }
+        $updateStmt->execute([$currentTime, $clearanceId]);
         
         error_log("Updated clearance ID $clearanceId status to Processing");
     }
@@ -71,13 +63,8 @@ try {
     // Get clearance data from database
     $sql = "SELECT * FROM clearance_forms WHERE id = ?";
     $stmt = $connection->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Failed to prepare data query: ' . $connection->error);
-    }
-    $stmt->bind_param('i', $clearanceId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $clearanceData = $result->fetch_assoc();
+    $stmt->execute([$clearanceId]);
+    $clearanceData = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$clearanceData) {
         throw new Exception('Clearance record not found for ID: ' . $clearanceId);

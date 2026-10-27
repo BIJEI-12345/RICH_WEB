@@ -26,8 +26,7 @@ function canEdit($module) {
 require_once __DIR__ . '/config.php';
 
 try {
-    // Create connection
-    $conn = getDatabaseConnection();
+    $conn = getPostgreSQLDatabaseConnection();
     
     // Check if this is an image request
     if (isset($_GET['image']) && $_GET['image'] === 'true') {
@@ -41,11 +40,10 @@ try {
         }
         
         // Get the image data from database
-        $sql = "SELECT emergency_image FROM emergency_reports WHERE id = ?";
+        $sql = "SELECT encode(emergency_image, 'base64') AS emergency_image FROM emergency_reports WHERE id = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('i', $emergencyId);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
+        $stmt->execute([(int) $emergencyId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$result || !$result['emergency_image']) {
             http_response_code(404);
@@ -53,7 +51,12 @@ try {
             exit;
         }
         
-        $imageData = $result['emergency_image'];
+        $imageData = base64_decode($result['emergency_image'], true);
+        if ($imageData === false) {
+            http_response_code(404);
+            echo "Invalid image data";
+            exit;
+        }
         
         // Check if it's a file path or binary data
         if (strpos($imageData, 'Images/') === 0 || strpos($imageData, 'Pictures/') === 0) {
@@ -92,17 +95,16 @@ try {
         if ($adminEmail) {
             // Verify this email has admin position in database
             try {
-                $emailEsc = $conn->real_escape_string($adminEmail);
-                $sql = "SELECT position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
-                $res = $conn->query($sql);
-                
-                if ($res && $row = $res->fetch_assoc()) {
-                    if ($row['position'] === 'Admin') {
-                        $isAdmin = true;
-                    }
+                $stmt = $conn->prepare(
+                    "SELECT position FROM brgy_users WHERE email = ? AND action = 'accepted'"
+                );
+                $stmt->execute([$adminEmail]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($row && strtolower(trim((string) $row['position'])) === 'admin') {
+                    $isAdmin = true;
                 }
-            } catch (Exception $e) {
-                // Database error, continue with normal flow
+            } catch (Throwable $e) {
+                error_log('Emergency admin verification failed: ' . $e->getMessage());
             }
         }
         
@@ -138,27 +140,21 @@ try {
                     WHERE emergency_type = ? AND reporter_name = ? AND location = ? AND date_and_time = ?";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sssss", $utcResolvedDateTime, $emergencyType, $reporterName, $location, $utcDateTime);
-            
-            if ($stmt->execute()) {
-                if ($stmt->affected_rows > 0) {
+            $stmt->execute([$utcResolvedDateTime, $emergencyType, $reporterName, $location, $utcDateTime]);
+
+            if ($stmt->rowCount() > 0) {
                     echo json_encode([
                         'success' => true, 
                         'message' => 'Emergency resolved successfully',
                         'resolvedDateTime' => $resolvedDateTime
                     ]);
-                } else {
-                    echo json_encode([
-                        'success' => false, 
-                        'message' => 'No emergency report found to update'
-                    ]);
-                }
             } else {
-                throw new Exception("Failed to update emergency report: " . $stmt->error);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'No emergency report found to update'
+                ]);
             }
-            
-            $stmt->close();
-            $conn->close();
+            $conn = null;
             exit;
         }
     }
@@ -169,7 +165,7 @@ try {
     $sql = "SELECT id, emergency_type, location, reporter_name, 
             date_and_time, 
             description, status, 
-            resolved_datetime, emergency_image, landmark
+            resolved_datetime, encode(emergency_image, 'base64') AS emergency_image, landmark
             FROM emergency_reports 
             ORDER BY 
                 CASE WHEN status = 'RESOLVED' THEN resolved_datetime ELSE date_and_time END DESC";
@@ -177,8 +173,7 @@ try {
     
     $reports = [];
     
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
+    foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
             // Handle emergency_image - could be binary data or file path
             $emergencyImage = null;
             if (!empty($row['emergency_image'])) {
@@ -203,15 +198,15 @@ try {
                 'emergencyImage' => $emergencyImage,
                 'landmark' => $row['landmark']
             ];
-        }
     }
     
-    $conn->close();
+    $conn = null;
     
     echo json_encode(['reports' => $reports]);
     
-} catch (Exception $e) {
-    // Return empty array if database connection fails
-    echo json_encode(['reports' => []]);
+} catch (Throwable $e) {
+    error_log('Emergency endpoint error: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Failed to load emergency reports.']);
 }
 ?>

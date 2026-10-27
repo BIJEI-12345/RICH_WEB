@@ -21,16 +21,13 @@ date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     resend_signup_json(['success' => false, 'message' => 'Database connection failed']);
 }
 
-// Include PHPMailer
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/email_config.php';
-require_once __DIR__ . '/rich_smtp.php';
+require_once __DIR__ . '/rich_resend.php';
 
 // Function to generate 6-digit OTP
 function generateOTP() {
@@ -143,14 +140,7 @@ try {
 
         $plain = "RICH Barangay System — New OTP\n\nYour code: {$newOTP}\n(Expires in 3 minutes.)\n";
 
-        $sent = rich_smtp_send_with_gmail_fallback(static function (\PHPMailer\PHPMailer\PHPMailer $mail) use ($email, $name, $html, $plain) {
-            $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-            $mail->addAddress($email, $name);
-            $mail->isHTML(true);
-            $mail->Subject = 'New OTP Verification Code - RICH Barangay System';
-            $mail->Body = $html;
-            $mail->AltBody = $plain;
-        });
+        $sent = rich_resend_send_email($email, 'New OTP Verification Code - RICH Barangay System', $html, $plain);
 
         if ($sent) {
             $_SESSION['signup_otp_last_sent'] = time();
@@ -158,7 +148,7 @@ try {
         }
         resend_signup_json([
             'success' => false,
-            'message' => 'OTP was updated but email could not be sent. Check SMTP in .env, enable openssl in php.ini, or set SMTP_DEBUG=2 in .env and read php_error_log.'
+            'message' => 'OTP was updated but email could not be sent. Check the Resend API key and verified sender address in .env.'
         ]);
     }
     resend_signup_json(['success' => false, 'message' => 'Could not update OTP. Register again or contact support.']);

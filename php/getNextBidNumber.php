@@ -19,16 +19,13 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 require_once 'config.php';
 
 // Function to ensure bid column exists
-function ensureBidColumnExists($connection) {
-    // Check if bid column exists
-    $checkColumn = $connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'bid'");
-    if ($checkColumn && $checkColumn->num_rows === 0) {
-        // Column doesn't exist, create it
-        $alterSql = "ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL AFTER id";
-        if (!$connection->query($alterSql)) {
-            throw new Exception("Failed to create bid column: " . $connection->error);
-        }
-        error_log("getNextBidNumber: Created bid column in barangay_id_forms table");
+function ensureBidColumnExists(PDO $connection): void {
+    $checkColumn = $connection->prepare(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'barangay_id_forms' AND column_name = 'bid'"
+    );
+    $checkColumn->execute();
+    if (!$checkColumn->fetchColumn()) {
+        $connection->exec("ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL");
     }
 }
 
@@ -37,7 +34,7 @@ try {
     $currentYear = date('Y');
     
     // Database connection using the function from config.php
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Ensure bid column exists
     ensureBidColumnExists($connection);
@@ -45,16 +42,16 @@ try {
     // Get the highest BID number for the current year
       // Simple query: get all BIDs that start with current year
     $yearPrefix = $currentYear . '-';
-    $sql = "SELECT bid FROM barangay_id_forms WHERE bid LIKE '" . $connection->real_escape_string($yearPrefix) . "%' AND bid IS NOT NULL AND bid != ''";
-    
-    $result = $connection->query($sql);
+    $stmt = $connection->prepare("SELECT bid FROM barangay_id_forms WHERE bid LIKE ? AND bid IS NOT NULL AND bid <> ''");
+    $stmt->execute([$yearPrefix . '%']);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     $nextNumber = 1; // Default to 0001 if no BID exists for this year
     $maxNumber = 0;
     
-    if ($result && $result->num_rows > 0) {
+    if ($rows) {
         // Find the highest number for this year
-        while ($row = $result->fetch_assoc()) {
+        foreach ($rows as $row) {
             $bid = trim($row['bid']);
             // Extract number after year and dash (e.g., "2026-0112" -> 112)
             if (preg_match('/^' . $currentYear . '-(\d+)$/', $bid, $matches)) {
@@ -70,7 +67,7 @@ try {
         }
     }
     
-    $connection->close();
+    $connection = null;
     
     // Format the next BID number with leading zeros (4 digits)
     $nextBid = $currentYear . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);

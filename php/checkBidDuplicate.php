@@ -19,16 +19,13 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS
 require_once 'config.php';
 
 // Function to ensure bid column exists
-function ensureBidColumnExists($connection) {
-    // Check if bid column exists
-    $checkColumn = $connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'bid'");
-    if ($checkColumn && $checkColumn->num_rows === 0) {
-        // Column doesn't exist, create it
-        $alterSql = "ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL AFTER id";
-        if (!$connection->query($alterSql)) {
-            throw new Exception("Failed to create bid column: " . $connection->error);
-        }
-        error_log("checkBidDuplicate: Created bid column in barangay_id_forms table");
+function ensureBidColumnExists(PDO $connection): void {
+    $checkColumn = $connection->prepare(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'barangay_id_forms' AND column_name = 'bid'"
+    );
+    $checkColumn->execute();
+    if (!$checkColumn->fetchColumn()) {
+        $connection->exec("ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL");
     }
 }
 
@@ -42,7 +39,7 @@ try {
     }
     
     // Database connection using the function from config.php
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Ensure bid column exists
     ensureBidColumnExists($connection);
@@ -51,32 +48,22 @@ try {
     if ($requestId) {
         $checkBidSql = "SELECT id FROM barangay_id_forms WHERE bid = ? AND id != ?";
         $checkBidStmt = $connection->prepare($checkBidSql);
-        if (!$checkBidStmt) {
-            throw new Exception("Failed to prepare statement: " . $connection->error);
-        }
-        $checkBidStmt->bind_param("si", $bidValue, $requestId);
+        $checkBidStmt->execute([$bidValue, $requestId]);
     } else {
         $checkBidSql = "SELECT id FROM barangay_id_forms WHERE bid = ?";
         $checkBidStmt = $connection->prepare($checkBidSql);
-        if (!$checkBidStmt) {
-            throw new Exception("Failed to prepare statement: " . $connection->error);
-        }
-        $checkBidStmt->bind_param("s", $bidValue);
+        $checkBidStmt->execute([$bidValue]);
     }
     
-    $checkBidStmt->execute();
-    $bidCheckResult = $checkBidStmt->get_result();
-    
-    $exists = $bidCheckResult->num_rows > 0;
+    $row = $checkBidStmt->fetch(PDO::FETCH_ASSOC);
+    $exists = $row !== false;
     $existingRequestId = null;
     
     if ($exists) {
-        $row = $bidCheckResult->fetch_assoc();
         $existingRequestId = $row['id'];
     }
     
-    $checkBidStmt->close();
-    $connection->close();
+    $connection = null;
     
     echo json_encode([
         'exists' => $exists,
@@ -102,4 +89,3 @@ try {
     ]);
 }
 ?>
-

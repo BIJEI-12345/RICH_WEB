@@ -61,7 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
     }
     
     try {
-        require_once __DIR__ . '/php/mysqli_helpers.php';
         require_once __DIR__ . '/php/config.php';
         require_once __DIR__ . '/php/audit_trail_helper.php';
     } catch (Throwable $e) {
@@ -78,9 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
     }
 
     try {
-        $connection = getDatabaseConnection();
-        $host = $connection->host_info;
-        error_log("Connected to database: " . $host);
+        $connection = getPostgreSQLDatabaseConnection();
     } catch (Throwable $e) {
         error_log("Database connection exception: " . $e->getMessage());
         http_response_code(500);
@@ -103,23 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             }
             http_response_code(400);
             echo json_encode(["error" => "Email and password are required", "received" => ["email" => $email, "password_len" => strlen($password)]]);
-            $connection->close();
+            $connection = null;
             exit;
         }
         
         
         $stmt = $connection->prepare("SELECT id, email, password, verified_email, action, name, position FROM brgy_users WHERE email = ?");
-        if (!$stmt) {
-            error_log("Prepare failed: " . $connection->error);
-            http_response_code(500);
-            echo json_encode(["error" => "Database query error."]);
-            $connection->close();
-            exit;
-        }
-        
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $row = rich_mysqli_stmt_fetch_assoc($stmt);
+        $stmt->execute([$email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($row) {
             error_log("User found: " . $row['email'] . ", Verified: " . $row['verified_email'] . ", Action: " . ($row['action'] ?? 'null'));
@@ -134,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 }
                 http_response_code(403);
                 echo json_encode(["error" => "Please verify your email first. Check your email for the verification link."]);
-                $connection->close();
+                $connection = null;
                 exit;
             }
             
@@ -158,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                     $errorMsg = "Your account has been deactivated. Please contact administrator.";
                 }
                 echo json_encode(["error" => $errorMsg]);
-                $connection->close();
+                $connection = null;
                 exit;
             }
             
@@ -173,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 }
                 http_response_code(401);
                 echo json_encode(["error" => "Password not set. Please reset your password."]);
-                $connection->close();
+                $connection = null;
                 exit;
             }
             
@@ -198,9 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 // Update last_login timestamp and set online_offline to 'online'
                 $now = date('Y-m-d H:i:s');
                 $updateStmt = $connection->prepare("UPDATE brgy_users SET last_login = ?, online_offline = 'online' WHERE email = ?");
-                $updateStmt->bind_param("ss", $now, $email);
-                $updateStmt->execute();
-                $updateStmt->close();
+                $updateStmt->execute([$now, $email]);
                 
                 // Set session variables
                 $_SESSION['user_id'] = $row['email'];
@@ -262,17 +248,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             echo json_encode(["error" => "Account not found. Please check your email or register first."]);
         }
         
-        if (isset($stmt)) {
-            $stmt->close();
-        }
-        $connection->close();
+        $connection = null;
     } catch (Throwable $e) {
         error_log("Login AJAX error: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
         http_response_code(500);
         echo json_encode(["error" => "An unexpected error occurred. Please try again."]);
-        if (isset($connection) && $connection instanceof mysqli) {
-            $connection->close();
-        }
+        $connection = null;
     }
     exit;
 }
@@ -476,15 +457,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     
-    console.log('Login attempt:', { email, passwordLength: password.length });
-    
     if (!email || !password) {
       showNotification('Please fill in all fields', 'error');
       return;
     }
     
-    // Send login data to index.php (same file)
-    fetch('index.php', {
+    // Send login data to the PostgreSQL-backed login endpoint
+    fetch('php/login.php', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -517,7 +496,21 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('user_email', email);
         console.log('Login successful for:', data.name, 'Position:', data.position);
         setTimeout(() => {
-          const redirectUrl = 'admin-dashboard.html';
+          const role = String(data.position || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ');
+          const roleRoutes = {
+            admin: 'admin-dashboard.html',
+            administrator: 'admin-dashboard.html',
+            'mother leader': 'resident-info.html',
+            'document request category': 'reqDocu.html',
+            'concerns & reporting': 'concerns.html',
+            'concern & reporting': 'concerns.html',
+            emergency: 'emergency.html',
+            'emergency category': 'emergency.html'
+          };
+          const redirectUrl = roleRoutes[role] || 'admin-dashboard.html';
           console.log('Redirecting to:', redirectUrl);
           window.location.href = redirectUrl;
         }, 2000);

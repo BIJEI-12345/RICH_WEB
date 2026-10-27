@@ -645,13 +645,7 @@ try {
     }
     
     // Database connection
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int) DB_PORT);
-    
-    if ($connection->connect_error) {
-        throw new Exception("Connection failed: " . $connection->connect_error);
-    }
-
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Try different possible table names for indigency
     $possibleTables = ['indigency_forms'];
@@ -659,24 +653,17 @@ try {
     $usedTable = '';
     
     foreach ($possibleTables as $table) {
-        $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, id_image, status, submitted_at, para_kay, `position`, hall_address, document_language FROM $table WHERE id = ?";
-        
+        $sql = 'SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, encode(id_image, \'base64\') AS id_image, status, submitted_at, para_kay, "position", hall_address, document_language FROM ' . $table . ' WHERE id = ?';
         $stmt = $connection->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("i", $requestId);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $usedTable = $table;
-                $stmt->close();
-                error_log("generateIndigencyDocument: Found data in table: $table");
-                break;
+        $stmt->execute([$requestId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            if ($row['id_image'] !== null) {
+                $row['id_image'] = base64_decode($row['id_image'], true);
             }
-            $stmt->close();
-        } else {
-            error_log("generateIndigencyDocument: Table $table not found or error: " . $connection->error);
+            $usedTable = $table;
+            error_log("generateIndigencyDocument: Found data in table: $table");
+            break;
         }
     }
     
@@ -720,18 +707,11 @@ try {
     }
     
     // Persist addressee fields and chosen document language on the form row (same table)
-    $upd = $connection->prepare("UPDATE $usedTable SET para_kay = ?, `position` = ?, hall_address = ?, document_language = ? WHERE id = ?");
-    if ($upd) {
-        $pk = $data['para_kay'];
-        $pos = $data['position'];
-        $hall = $data['hall_address'];
-        $upd->bind_param('ssssi', $pk, $pos, $hall, $language, $requestId);
-        if (!$upd->execute()) {
-            error_log('generateIndigencyDocument: Failed to save para_kay fields: ' . $upd->error);
-        }
-        $upd->close();
-    } else {
-        error_log('generateIndigencyDocument: Could not prepare UPDATE for para_kay (missing columns?): ' . $connection->error);
+    try {
+        $upd = $connection->prepare('UPDATE ' . $usedTable . ' SET para_kay = ?, "position" = ?, hall_address = ?, document_language = ? WHERE id = ?');
+        $upd->execute([$data['para_kay'], $data['position'], $data['hall_address'], $language, $requestId]);
+    } catch (PDOException $e) {
+        error_log('generateIndigencyDocument: Failed to save addressee fields: ' . $e->getMessage());
     }
     
     // Preset officials: use *_officials templates ONLY for the three specific officials; any other value uses regular indigency_{lang}.docx
@@ -774,19 +754,8 @@ try {
         $currentTime = date('Y-m-d H:i:s');
         $updateSql = "UPDATE $usedTable SET status = 'Processing', process_at = ? WHERE id = ?";
         $updateStmt = $connection->prepare($updateSql);
-        if (!$updateStmt) {
-            error_log("Failed to prepare update statement: " . $connection->error);
-            throw new Exception("Failed to prepare update statement: " . $connection->error);
-        }
-        
-        $updateStmt->bind_param("si", $currentTime, $requestId);
-        if (!$updateStmt->execute()) {
-            error_log("Failed to execute update statement: " . $updateStmt->error);
-            throw new Exception("Failed to execute update statement: " . $updateStmt->error);
-        }
-        
-        $updateStmt->close();
-        $connection->close();
+        $updateStmt->execute([$currentTime, $requestId]);
+        $connection = null;
         
         $finalFilename = $filename;
         $dlToken = rich_register_temp_download($fullOutputPath);

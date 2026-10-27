@@ -36,13 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         try {
-            $connection = getDatabaseConnection();
-            
-            $emailEsc = $connection->real_escape_string($email);
-            $sql = "SELECT email, name, position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
-            $res = $connection->query($sql);
-            
-            if ($res && $row = $res->fetch_assoc()) {
+            $connection = getPostgreSQLDatabaseConnection();
+            $stmt = $connection->prepare(
+                "SELECT email, name, position FROM brgy_users WHERE email = ? AND action = 'accepted'"
+            );
+            $stmt->execute([$email]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row) {
                 // Allow all valid positions to establish session
                 $validPositions = ['Admin', 'Document Request Category', 'Concerns & Reporting', 'Emergency Category', 'Mother Leader'];
                 if (in_array($row['position'], $validPositions)) {
@@ -65,9 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 echo json_encode(['success' => false, 'message' => 'User not found']);
             }
-            
-            $connection->close();
-        } catch (Exception $e) {
+
+            $connection = null;
+        } catch (Throwable $e) {
+            error_log("Admin session database error: " . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Database error']);
         }
         exit;
@@ -94,8 +96,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
     }
     
     try {
-        $connection = getDatabaseConnection();
-    } catch (Exception $e) {
+        $connection = getPostgreSQLDatabaseConnection();
+    } catch (Throwable $e) {
         error_log("Database connection error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["error" => "Database connection failed."]); 
@@ -117,7 +119,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
     if (empty($email)) {
         http_response_code(401);
         echo json_encode(["ok" => false, "error" => "User not logged in or session expired"]);
-        $connection->close();
         exit;
     }
     
@@ -159,24 +160,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
             if (!isset($_SESSION['user_id']) && empty($_GET['email'])) {
                 http_response_code(401);
                 echo json_encode(["ok" => false, "error" => "Session expired"]);
-                $connection->close();
                 exit;
             }
         }
     }
     
-    $emailEsc = $connection->real_escape_string($email);
-    $sql = "SELECT name, position, edit_profile FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
-    $res = $connection->query($sql);
-    
-    // Debug the query result
-    error_log("SQL Query: " . $sql);
-    error_log("Query result: " . ($res ? 'success' : 'failed'));
-    if ($res) {
-        error_log("Number of rows: " . $res->num_rows);
+    try {
+        $stmt = $connection->prepare(
+            "SELECT name, position, edit_profile FROM brgy_users WHERE email = ? AND action = 'accepted'"
+        );
+        $stmt->execute([$email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        error_log("Admin dashboard query error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(["error" => "Failed to load admin data."]);
+        exit;
     }
-    
-    if ($res && $row = $res->fetch_assoc()) {
+
+    if ($row) {
         $name = $row['name'];
         $position = $row['position'];
         $editProfile = $row['edit_profile'];
@@ -200,16 +202,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
         $hasProfileImage = ($editProfile !== null && $editProfile !== '' && strlen($editProfile) > 0);
         $profileImageData = null;
         
-        // Debug logging
-        error_log("Edit profile data length: " . strlen($editProfile));
-        error_log("Edit profile is null: " . ($editProfile === null ? 'true' : 'false'));
-        error_log("Edit profile is empty string: " . ($editProfile === '' ? 'true' : 'false'));
-        error_log("Has profile image: " . ($hasProfileImage ? 'true' : 'false'));
-        
         if ($hasProfileImage) {
             // Convert binary data to base64 for JSON response
             $profileImageData = 'data:image/jpeg;base64,' . base64_encode($editProfile);
-            error_log("Profile image data length: " . strlen($profileImageData));
         }
         
         echo json_encode([
@@ -227,7 +222,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_admin_data') {
         echo json_encode(["error" => "Admin user not found"]);
     }
     
-    $connection->close();
+    $connection = null;
     exit;
 }
 
@@ -244,7 +239,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_admin_profile') {
     }
     
     try {
-        $pdo = getPDODatabaseConnection();
+        $pdo = getPostgreSQLDatabaseConnection();
     } catch(Exception $e) {
         error_log("Database connection error: " . $e->getMessage());
         http_response_code(500);
@@ -270,13 +265,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_admin_profile') {
         error_log("Email: " . $email);
         
         // Update profile image in database using PDO
-        $stmt = $pdo->prepare("UPDATE brgy_users SET edit_profile = ? WHERE email = ? AND action='accepted'");
+        $stmt = $pdo->prepare("UPDATE brgy_users SET edit_profile = decode(?, 'base64') WHERE email = ? AND action='accepted'");
         
-        if ($stmt->execute([$imageData, $email])) {
+        if ($stmt->execute([base64_encode($imageData), $email])) {
             error_log("Profile image updated successfully");
             
             // Verify the image was saved by querying it back
-            $verifyStmt = $pdo->prepare("SELECT LENGTH(edit_profile) as image_size FROM brgy_users WHERE email = ? AND action='accepted'");
+            $verifyStmt = $pdo->prepare("SELECT octet_length(edit_profile) as image_size FROM brgy_users WHERE email = ? AND action='accepted'");
             $verifyStmt->execute([$email]);
             $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
             if ($verifyRow) {
@@ -310,15 +305,24 @@ if (isset($_GET['action']) && $_GET['action'] === 'update_admin_profile') {
 require_once __DIR__ . '/announcement_image.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
-} catch (Exception $e) {
+    $pdo = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
     error_log("Database connection error: " . $e->getMessage());
+    http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode(['ok' => false, 'error' => 'Database connection failed']);
     exit;
 }
 
-ensureAnnouncementImageBlob($pdo);
+try {
+    ensureAnnouncementImageBlob($pdo);
+} catch (Throwable $e) {
+    error_log('Announcement image schema initialization failed: ' . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Announcement database setup failed']);
+    exit;
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -330,15 +334,20 @@ if ($method === 'GET' && isset($_GET['announcement_image']) && $_GET['announceme
         echo 'Missing or invalid id';
         exit;
     }
-    $stmt = $pdo->prepare('SELECT image FROM announcements WHERE id = ?');
+    $stmt = $pdo->prepare("SELECT encode(image, 'base64') AS image_base64 FROM announcements WHERE id = ?");
     $stmt->execute([$imgId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row || empty($row['image'])) {
+    if (!$row || empty($row['image_base64'])) {
         http_response_code(404);
         echo 'Image not found';
         exit;
     }
-    $imageData = $row['image'];
+    $imageData = isset($row['image_base64']) ? base64_decode($row['image_base64'], true) : null;
+    if ($imageData === false) {
+        http_response_code(404);
+        echo 'Invalid image data';
+        exit;
+    }
     if (is_string($imageData) && strlen($imageData) < 512
         && (strpos($imageData, 'uploads/') !== false || strpos($imageData, 'uploads\\') !== false)
         && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($imageData, 0, min(200, strlen($imageData))))) {
@@ -416,8 +425,8 @@ switch ($method) {
         try {
             if ($isUpdate) {
                 if ($imageBlob !== null) {
-                    $stmt = $pdo->prepare('UPDATE announcements SET title = ?, date_and_time = ?, description = ?, image = ? WHERE id = ?');
-                    $stmt->execute([$title, $datetime, $description, $imageBlob, $id]);
+                    $stmt = $pdo->prepare("UPDATE announcements SET title = ?, date_and_time = ?, description = ?, image = decode(?, 'base64') WHERE id = ?");
+                    $stmt->execute([$title, $datetime, $description, base64_encode($imageBlob), $id]);
                 } else {
                     $stmt = $pdo->prepare('UPDATE announcements SET title = ?, date_and_time = ?, description = ? WHERE id = ?');
                     $stmt->execute([$title, $datetime, $description, $id]);
@@ -428,16 +437,18 @@ switch ($method) {
                     'message' => 'Announcement updated successfully'
                 ]);
             } else {
-                $stmt = $pdo->prepare('INSERT INTO announcements (title, date_and_time, description, image) VALUES (?, ?, ?, ?)');
-                $stmt->execute([$title, $datetime, $description, $imageBlob]);
+                $stmt = $pdo->prepare("INSERT INTO announcements (title, date_and_time, description, image) VALUES (?, ?, ?, decode(?, 'base64')) RETURNING id");
+                $stmt->execute([$title, $datetime, $description, $imageBlob === null ? null : base64_encode($imageBlob)]);
+                $newId = $stmt->fetchColumn();
                 
                 echo json_encode([
                     'ok' => true, 
                     'message' => 'Announcement created successfully',
-                    'id' => $pdo->lastInsertId()
+                    'id' => $newId
                 ]);
             }
-        } catch(PDOException $e) {
+        } catch(Throwable $e) {
+            error_log('Announcement save failed: ' . $e->getMessage());
             $action = $isUpdate ? 'update' : 'create';
             echo json_encode(['ok' => false, 'error' => "Failed to {$action} announcement"]);
         }
@@ -447,13 +458,14 @@ switch ($method) {
     case 'GET':
         // Get all announcements ordered by date_and_time (earliest first)
         try {
-            $stmt = $pdo->prepare("SELECT * FROM announcements ORDER BY date_and_time ASC");
+            $stmt = $pdo->prepare("SELECT id, title, date_and_time, description, encode(image, 'base64') AS image_base64, created_at FROM announcements ORDER BY date_and_time ASC");
             $stmt->execute();
             $announcements = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($announcements as &$announcement) {
                 $aid = (int) ($announcement['id'] ?? 0);
-                $announcement['image'] = normalizeAnnouncementImageForJson($announcement['image'] ?? '', $aid);
+                $announcement['image'] = normalizeAnnouncementImageForJson($announcement['image_base64'] ?? '', $aid);
+                unset($announcement['image_base64']);
             }
             unset($announcement);
             
@@ -461,7 +473,8 @@ switch ($method) {
                 'ok' => true,
                 'announcements' => $announcements
             ]);
-        } catch(PDOException $e) {
+        } catch(Throwable $e) {
+            error_log('Announcement list query failed: ' . $e->getMessage());
             echo json_encode(['ok' => false, 'error' => 'Failed to fetch announcements']);
         }
         break;
@@ -484,7 +497,8 @@ switch ($method) {
                 'ok' => true, 
                 'message' => 'Announcement deleted successfully'
             ]);
-        } catch(PDOException $e) {
+        } catch(Throwable $e) {
+            error_log('Announcement deletion failed: ' . $e->getMessage());
             echo json_encode(['ok' => false, 'error' => 'Failed to delete announcement']);
         }
         break;

@@ -17,7 +17,7 @@ require_once __DIR__ . '/announcement_image.php';
 
 // Get database connection
 try {
-    $conn = getDatabaseConnection();
+    $conn = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     header('Content-Type: application/json');
@@ -30,16 +30,7 @@ function getDocumentRequests() {
     global $conn;
     
     $sql = "SELECT * FROM document_requests ORDER BY created_at DESC LIMIT 10";
-    $result = $conn->query($sql);
-    
-    $requests = [];
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $requests[] = $row;
-        }
-    }
-    
-    return $requests;
+    return $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Function to get feedback and concerns (read-only)
@@ -47,16 +38,7 @@ function getFeedbackAndConcerns() {
     global $conn;
     
     $sql = "SELECT * FROM feedback_concerns ORDER BY created_at DESC LIMIT 10";
-    $result = $conn->query($sql);
-    
-    $feedback = [];
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $feedback[] = $row;
-        }
-    }
-    
-    return $feedback;
+    return $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Function to get emergency reports (read-only)
@@ -64,16 +46,7 @@ function getEmergencyReports() {
     global $conn;
     
     $sql = "SELECT * FROM emergency_reports ORDER BY created_at DESC LIMIT 10";
-    $result = $conn->query($sql);
-    
-    $reports = [];
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $reports[] = $row;
-        }
-    }
-    
-    return $reports;
+    return $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Function to get user information (read-only)
@@ -81,39 +54,22 @@ function getUserInformation() {
     global $conn;
     
     $sql = "SELECT id, username, email, user_type, created_at FROM users ORDER BY created_at DESC LIMIT 10";
-    $result = $conn->query($sql);
-    
-    $users = [];
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $users[] = $row;
-        }
-    }
-    
-    return $users;
+    return $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Function to get announcements (read-only)
 function getAnnouncements() {
     global $conn;
     
-    try {
-        ensureAnnouncementImageBlob(getPDODatabaseConnection());
-    } catch (Throwable $e) {
-    }
+    ensureAnnouncementImageBlob($conn);
     
     $sql = "SELECT * FROM announcements ORDER BY created_at DESC LIMIT 5";
-    $result = $conn->query($sql);
-    
-    $announcements = [];
-    if ($result->num_rows > 0) {
-        while ($row = $result->fetch_assoc()) {
-            $aid = (int) ($row['id'] ?? 0);
-            $row['image'] = normalizeAnnouncementImageForJson($row['image'] ?? '', $aid);
-            $announcements[] = $row;
-        }
+    $announcements = $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($announcements as &$row) {
+        $aid = (int) ($row['id'] ?? 0);
+        $row['image'] = normalizeAnnouncementImageForJson($row['image'] ?? '', $aid);
     }
-    
+    unset($row);
     return $announcements;
 }
 
@@ -122,16 +78,7 @@ function getStaffNotifications() {
     global $conn;
     
     $sql = "SELECT * FROM notifications WHERE user_type = 'staff' OR user_type = 'all' ORDER BY created_at DESC LIMIT 5";
-    $result = $conn->query($sql);
-    
-    $notifications = [];
-    if ($result->num_rows > 0) {
-        while($row = $result->fetch_assoc()) {
-            $notifications[] = $row;
-        }
-    }
-    
-    return $notifications;
+    return $conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Handle AJAX requests

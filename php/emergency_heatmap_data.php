@@ -37,12 +37,12 @@ function analyticsLocationMatchesSitio(string $dbKey, string $sitio): bool
 function fetchEmergencyDailyDayKeyBuckets(PDO $pdo, string $start, string $end): array
 {
     $stmt = $pdo->prepare("
-        SELECT DAY(date_and_time) AS d,
+        SELECT EXTRACT(DAY FROM date_and_time)::INTEGER AS d,
                LOWER(TRIM(COALESCE(location, ''))) AS k,
                COUNT(*) AS c
         FROM emergency_reports
         WHERE date_and_time BETWEEN :s AND :e
-        GROUP BY DAY(date_and_time), k
+        GROUP BY EXTRACT(DAY FROM date_and_time), k
     ");
     $stmt->execute([':s' => $start, ':e' => $end]);
     $out = [];

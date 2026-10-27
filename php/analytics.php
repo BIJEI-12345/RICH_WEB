@@ -13,8 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 try {
-    $pdo = getPDODatabaseConnection();
-} catch (Exception $e) {
+    $pdo = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
+    error_log('Analytics database connection error: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed']);
     exit;
@@ -48,7 +49,7 @@ function parseCustomDate(?string $value, DateTimeZone $timezone, string $default
 
 /**
  * Buwan-buwang reported / resolved / new / processing / revoked (index 0 = Enero … 11 = Disyembre) sa date range.
- * Bucket: MONTH(date_and_time). Parehong lohika sa bySitio concerns (status mula sa DB).
+ * Bucket: PostgreSQL month extraction. Parehong lohika sa bySitio concerns (status mula sa DB).
  *
  * @return array{reported: int[], resolved: int[], new: int[], processing: int[], revoked: int[]}
  */
@@ -59,7 +60,7 @@ function fetchConcernsMonthlyReportedResolved(PDO $pdo, string $start, string $e
     $processing = array_fill(0, 12, 0);
     $revoked = array_fill(0, 12, 0);
     $stmt = $pdo->prepare("
-        SELECT MONTH(date_and_time) AS m,
+        SELECT EXTRACT(MONTH FROM date_and_time)::INTEGER AS m,
                COUNT(*) AS total,
                SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'resolved' THEN 1 ELSE 0 END) AS resolved_count,
                SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'new' THEN 1 ELSE 0 END) AS new_cnt,
@@ -67,7 +68,7 @@ function fetchConcernsMonthlyReportedResolved(PDO $pdo, string $start, string $e
                SUM(CASE WHEN LOWER(TRIM(COALESCE(status, ''))) = 'revoked' THEN 1 ELSE 0 END) AS revoked_cnt
         FROM concerns
         WHERE date_and_time BETWEEN :start AND :end
-        GROUP BY MONTH(date_and_time)
+        GROUP BY EXTRACT(MONTH FROM date_and_time)
     ");
     $stmt->execute([':start' => $start, ':end' => $end]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -100,12 +101,12 @@ function fetchEmergencyMonthlyReportedResolved(PDO $pdo, string $start, string $
     $reported = array_fill(0, 12, 0);
     $resolved = array_fill(0, 12, 0);
     $stmt = $pdo->prepare("
-        SELECT MONTH(date_and_time) AS m,
+        SELECT EXTRACT(MONTH FROM date_and_time)::INTEGER AS m,
                COUNT(*) AS total,
                SUM(CASE WHEN LOWER(COALESCE(status, '')) = 'resolved' THEN 1 ELSE 0 END) AS resolved_count
         FROM emergency_reports
         WHERE date_and_time BETWEEN :start AND :end
-        GROUP BY MONTH(date_and_time)
+        GROUP BY EXTRACT(MONTH FROM date_and_time)
     ");
     $stmt->execute([':start' => $start, ':end' => $end]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -133,13 +134,13 @@ function fetchEmergencyMonthlyLocationKeyBuckets(PDO $pdo, string $start, string
         $byMonth[$m] = [];
     }
     $stmt = $pdo->prepare("
-        SELECT MONTH(date_and_time) AS m,
+        SELECT EXTRACT(MONTH FROM date_and_time)::INTEGER AS m,
                LOWER(TRIM(COALESCE(location, ''))) AS k,
                COUNT(*) AS total,
                SUM(CASE WHEN LOWER(COALESCE(status, '')) = 'resolved' THEN 1 ELSE 0 END) AS resolved_count
         FROM emergency_reports
         WHERE date_and_time BETWEEN :s AND :e
-        GROUP BY MONTH(date_and_time), k
+        GROUP BY EXTRACT(MONTH FROM date_and_time), k
     ");
     $stmt->execute([':s' => $start, ':e' => $end]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -319,9 +320,15 @@ function censusAnalyticsResidentAgeYears(array $row): ?int {
 }
 
 function censusFormColumnExists(PDO $pdo, string $col): bool {
-    $st = $pdo->query('SHOW COLUMNS FROM census_form LIKE ' . $pdo->quote($col));
-
-    return $st && $st->rowCount() > 0;
+    $st = $pdo->prepare(
+        "SELECT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'census_form' AND column_name = ?
+        )"
+    );
+    $st->execute([$col]);
+    return (bool) $st->fetchColumn();
 }
 
 /** Pareho sa `memberOccupationColumnIsUnemployedStatus` sa census.js — `occupation` column lang; status na unemployed. */
@@ -448,13 +455,17 @@ function fetchCensusAnalytics(PDO $pdo): array {
         'byStatus' => [],
     ];
     try {
-        $chk = $pdo->query("SHOW TABLES LIKE 'census_form'");
-        if (!$chk || $chk->rowCount() === 0) {
+        $chk = $pdo->query(
+            "SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = current_schema() AND table_name = 'census_form'
+            )"
+        );
+        if (!$chk->fetchColumn()) {
             return $out;
         }
         $archWhere = '';
-        $ac = $pdo->query("SHOW COLUMNS FROM census_form LIKE 'archived_at'");
-        if ($ac && $ac->rowCount() > 0) {
+        if (censusFormColumnExists($pdo, 'archived_at')) {
             $archWhere = 'WHERE archived_at IS NULL';
         }
 
@@ -464,8 +475,7 @@ function fetchCensusAnalytics(PDO $pdo): array {
             $censusedConds[] = 'archived_at IS NULL';
         }
         $hasStatus = false;
-        $stCheck = $pdo->query("SHOW COLUMNS FROM census_form LIKE 'status'");
-        if ($stCheck && $stCheck->rowCount() > 0) {
+        if (censusFormColumnExists($pdo, 'status')) {
             $hasStatus = true;
             $censusedConds[] = "(COALESCE(NULLIF(TRIM(status), ''), 'Censused') = 'Censused')";
         }
@@ -989,19 +999,19 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
 
     $totStmt = $pdo->prepare("
         SELECT
-            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
-            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) = 3 THEN 1 ELSE 0 END), 0) AS mid_cnt,
-            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt,
-            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 3 AND 5 THEN 1 ELSE 0 END), 0) AS positive_cnt,
-            COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS negative_cnt,
-            AVG(CASE WHEN CAST(rating AS SIGNED) BETWEEN 3 AND 5 THEN CAST(rating AS SIGNED) END) AS positive_avg_rating,
-            AVG(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN CAST(rating AS SIGNED) END) AS negative_avg_rating,
+            COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) = 3 THEN 1 ELSE 0 END), 0) AS mid_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 3 AND 5 THEN 1 ELSE 0 END), 0) AS positive_cnt,
+            COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS negative_cnt,
+            AVG(CASE WHEN CAST(rating AS INTEGER) BETWEEN 3 AND 5 THEN CAST(rating AS INTEGER) END) AS positive_avg_rating,
+            AVG(CASE WHEN CAST(rating AS INTEGER) BETWEEN 1 AND 2 THEN CAST(rating AS INTEGER) END) AS negative_avg_rating,
             COALESCE(COUNT(*), 0) AS rated_cnt,
-            AVG(CAST(rating AS SIGNED)) AS avg_rating
+            AVG(CAST(rating AS INTEGER)) AS avg_rating
         FROM concerns
         WHERE date_and_time BETWEEN :start AND :end
           AND rating IS NOT NULL
-          AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
+          AND CAST(rating AS INTEGER) BETWEEN 1 AND 5
     ");
     $totStmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
     $tr = $totStmt->fetch(PDO::FETCH_ASSOC);
@@ -1027,14 +1037,14 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
     if ($useMonthlyBuckets) {
         $base['bucket'] = 'month';
         $stmt = $pdo->prepare("
-            SELECT DATE_FORMAT(date_and_time, '%Y-%m') AS ym,
-                   COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
-                   COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
+            SELECT TO_CHAR(date_and_time, 'YYYY-MM') AS ym,
+                   COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+                   COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
             FROM concerns
             WHERE date_and_time BETWEEN :start AND :end
               AND rating IS NOT NULL
-              AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
-            GROUP BY DATE_FORMAT(date_and_time, '%Y-%m')
+              AND CAST(rating AS INTEGER) BETWEEN 1 AND 5
+            GROUP BY TO_CHAR(date_and_time, 'YYYY-MM')
         ");
         $stmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
         $byYm = [];
@@ -1062,12 +1072,12 @@ function buildConcernRatingLineSeries(PDO $pdo, string $rangeStart, string $rang
     $base['bucket'] = 'day';
     $stmt = $pdo->prepare("
         SELECT DATE(date_and_time) AS d,
-               COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
-               COALESCE(SUM(CASE WHEN CAST(rating AS SIGNED) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
+               COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 1 AND 2 THEN 1 ELSE 0 END), 0) AS low_cnt,
+               COALESCE(SUM(CASE WHEN CAST(rating AS INTEGER) BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) AS high_cnt
         FROM concerns
         WHERE date_and_time BETWEEN :start AND :end
           AND rating IS NOT NULL
-          AND CAST(rating AS SIGNED) BETWEEN 1 AND 5
+          AND CAST(rating AS INTEGER) BETWEEN 1 AND 5
         GROUP BY DATE(date_and_time)
     ");
     $stmt->execute([':start' => $rangeStart, ':end' => $rangeEnd]);
@@ -1458,13 +1468,13 @@ function buildConcernStatementInsightsBySitio(array $sitioList, array $rows): ar
  */
 function fetchEmergencyYearMonthDayLocationBuckets(PDO $pdo, string $yearStart, string $yearEnd): array {
     $stmt = $pdo->prepare("
-        SELECT MONTH(date_and_time) AS mo,
-               DAY(date_and_time) AS d,
+        SELECT EXTRACT(MONTH FROM date_and_time)::INTEGER AS mo,
+               EXTRACT(DAY FROM date_and_time)::INTEGER AS d,
                LOWER(TRIM(COALESCE(location, ''))) AS k,
                COUNT(*) AS c
         FROM emergency_reports
         WHERE date_and_time BETWEEN :s AND :e
-        GROUP BY MONTH(date_and_time), DAY(date_and_time), k
+        GROUP BY EXTRACT(MONTH FROM date_and_time), EXTRACT(DAY FROM date_and_time), k
     ");
     $stmt->execute([':s' => $yearStart, ':e' => $yearEnd]);
     $out = [];
@@ -1585,8 +1595,9 @@ function fetchDocumentAddressGroups(PDO $pdo, string $table, string $start, stri
     if (!$addrCol) {
         return [];
     }
+    $addrIdentifier = '"' . str_replace('"', '""', $addrCol) . '"';
     $sql = "
-        SELECT LOWER(TRIM(COALESCE(`{$addrCol}`, ''))) AS k, COUNT(*) AS c
+        SELECT LOWER(TRIM(COALESCE({$addrIdentifier}, ''))) AS k, COUNT(*) AS c
         FROM {$table}
         WHERE submitted_at BETWEEN :s AND :e
         GROUP BY k
@@ -1685,10 +1696,10 @@ function aggregateDocumentGroupsForSitio(array $mapsByLabel, string $sitio): arr
 function fetchDocumentMonthlyCounts(PDO $pdo, string $table, string $start, string $end): array {
     $out = array_fill(0, 12, 0);
     $stmt = $pdo->prepare("
-        SELECT MONTH(submitted_at) AS m, COUNT(*) AS c
-        FROM `{$table}`
+        SELECT EXTRACT(MONTH FROM submitted_at)::INTEGER AS m, COUNT(*) AS c
+        FROM {$table}
         WHERE submitted_at BETWEEN :start AND :end
-        GROUP BY MONTH(submitted_at)
+        GROUP BY EXTRACT(MONTH FROM submitted_at)
     ");
     $stmt->execute([':start' => $start, ':end' => $end]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1715,11 +1726,12 @@ function fetchDocumentMonthlyAddressGroups(PDO $pdo, string $table, string $star
     if (!$addrCol) {
         return $byMonth;
     }
+    $addrIdentifier = '"' . str_replace('"', '""', $addrCol) . '"';
     $stmt = $pdo->prepare("
-        SELECT MONTH(submitted_at) AS m, LOWER(TRIM(COALESCE(`{$addrCol}`, ''))) AS k, COUNT(*) AS c
-        FROM `{$table}`
+        SELECT EXTRACT(MONTH FROM submitted_at)::INTEGER AS m, LOWER(TRIM(COALESCE({$addrIdentifier}, ''))) AS k, COUNT(*) AS c
+        FROM {$table}
         WHERE submitted_at BETWEEN :s AND :e
-        GROUP BY MONTH(submitted_at), k
+        GROUP BY EXTRACT(MONTH FROM submitted_at), k
     ");
     $stmt->execute([':s' => $start, ':e' => $end]);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1761,8 +1773,12 @@ function aggregateDocumentMonthlyGroupsForSitio(array $docMonthMapsByLabel, stri
 }
 
 function getColumnNames(PDO $pdo, string $table): array {
-    $stmt = $pdo->query("SHOW COLUMNS FROM {$table}");
-    return $stmt ? array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field') : [];
+    $stmt = $pdo->prepare(
+        'SELECT column_name FROM information_schema.columns
+         WHERE table_schema = current_schema() AND table_name = ?'
+    );
+    $stmt->execute([$table]);
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
 function findColumn(array $columns, array $candidates): ?string {
@@ -2257,4 +2273,3 @@ $data['jobseekerReports'] = $jobseekerReports;
 $data['census'] = fetchCensusAnalytics($pdo);
 
 echo json_encode(['success' => true, 'data' => $data]);
-

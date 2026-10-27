@@ -33,7 +33,7 @@ if ($year < 2000 || $year > 2100 || $month < 1 || $month > 12) {
 }
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed'], JSON_UNESCAPED_UNICODE);

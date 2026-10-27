@@ -21,60 +21,46 @@ require_once __DIR__ . '/config.php';
 /**
  * Add address columns if missing (house_no, street, sitio, barangay, municipality, province).
  */
-function ensureCensusColumns(mysqli $connection) {
+function ensureCensusColumns(PDO $connection) {
     $defs = [
-        'house_no' => 'VARCHAR(50) NULL',
-        'street' => 'VARCHAR(255) NULL',
-        'sitio' => 'VARCHAR(150) NULL',
-        'barangay' => 'VARCHAR(100) NULL',
-        'municipality' => 'VARCHAR(100) NULL',
-        'province' => 'VARCHAR(100) NULL',
+        'house_no' => 'VARCHAR(50)',
+        'street' => 'VARCHAR(255)',
+        'sitio' => 'VARCHAR(150)',
+        'barangay' => 'VARCHAR(100)',
+        'municipality' => 'VARCHAR(100)',
+        'province' => 'VARCHAR(100)',
     ];
     foreach ($defs as $col => $def) {
-        $colEsc = $connection->real_escape_string($col);
-        $r = $connection->query("SHOW COLUMNS FROM census_form LIKE '$colEsc'");
-        if ($r && $r->num_rows === 0) {
-            $connection->query("ALTER TABLE census_form ADD COLUMN `$col` $def");
-        }
+        $connection->exec("ALTER TABLE census_form ADD COLUMN IF NOT EXISTS $col $def");
     }
 }
 
 /**
  * Soft-remove: rows with archived_at set are excluded from active census; admin can restore.
  */
-function ensureArchivedAtColumn(mysqli $connection) {
-    $r = $connection->query("SHOW COLUMNS FROM census_form LIKE 'archived_at'");
-    if ($r && $r->num_rows === 0) {
-        $connection->query("ALTER TABLE census_form ADD COLUMN archived_at DATETIME NULL DEFAULT NULL");
-    }
+function ensureArchivedAtColumn(PDO $connection) {
+    $connection->exec('ALTER TABLE census_form ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP NULL DEFAULT NULL');
 }
 
 /**
  * Census workflow: status (Censused | Blocked | Archived), blocked_at, return_at.
  */
-function ensureCensusStatusColumns(mysqli $connection) {
+function ensureCensusStatusColumns(PDO $connection) {
     $cols = [
         'status' => "VARCHAR(30) NOT NULL DEFAULT 'Censused'",
-        'blocked_at' => 'TIMESTAMP NULL DEFAULT NULL',
-        'return_at' => 'TIMESTAMP NULL DEFAULT NULL',
+        'blocked_at' => 'TIMESTAMP NULL',
+        'return_at' => 'TIMESTAMP NULL',
     ];
     foreach ($cols as $col => $def) {
-        $colEsc = $connection->real_escape_string($col);
-        $r = $connection->query("SHOW COLUMNS FROM census_form LIKE '$colEsc'");
-        if ($r && $r->num_rows === 0) {
-            $connection->query("ALTER TABLE census_form ADD COLUMN `$col` $def");
-        }
+        $connection->exec("ALTER TABLE census_form ADD COLUMN IF NOT EXISTS $col $def");
     }
     $connection->query("UPDATE census_form SET status = 'Archived' WHERE archived_at IS NOT NULL");
     $connection->query("UPDATE census_form SET status = 'Censused' WHERE archived_at IS NULL AND (status IS NULL OR status = '')");
 }
 
 /** Indigenous Peoples (IP) flag — TINYINT(1) DEFAULT 0 */
-function ensureIndigenousColumn(mysqli $connection) {
-    $r = $connection->query("SHOW COLUMNS FROM census_form LIKE 'indigenous'");
-    if ($r && $r->num_rows === 0) {
-        $connection->query("ALTER TABLE census_form ADD COLUMN indigenous TINYINT(1) NOT NULL DEFAULT 0");
-    }
+function ensureIndigenousColumn(PDO $connection) {
+    $connection->exec('ALTER TABLE census_form ADD COLUMN IF NOT EXISTS indigenous INTEGER NOT NULL DEFAULT 0');
 }
 
 function censusPositionNorm() {
@@ -121,11 +107,11 @@ function censusPhpDisabilitiesTextIsMeaningful(string $text): bool {
 }
 
 /** Household key format: CEN-00001 (5-digit zero-padded suffix). */
-function censusNextHouseholdId(mysqli $connection) {
+function censusNextHouseholdId(PDO $connection) {
     $maxNum = 0;
     $res = $connection->query('SELECT census_id FROM census_form');
     if ($res) {
-        while ($row = $res->fetch_assoc()) {
+        while ($row = $res->fetch(PDO::FETCH_ASSOC)) {
             $cid = isset($row['census_id']) ? trim((string) $row['census_id']) : '';
             if ($cid === '') {
                 continue;
@@ -148,12 +134,8 @@ function censusNextHouseholdId(mysqli $connection) {
 }
 
 try {
-    $connection = getDatabaseConnection();
-    if ($connection->connect_error) {
-        throw new Exception("Database connection failed: " . $connection->connect_error);
-    }
-    $connection->set_charset('utf8mb4');
-} catch (Exception $e) {
+    $connection = getPostgreSQLDatabaseConnection();
+} catch (Throwable $e) {
     error_log("Database connection error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(["success" => false, "error" => "Database connection failed"]);
@@ -164,10 +146,10 @@ $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($requestMethod === 'GET') {
     try {
-        $tableCheck = $connection->query("SHOW TABLES LIKE 'census_form'");
-        if (!$tableCheck || $tableCheck->num_rows === 0) {
+        $tableCheck = $connection->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'census_form'");
+        $tableCheck->execute();
+        if (!$tableCheck->fetchColumn()) {
             echo json_encode(["success" => true, "census" => [], "households" => []]);
-            $connection->close();
             exit;
         }
 
@@ -183,7 +165,6 @@ if ($requestMethod === 'GET') {
             if (empty($_SESSION['logged_in']) || !censusCanManageArchive()) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Archive is only available to administrators.']);
-                $connection->close();
                 exit;
             }
             $whereArchived = ' WHERE archived_at IS NOT NULL ';
@@ -191,13 +172,9 @@ if ($requestMethod === 'GET') {
             $whereArchived = ' WHERE archived_at IS NULL ';
         }
 
-        $columnsResult = $connection->query("SHOW COLUMNS FROM census_form");
-        $existingColumns = [];
-        if ($columnsResult) {
-            while ($col = $columnsResult->fetch_assoc()) {
-                $existingColumns[] = strtolower($col['Field']);
-            }
-        }
+        $columnsResult = $connection->prepare("SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'census_form'");
+        $columnsResult->execute();
+        $existingColumns = array_map('strtolower', $columnsResult->fetchAll(PDO::FETCH_COLUMN));
 
         $orderBy = [];
         if (in_array('sitio', $existingColumns, true)) {
@@ -205,7 +182,7 @@ if ($requestMethod === 'GET') {
         }
         if (in_array('house_no', $existingColumns) || in_array('houseno', $existingColumns)) {
             $houseNoCol = in_array('house_no', $existingColumns) ? 'house_no' : 'houseno';
-            $orderBy[] = "CAST($houseNoCol AS UNSIGNED)";
+            $orderBy[] = "CASE WHEN $houseNoCol ~ '^[0-9]+' THEN substring($houseNoCol from '^[0-9]+')::INTEGER END";
             $orderBy[] = $houseNoCol;
         }
 
@@ -237,10 +214,6 @@ if ($requestMethod === 'GET') {
         $sql = 'SELECT * FROM census_form' . $whereArchived . 'ORDER BY ' . implode(', ', $orderBy);
         $result = $connection->query($sql);
 
-        if (!$result) {
-            throw new Exception("Database query failed: " . $connection->error);
-        }
-
         function extractHouseNumber($address) {
             if (empty($address)) {
                 return '';
@@ -253,8 +226,7 @@ if ($requestMethod === 'GET') {
 
         $groupedData = [];
 
-        if ($result->num_rows > 0) {
-            while ($row = $result->fetch_assoc()) {
+        foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $completeAddress = $row['complete_address'] ?? $row['completeAddress'] ?? '';
                 $lastName = $row['last_name'] ?? $row['lastname'] ?? $row['lastName'] ?? '';
 
@@ -296,7 +268,6 @@ if ($requestMethod === 'GET') {
                 }
 
                 $groupedData[$folderKey]['members'][] = $censusRecord;
-            }
         }
 
         $totalCount = 0;
@@ -349,7 +320,7 @@ if ($requestMethod === 'GET') {
         $households = [];
         $hhRes = $connection->query("SELECT census_id, MIN(complete_address) AS address_label FROM census_form WHERE archived_at IS NULL GROUP BY census_id ORDER BY census_id DESC");
         if ($hhRes) {
-            while ($hr = $hhRes->fetch_assoc()) {
+            while ($hr = $hhRes->fetch(PDO::FETCH_ASSOC)) {
                 $households[] = [
                     'census_id' => (string) ($hr['census_id'] ?? ''),
                     'label' => (string) ($hr['address_label'] ?? ('Household #' . $hr['census_id'])),
@@ -371,14 +342,12 @@ if ($requestMethod === 'GET') {
             'statistics' => $statistics,
             'households' => $households,
         ]);
-        $connection->close();
         exit;
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Census query error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(["success" => false, "error" => "Database query failed: " . $e->getMessage()]);
-        $connection->close();
         exit;
     }
 }
@@ -390,7 +359,6 @@ if ($requestMethod === 'POST') {
     if (empty($_SESSION['logged_in'])) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Authentication required']);
-        $connection->close();
         exit;
     }
 
@@ -412,26 +380,18 @@ if ($requestMethod === 'POST') {
             if (!censusCanArchiveResident()) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'You do not have permission to remove residents.']);
-                $connection->close();
                 exit;
             }
             $id = isset($input['id']) ? (int) $input['id'] : 0;
             if ($id <= 0) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Invalid resident id']);
-                $connection->close();
                 exit;
             }
-            $stmt = $connection->prepare("UPDATE census_form SET status = 'Archived', archived_at = NOW(), blocked_at = NULL WHERE id = ? AND archived_at IS NULL LIMIT 1");
-            if (!$stmt) {
-                throw new Exception($connection->error);
-            }
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
-            $affected = $stmt->affected_rows;
-            $stmt->close();
+            $stmt = $connection->prepare("UPDATE census_form SET status = 'Archived', archived_at = NOW(), blocked_at = NULL WHERE id = ? AND archived_at IS NULL");
+            $stmt->execute([$id]);
+            $affected = $stmt->rowCount();
             echo json_encode(['success' => true, 'message' => $affected > 0 ? 'Resident moved to archive.' : 'No record updated.', 'archived' => $affected > 0]);
-            $connection->close();
             exit;
         }
 
@@ -439,26 +399,18 @@ if ($requestMethod === 'POST') {
             if (!censusCanArchiveResident()) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'You do not have permission to block residents.']);
-                $connection->close();
                 exit;
             }
             $id = isset($input['id']) ? (int) $input['id'] : 0;
             if ($id <= 0) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Invalid resident id']);
-                $connection->close();
                 exit;
             }
-            $stmt = $connection->prepare("UPDATE census_form SET status = 'Blocked', blocked_at = NOW() WHERE id = ? AND archived_at IS NULL LIMIT 1");
-            if (!$stmt) {
-                throw new Exception($connection->error);
-            }
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
-            $affected = $stmt->affected_rows;
-            $stmt->close();
+            $stmt = $connection->prepare("UPDATE census_form SET status = 'Blocked', blocked_at = NOW() WHERE id = ? AND archived_at IS NULL");
+            $stmt->execute([$id]);
+            $affected = $stmt->rowCount();
             echo json_encode(['success' => true, 'message' => $affected > 0 ? 'Resident marked as blocked.' : 'No record updated.', 'blocked' => $affected > 0]);
-            $connection->close();
             exit;
         }
 
@@ -466,40 +418,30 @@ if ($requestMethod === 'POST') {
             if (!censusCanManageArchive()) {
                 http_response_code(403);
                 echo json_encode(['success' => false, 'error' => 'Only administrators can restore residents.']);
-                $connection->close();
                 exit;
             }
             $id = isset($input['id']) ? (int) $input['id'] : 0;
             if ($id <= 0) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => 'Invalid resident id']);
-                $connection->close();
                 exit;
             }
-            $stmt = $connection->prepare("UPDATE census_form SET status = 'Censused', archived_at = NULL, blocked_at = NULL, return_at = NOW() WHERE id = ? AND archived_at IS NOT NULL LIMIT 1");
-            if (!$stmt) {
-                throw new Exception($connection->error);
-            }
-            $stmt->bind_param('i', $id);
-            $stmt->execute();
-            $affected = $stmt->affected_rows;
-            $stmt->close();
+            $stmt = $connection->prepare("UPDATE census_form SET status = 'Censused', archived_at = NULL, blocked_at = NULL, return_at = NOW() WHERE id = ? AND archived_at IS NOT NULL");
+            $stmt->execute([$id]);
+            $affected = $stmt->rowCount();
             echo json_encode(['success' => true, 'message' => $affected > 0 ? 'Resident returned to active census.' : 'No record restored.', 'restored' => $affected > 0]);
-            $connection->close();
             exit;
         }
 
         if ($action !== 'add') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid action']);
-            $connection->close();
             exit;
         }
 
         if (!censusCanArchiveResident()) {
             http_response_code(403);
             echo json_encode(['success' => false, 'error' => 'You do not have permission to add census residents.']);
-            $connection->close();
             exit;
         }
 
@@ -527,86 +469,72 @@ if ($requestMethod === 'POST') {
         if ($firstName === '' || $lastName === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'First name and last name are required.']);
-            $connection->close();
             exit;
         }
         if ($birthday === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Birthdate is required.']);
-            $connection->close();
             exit;
         }
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthday)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid birthdate format.']);
-            $connection->close();
             exit;
         }
         if ($sitio === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Sitio is required.']);
-            $connection->close();
             exit;
         }
 
         if ($middleName === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Middle name is required.']);
-            $connection->close();
             exit;
         }
         if ($civilStatus === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Civil status is required.']);
-            $connection->close();
             exit;
         }
         if ($contactNumber === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Contact number is required.']);
-            $connection->close();
             exit;
         }
         if ($occupation === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Occupation is required.']);
-            $connection->close();
             exit;
         }
         if ($placeOfWork === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Place of work is required.']);
-            $connection->close();
             exit;
         }
         if ($disabilities === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Disabilities is required (use None if not applicable).']);
-            $connection->close();
             exit;
         }
         if ($relation === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Relation to household is required.']);
-            $connection->close();
             exit;
         }
         if ($houseNo === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'House number is required.']);
-            $connection->close();
             exit;
         }
         if ($street === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Street is required.']);
-            $connection->close();
             exit;
         }
         if ($benefits === '') {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Barangay supported benefits is required (use None if not applicable).']);
-            $connection->close();
             exit;
         }
 
@@ -614,7 +542,6 @@ if ($requestMethod === 'POST') {
         if (!in_array($sex, $allowedSex, true)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Sex must be Male, Female, or Other.']);
-            $connection->close();
             exit;
         }
 
@@ -622,7 +549,6 @@ if ($requestMethod === 'POST') {
         if ($age === null) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Could not compute age from birthdate.']);
-            $connection->close();
             exit;
         }
 
@@ -636,7 +562,6 @@ if ($requestMethod === 'POST') {
         } else {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid household (census_id). Use format CEN-00001 or choose an existing household.']);
-            $connection->close();
             exit;
         }
 
@@ -663,12 +588,7 @@ if ($requestMethod === 'POST') {
             civil_status, contact_number, occupation, place_of_work, disabilities,
             barangay_supported_benefits, complete_address, relation_to_household,
             house_no, street, sitio, barangay, municipality, province, indigenous
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)';
-
-        $stmt = $connection->prepare($sql);
-        if (!$stmt) {
-            throw new Exception($connection->error);
-        }
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id';
 
         $suffixNull = $suffix === '' ? null : $suffix;
         $middleNull = $middleName === '' ? null : $middleName;
@@ -682,8 +602,8 @@ if ($requestMethod === 'POST') {
         $houseNull = $houseNo === '' ? null : $houseNo;
         $streetNull = $street === '' ? null : $street;
 
-        $stmt->bind_param(
-            'sssssisssssssssssssssssi',
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([
             $censusId,
             $firstName,
             $lastName,
@@ -706,16 +626,9 @@ if ($requestMethod === 'POST') {
             $barangayFixed,
             $municipalityFixed,
             $provinceFixed,
-            $indigenous
-        );
-
-        if (!$stmt->execute()) {
-            $err = $stmt->error;
-            $stmt->close();
-            throw new Exception($err);
-        }
-        $newId = (int) $connection->insert_id;
-        $stmt->close();
+            $indigenous,
+        ]);
+        $newId = (int) $stmt->fetchColumn();
 
         echo json_encode([
             'success' => true,
@@ -724,14 +637,11 @@ if ($requestMethod === 'POST') {
             'census_id' => $censusId,
             'age' => $age,
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log('Census POST error: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Save failed: ' . $e->getMessage()]);
     }
-    $connection->close();
     exit;
 }
-
-$connection->close();
 echo json_encode(['success' => true, 'census' => []]);

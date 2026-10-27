@@ -44,28 +44,16 @@ try {
     }
     
     // Database connection
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    
-    if ($connection->connect_error) {
-        throw new Exception("Connection failed: " . $connection->connect_error);
-    }
-    
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Get resident photo data
-    $sql = "SELECT res_picture FROM barangay_id_forms WHERE id = ?";
+    $sql = "SELECT encode(res_picture, 'base64') FROM barangay_id_forms WHERE id = ?";
     $stmt = $connection->prepare($sql);
+    $stmt->execute([$requestId]);
     
-    if (!$stmt) {
-        throw new Exception("Failed to prepare statement: " . $connection->error);
-    }
-    
-    $stmt->bind_param("i", $requestId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($row = $result->fetch_assoc()) {
-        $imageData = safeImageData($row['res_picture']);
+    $encodedImage = $stmt->fetchColumn();
+    if ($encodedImage !== false) {
+        $imageData = safeImageData($encodedImage === null ? null : base64_decode($encodedImage, true));
         
         echo json_encode([
             'success' => true,
@@ -81,8 +69,7 @@ try {
         ]);
     }
     
-    $stmt->close();
-    $connection->close();
+    $connection = null;
     
 } catch (Exception $e) {
     error_log("getResidentPhoto ERROR: " . $e->getMessage());

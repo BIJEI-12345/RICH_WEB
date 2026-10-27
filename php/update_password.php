@@ -13,28 +13,24 @@ if (empty($email) || empty($newPassword)) {
 }
 
 try {
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Hash the new password
     $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
     
     // Update the password in database
-    $emailEsc = $connection->real_escape_string($email);
-    $hashedPasswordEsc = $connection->real_escape_string($hashedPassword);
-    $sql = "UPDATE brgy_users SET password = '{$hashedPasswordEsc}' WHERE email = '{$emailEsc}'";
-    
-    if ($connection->query($sql)) {
+    $stmt = $connection->prepare("UPDATE brgy_users SET password = ? WHERE email = ?");
+    if ($stmt->execute([$hashedPassword, $email])) {
         echo "Password updated successfully for: $email<br>";
         echo "New hash: " . substr($hashedPassword, 0, 30) . "...<br>";
         echo "You can now login with this password.<br>";
         echo "<br><strong>IMPORTANT: Delete this file (update_password.php) after use!</strong>";
     } else {
-        echo "Error updating password: " . $connection->error;
+        echo "Error updating password.";
     }
-    $connection->close();
+    $connection = null;
     
 } catch (Exception $e) {
     die("Error: " . $e->getMessage());
 }
 ?>
-

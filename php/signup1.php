@@ -15,17 +15,15 @@ const POSITION_ACCOUNT_LIMITS = [
     'Mother Leader' => 2
 ];
 
-// Load config first (.env); email_config also pulls config if loaded alone
+// Load config first (.env)
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/email_config.php';
-require_once __DIR__ . '/rich_smtp.php';
+require_once __DIR__ . '/rich_resend.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
-    die("Database connection failed: " . $e->getMessage());
+    signup_json_exit(['success' => false, 'message' => 'Database connection failed. Please try again later.'], 500);
 }
 
 /**
@@ -182,10 +180,8 @@ function getSlotStatus($pdo) {
 
 // Function to send OTP verification email (to the address the user typed — e.g. beejay@...; uses .env only for SMTP login)
 function sendOTPEmail($email, $name, $otpCode) {
-    if (!rich_smtp_configured()) {
-        error_log(
-            'sendOTPEmail: SMTP not configured. In the project root .env set SMTP_HOST, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL. Gmail: use an App Password (Google Account → Security → 2-Step Verification → App passwords), not your normal password.'
-        );
+    if (RESEND_API_KEY === '' || RESEND_FROM_EMAIL === '') {
+        error_log('sendOTPEmail: set RESEND_API_KEY and a verified RESEND_FROM_EMAIL in .env');
         return false;
     }
 
@@ -253,14 +249,7 @@ function sendOTPEmail($email, $name, $otpCode) {
         . "Your verification code is: {$otpCode}\n\n"
         . "This code expires in 3 minutes.\n";
 
-    return rich_smtp_send_with_gmail_fallback(static function (\PHPMailer\PHPMailer\PHPMailer $mail) use ($email, $name, $html, $plain) {
-        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        $mail->addAddress($email, $name);
-        $mail->isHTML(true);
-        $mail->Subject = 'OTP Verification Code - RICH Barangay System';
-        $mail->Body = $html;
-        $mail->AltBody = $plain;
-    });
+    return rich_resend_send_email($email, 'OTP Verification Code - RICH Barangay System', $html, $plain);
 }
 
 // Check if form was submitted
@@ -278,9 +267,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['pass'] ?? '';
     $confirmPass = $_POST['confirm'] ?? '';
     
-    // Debug logging
-    error_log("=== SIGNUP DEBUG START ===");
-    error_log("Raw POST data: " . print_r($_POST, true));
     error_log("Signup attempt - Email: " . $email . ", Name: " . $name . ", Position: '" . $position . "'");
     error_log("Position length: " . strlen($position) . " characters");
     error_log("Position type: " . gettype($position));

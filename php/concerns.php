@@ -37,155 +37,68 @@ function rich_session_is_concerns_reporting_role() {
     return $p === 'concerns & reporting' || $p === 'concern & reporting';
 }
 
-/** Ensure optional columns for admin resolution documentation exist. Migrates resolution_doc_image → resolved_image if present. Stores image bytes in resolved_image (LONGBLOB). */
-function ensureResolutionDocumentationColumns($connection) {
-    $c = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolution_statement'");
-    if ($c && $c->num_rows === 0) {
-        @$connection->query("ALTER TABLE concerns ADD COLUMN resolution_statement TEXT NULL");
-    }
-    $hasResolvedImage = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolved_image'");
-    if ($hasResolvedImage && $hasResolvedImage->num_rows === 0) {
-        @$connection->query("ALTER TABLE concerns ADD COLUMN resolved_image LONGBLOB NULL");
-    } elseif ($hasResolvedImage && $hasResolvedImage->num_rows > 0) {
-        $colRow = $hasResolvedImage->fetch_assoc();
-        $type = strtolower((string)($colRow['Type'] ?? ''));
-        if (strpos($type, 'varchar') !== false || strpos($type, 'char') !== false) {
-            $res = @$connection->query("SELECT id, resolved_image FROM concerns WHERE resolved_image IS NOT NULL AND resolved_image != ''");
-            if ($res) {
-                $baseReal = @realpath(__DIR__ . '/..');
-                while ($row = $res->fetch_assoc()) {
-                    $val = $row['resolved_image'];
-                    if (!is_string($val) || $val === '') {
-                        continue;
-                    }
-                    if (strlen($val) >= 600) {
-                        continue;
-                    }
-                    if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
-                        continue;
-                    }
-                    $norm = str_replace('\\', '/', $val);
-                    $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
-                    if ($full && $baseReal && strpos($full, $baseReal) === 0 && is_file($full)) {
-                        $bin = @file_get_contents($full);
-                        if ($bin !== false && strlen($bin) > 0) {
-                            $upd = $connection->prepare('UPDATE concerns SET resolved_image = ? WHERE id = ?');
-                            if ($upd) {
-                                $upd->bind_param('si', $bin, $row['id']);
-                                if ($upd->execute()) {
-                                    @unlink($full);
-                                }
-                                $upd->close();
-                            }
-                        }
-                    }
-                }
-            }
-            @$connection->query('ALTER TABLE concerns MODIFY COLUMN resolved_image LONGBLOB NULL');
-        }
-    }
-    $hasOld = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'resolution_doc_image'");
-    if ($hasOld && $hasOld->num_rows > 0) {
-        @$connection->query("UPDATE concerns SET resolved_image = resolution_doc_image WHERE (resolved_image IS NULL OR resolved_image = '') AND resolution_doc_image IS NOT NULL AND TRIM(resolution_doc_image) != ''");
-        @$connection->query("ALTER TABLE concerns DROP COLUMN resolution_doc_image");
-        ensureResolutionDocumentationColumns($connection);
-    }
-    migrateResolvedImagePathStringsToBlob($connection);
-    migrateConcernImagePathStringsToBlob($connection);
+/** Ensure optional PostgreSQL columns used by concern resolution and feedback exist. */
+function ensureResolutionDocumentationColumns(PDO $connection): void
+{
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS resolution_statement TEXT NULL');
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS resolved_image BYTEA NULL');
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS risk_level VARCHAR(10) NULL');
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP NULL');
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS reason_revoke TEXT NULL');
 }
 
-/** Replace legacy stored path strings (in VARCHAR or LONGBLOB) with file bytes. Idempotent. */
-function migrateResolvedImagePathStringsToBlob($connection) {
-    $res = @$connection->query("SELECT id, resolved_image FROM concerns WHERE resolved_image IS NOT NULL AND resolved_image != ''");
-    if (!$res) {
-        return;
+/** Import legacy image paths into PostgreSQL bytea columns without deleting files on failure. */
+function migrateConcernImagePathStringsToBlob(PDO $connection, string $column): void
+{
+    if (!in_array($column, ['concern_image', 'resolved_image'], true)) {
+        throw new InvalidArgumentException('Unsupported concern image column.');
     }
-    $baseReal = @realpath(__DIR__ . '/..');
-    while ($row = $res->fetch_assoc()) {
-        $val = $row['resolved_image'];
-        if (!is_string($val) || $val === '') {
+
+    $select = $connection->query(
+        'SELECT id, encode(' . $column . ", 'base64') AS image_value FROM concerns WHERE "
+        . $column . ' IS NOT NULL AND octet_length(' . $column . ') <= 512'
+    );
+    $update = $connection->prepare(
+        'UPDATE concerns SET ' . $column . ' = decode(?, \'base64\') WHERE id = ?'
+    );
+    $baseReal = realpath(__DIR__ . '/..');
+
+    while ($row = $select->fetch(PDO::FETCH_ASSOC)) {
+        $value = base64_decode((string) $row['image_value'], true);
+        if (!is_string($value) || $value === '' || strlen($value) > 512
+            || (strpos($value, 'uploads/') === false && strpos($value, 'uploads\\') === false)
+            || preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($value, 0, min(200, strlen($value))))) {
             continue;
         }
-        if (strlen($val) > 512) {
+
+        $normalized = str_replace('\\', '/', $value);
+        $fullPath = realpath(__DIR__ . '/../' . ltrim($normalized, '/'));
+        if (!$fullPath || !$baseReal || strpos($fullPath, $baseReal) !== 0 || !is_file($fullPath)) {
             continue;
         }
-        if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
+
+        $image = file_get_contents($fullPath);
+        if ($image === false || $image === '') {
             continue;
         }
-        if (preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($val, 0, min(200, strlen($val))))) {
-            continue;
-        }
-        $norm = str_replace('\\', '/', $val);
-        $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
-        if (!$full || !$baseReal || strpos($full, $baseReal) !== 0 || !is_file($full)) {
-            continue;
-        }
-        $bin = @file_get_contents($full);
-        if ($bin === false || strlen($bin) === 0) {
-            continue;
-        }
-        $upd = $connection->prepare('UPDATE concerns SET resolved_image = ? WHERE id = ?');
-        if ($upd) {
-            $upd->bind_param('si', $bin, $row['id']);
-            if ($upd->execute()) {
-                @unlink($full);
-            }
-            $upd->close();
+
+        $update->execute([base64_encode($image), $row['id']]);
+        if ($update->rowCount() > 0) {
+            unlink($fullPath);
         }
     }
 }
 
-/** Legacy rows: concern_image stored as uploads/... path → LONGBLOB; remove file after import. */
-function migrateConcernImagePathStringsToBlob($connection) {
-    $res = @$connection->query("SELECT id, concern_image FROM concerns WHERE concern_image IS NOT NULL AND concern_image != ''");
-    if (!$res) {
-        return;
-    }
-    $baseReal = @realpath(__DIR__ . '/..');
-    while ($row = $res->fetch_assoc()) {
-        $val = $row['concern_image'];
-        if (!is_string($val) || $val === '') {
-            continue;
-        }
-        if (strlen($val) > 512) {
-            continue;
-        }
-        if (strpos($val, 'uploads/') === false && strpos($val, 'uploads\\') === false) {
-            continue;
-        }
-        if (preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($val, 0, min(200, strlen($val))))) {
-            continue;
-        }
-        $norm = str_replace('\\', '/', $val);
-        $full = @realpath(__DIR__ . '/../' . ltrim($norm, '/'));
-        if (!$full || !$baseReal || strpos($full, $baseReal) !== 0 || !is_file($full)) {
-            continue;
-        }
-        $bin = @file_get_contents($full);
-        if ($bin === false || strlen($bin) === 0) {
-            continue;
-        }
-        $upd = $connection->prepare('UPDATE concerns SET concern_image = ? WHERE id = ?');
-        if ($upd) {
-            $upd->bind_param('si', $bin, $row['id']);
-            if ($upd->execute()) {
-                @unlink($full);
-            }
-            $upd->close();
-        }
-    }
+function migrateResolvedImagePathStringsToBlob(PDO $connection): void
+{
+    migrateConcernImagePathStringsToBlob($connection, 'resolved_image');
 }
 
 /** Ensure resident feedback columns (post-resolution rating & suggestions) exist. */
-function ensureConcernRatingColumns($connection) {
-    $r = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'rating'");
-    if ($r && $r->num_rows === 0) {
-        @$connection->query('ALTER TABLE concerns ADD COLUMN rating TINYINT UNSIGNED NULL DEFAULT NULL');
-    }
-    $s = @$connection->query("SHOW COLUMNS FROM concerns LIKE 'suggestions'");
-    if ($s && $s->num_rows === 0) {
-        @$connection->query('ALTER TABLE concerns ADD COLUMN suggestions TEXT NULL');
-    }
+function ensureConcernRatingColumns(PDO $connection): void
+{
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS rating SMALLINT NULL');
+    $connection->exec('ALTER TABLE concerns ADD COLUMN IF NOT EXISTS suggestions TEXT NULL');
 }
 
 // Simple permission helper mirrored with frontend rules
@@ -772,23 +685,17 @@ function enrichConcernRowForRelatableModal(array $concern) {
 }
 
 /** @return list<array<string,mixed>> */
-function fetchConcernsByNumericIds(mysqli $connection, array $idsInt) {
+function fetchConcernsByNumericIds(PDO $connection, array $idsInt): array
+{
     $idsInt = array_values(array_unique(array_filter(array_map('intval', $idsInt))));
     if (empty($idsInt)) {
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($idsInt), '?'));
-    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id IN ($placeholders)";
+    $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id IN ($placeholders)";
     $stmt = $connection->prepare($sql);
-    if (!$stmt) {
-        return [];
-    }
-    $types = str_repeat('i', count($idsInt));
-    $stmt->bind_param($types, ...$idsInt);
-    $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
-    return $rows;
+    $stmt->execute($idsInt);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // Function to find similar concerns using Groq AI
@@ -970,16 +877,8 @@ function findSimilarConcernsWithAI($baseConcern, $allConcerns) {
     return [];
 }
 
-// Database configuration
-$host = DB_HOST;
-$user = DB_USER;
-$pass = DB_PASS;
-$db   = DB_NAME;
-
 try {
-    // Use the database connection function from config.php
-    $connection = getDatabaseConnection();
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Handle different request methods
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -999,11 +898,10 @@ try {
         $id = intval(str_replace('CON-', '', $concernId));
         
         // Get the image data from database
-        $sql = "SELECT concern_image FROM concerns WHERE id = ?";
+        $sql = "SELECT encode(concern_image, 'base64') AS concern_image FROM concerns WHERE id = ?";
         $stmt = $connection->prepare($sql);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
+        $stmt->execute([$id]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$result || !$result['concern_image']) {
             http_response_code(404);
@@ -1011,7 +909,12 @@ try {
             exit;
         }
         
-        $imageData = $result['concern_image'];
+        $imageData = base64_decode($result['concern_image'], true);
+        if ($imageData === false) {
+            http_response_code(404);
+            echo "Invalid image data";
+            exit;
+        }
         
         // Check if it's a file path or binary data
         if (strpos($imageData, 'Images/') === 0 || strpos($imageData, 'Pictures/') === 0) {
@@ -1053,17 +956,21 @@ try {
             exit;
         }
         ensureResolutionDocumentationColumns($connection);
-        $sql = 'SELECT resolved_image FROM concerns WHERE id = ?';
+        $sql = "SELECT encode(resolved_image, 'base64') AS resolved_image FROM concerns WHERE id = ?";
         $stmt = $connection->prepare($sql);
-        $stmt->bind_param('i', $id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$row || empty($row['resolved_image'])) {
             http_response_code(404);
             echo 'Image not found';
             exit;
         }
-        $imageData = $row['resolved_image'];
+        $imageData = base64_decode($row['resolved_image'], true);
+        if ($imageData === false) {
+            http_response_code(404);
+            echo 'Invalid image data';
+            exit;
+        }
         if (is_string($imageData) && strlen($imageData) < 512
             && (strpos($imageData, 'uploads/') !== false || strpos($imageData, 'uploads\\') !== false)
             && !preg_match('/[^\x09\x0A\x0D\x20-\x7E]/', substr($imageData, 0, min(200, strlen($imageData))))) {
@@ -1099,20 +1006,9 @@ try {
     
     switch ($method) {
         case 'GET':
-            // Check if risk_level column exists, if not, add it
-            $checkColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'risk_level'");
-            if ($checkColumn->num_rows === 0) {
-                $connection->query("ALTER TABLE concerns ADD COLUMN risk_level VARCHAR(10) DEFAULT NULL");
-            }
-            $checkRevokedColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'revoked_at'");
-            if ($checkRevokedColumn->num_rows === 0) {
-                $connection->query("ALTER TABLE concerns ADD COLUMN revoked_at DATETIME NULL");
-            }
-            $checkRevokeReasonColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'reason_revoke'");
-            if ($checkRevokeReasonColumn->num_rows === 0) {
-                $connection->query("ALTER TABLE concerns ADD COLUMN reason_revoke TEXT NULL");
-            }
             ensureResolutionDocumentationColumns($connection);
+            migrateResolvedImagePathStringsToBlob($connection);
+            migrateConcernImagePathStringsToBlob($connection, 'concern_image');
             ensureConcernRatingColumns($connection);
             
             // Get concerns from concerns table with status filtering
@@ -1121,26 +1017,25 @@ try {
             if ($status) {
                 if ($status === 'resolved') {
                     // For resolved concerns, sort by resolved_at date (latest resolved first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
+                    $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(encode(resolved_image, 'base64'), '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY resolved_at DESC LIMIT 100";
                 } else if ($status === 'revoked') {
                     // For revoked concerns, sort by revoked_at date (latest revoked first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY revoked_at DESC LIMIT 100";
+                    $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(encode(resolved_image, 'base64'), '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY revoked_at DESC LIMIT 100";
                 } else if ($status === 'processing') {
                     // For processing concerns, include process_at
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(encode(resolved_image, 'base64'), '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 } else {
                     // For other statuses, sort by original date_and_time (latest first)
-                    $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
+                    $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(encode(resolved_image, 'base64'), '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns WHERE status = ? ORDER BY date_and_time DESC LIMIT 100";
                 }
                 $stmt = $connection->prepare($sql);
-                $stmt->bind_param('s', $status);
-                $stmt->execute();
-                $concerns = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->execute([$status]);
+                $concerns = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } else {
                 // For all concerns, sort by date_and_time (latest first)
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(resolved_image, '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns ORDER BY date_and_time DESC LIMIT 100";
+                $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, resolved_at, process_at, revoked_at, reason_revoke, COALESCE(risk_level, '') as risk_level, COALESCE(resolution_statement, '') as resolution_statement, COALESCE(encode(resolved_image, 'base64'), '') as resolved_image, rating, COALESCE(suggestions, '') as suggestions FROM concerns ORDER BY date_and_time DESC LIMIT 100";
                 $result = $connection->query($sql);
-                $concerns = $result->fetch_all(MYSQLI_ASSOC);
+                $concerns = $result->fetchAll(PDO::FETCH_ASSOC);
             }
             
             // Check if we have too many records to process
@@ -1193,16 +1088,8 @@ try {
                         // Update risk level in database
                         $updateSql = "UPDATE concerns SET risk_level = ? WHERE id = ?";
                         $updateStmt = $connection->prepare($updateSql);
-                        if ($updateStmt) {
-                            $updateStmt->bind_param('si', $detectedRiskLevel, $concern['id']);
-                            $updateStmt->execute();
-                            $updateStmt->close();
-                            
-                            // Set the risk level in the concern data
-                            $concern['risk_level'] = $detectedRiskLevel;
-                        } else {
-                            $concern['risk_level'] = $currentRiskLevel ?: 'low'; // Keep current or default on database error
-                        }
+                        $updateStmt->execute([$detectedRiskLevel, $concern['id']]);
+                        $concern['risk_level'] = $detectedRiskLevel;
                     } catch (Exception $e) {
                         error_log("Error analyzing risk level: " . $e->getMessage());
                         $concern['risk_level'] = $currentRiskLevel ?: 'low'; // Keep current or default on exception
@@ -1285,7 +1172,7 @@ try {
                 COUNT(*) AS cnt_total
                 FROM concerns";
             $countsRes = $connection->query($countsQuery);
-            $countsRow = $countsRes ? $countsRes->fetch_assoc() : null;
+            $countsRow = $countsRes ? $countsRes->fetch(PDO::FETCH_ASSOC) : null;
             $countsPayload = [
                 'new' => (int)($countsRow['cnt_new'] ?? 0),
                 'processing' => (int)($countsRow['cnt_processing'] ?? 0),
@@ -1308,10 +1195,11 @@ try {
             if ($adminEmail) {
                 // Verify this email has admin position in database
                 try {
-                    $emailEsc = $connection->real_escape_string($adminEmail);
-                    $sql = "SELECT position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
-                    $result = $connection->query($sql);
-                    $row = $result->fetch_assoc();
+                    $stmt = $connection->prepare(
+                        "SELECT position FROM brgy_users WHERE email = ? AND action = 'accepted'"
+                    );
+                    $stmt->execute([$adminEmail]);
+                    $row = $stmt->fetch(PDO::FETCH_ASSOC);
                     
                     $dbPos = strtolower(trim((string)($row['position'] ?? '')));
                     if ($row && ($dbPos === 'admin' || $dbPos === 'administrator')) {
@@ -1348,16 +1236,10 @@ try {
                     }
                     
                     // Check if risk_level column exists, if not, add it
-                    $checkColumn = $connection->query("SHOW COLUMNS FROM concerns LIKE 'risk_level'");
-                    if ($checkColumn->num_rows === 0) {
-                        $connection->query("ALTER TABLE concerns ADD COLUMN risk_level VARCHAR(10) DEFAULT NULL");
-                    }
-                    
                     $sql = "UPDATE concerns SET risk_level = ? WHERE id = ?";
                     $stmt = $connection->prepare($sql);
                     $riskValue = $riskLevel === '' ? null : $riskLevel;
-                    $stmt->bind_param('si', $riskValue, $id);
-                    $result = $stmt->execute();
+                    $result = $stmt->execute([$riskValue, $id]);
                     
                     if ($result) {
                         echo json_encode(['success' => true, 'message' => 'Risk level updated successfully']);
@@ -1374,16 +1256,12 @@ try {
                         $resolvedAt = new DateTime('now', new DateTimeZone(DEFAULT_TIMEZONE));
                         $sql = "UPDATE concerns SET status = ?, resolved_at = ? WHERE id = ?";
                         $stmt = $connection->prepare($sql);
-                        // Store as DATETIME-safe format in Asia/Manila
-                        $stmt->bind_param('ssi', $newStatus, $resolvedAt->format('Y-m-d H:i:s'), $id);
-                        $result = $stmt->execute();
+                        $result = $stmt->execute([$newStatus, $resolvedAt->format('Y-m-d H:i:s'), $id]);
                     } elseif ($newStatus === 'processing') {
                         $processedAt = new DateTime('now', new DateTimeZone(DEFAULT_TIMEZONE));
                         $sql = "UPDATE concerns SET status = ?, process_at = ? WHERE id = ?";
                         $stmt = $connection->prepare($sql);
-                        // Store as DATETIME-safe format in Asia/Manila
-                        $stmt->bind_param('ssi', $newStatus, $processedAt->format('Y-m-d H:i:s'), $id);
-                        $result = $stmt->execute();
+                        $result = $stmt->execute([$newStatus, $processedAt->format('Y-m-d H:i:s'), $id]);
                     } elseif ($newStatus === 'revoked') {
                         if ($reasonRevoke === '') {
                             echo json_encode(['success' => false, 'message' => 'Reason for revoke is required']);
@@ -1393,13 +1271,11 @@ try {
                         $sql = "UPDATE concerns SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
                         $stmt = $connection->prepare($sql);
                         $revokedAtValue = $revokedAt->format('Y-m-d H:i:s');
-                        $stmt->bind_param('sssi', $newStatus, $revokedAtValue, $reasonRevoke, $id);
-                        $result = $stmt->execute();
+                        $result = $stmt->execute([$newStatus, $revokedAtValue, $reasonRevoke, $id]);
                     } else {
                         $sql = "UPDATE concerns SET status = ? WHERE id = ?";
                         $stmt = $connection->prepare($sql);
-                        $stmt->bind_param('si', $newStatus, $id);
-                        $result = $stmt->execute();
+                        $result = $stmt->execute([$newStatus, $id]);
                     }
                     
                     if ($result) {
@@ -1422,10 +1298,11 @@ try {
                 $isAdmin = false;
                 if ($adminEmail) {
                     try {
-                        $emailEsc = $connection->real_escape_string($adminEmail);
-                        $sqlAd = "SELECT position FROM brgy_users WHERE email='{$emailEsc}' AND action='accepted'";
-                        $resultAd = $connection->query($sqlAd);
-                        $rowAd = $resultAd ? $resultAd->fetch_assoc() : null;
+                        $stmtAd = $connection->prepare(
+                            "SELECT position FROM brgy_users WHERE email = ? AND action = 'accepted'"
+                        );
+                        $stmtAd->execute([$adminEmail]);
+                        $rowAd = $stmtAd->fetch(PDO::FETCH_ASSOC);
                         $dbPos = strtolower(trim((string)($rowAd['position'] ?? '')));
                         if ($rowAd && ($dbPos === 'admin' || $dbPos === 'administrator')) {
                             $isAdmin = true;
@@ -1454,9 +1331,8 @@ try {
                     break;
                 }
                 $chk = $connection->prepare('SELECT status FROM concerns WHERE id = ?');
-                $chk->bind_param('i', $id);
-                $chk->execute();
-                $rowStatus = $chk->get_result()->fetch_assoc();
+                $chk->execute([$id]);
+                $rowStatus = $chk->fetch(PDO::FETCH_ASSOC);
                 if (!$rowStatus) {
                     echo json_encode(['success' => false, 'message' => 'Concern not found']);
                     break;
@@ -1495,15 +1371,19 @@ try {
                 $resolvedAtStr = $resolvedAt->format('Y-m-d H:i:s');
                 $statusResolved = 'resolved';
                 if ($imageBlob !== null) {
-                    $sqlR = 'UPDATE concerns SET status = ?, resolved_at = ?, resolution_statement = ?, resolved_image = ? WHERE id = ?';
+                    $sqlR = "UPDATE concerns SET status = ?, resolved_at = ?, resolution_statement = ?, resolved_image = decode(?, 'base64') WHERE id = ?";
                     $stmtR = $connection->prepare($sqlR);
-                    $stmtR->bind_param('ssssi', $statusResolved, $resolvedAtStr, $resolutionStatement, $imageBlob, $id);
-                    $resultR = $stmtR->execute();
+                    $resultR = $stmtR->execute([
+                        $statusResolved,
+                        $resolvedAtStr,
+                        $resolutionStatement,
+                        base64_encode($imageBlob),
+                        $id,
+                    ]);
                 } else {
                     $sqlR = 'UPDATE concerns SET status = ?, resolved_at = ?, resolution_statement = ?, resolved_image = NULL WHERE id = ?';
                     $stmtR = $connection->prepare($sqlR);
-                    $stmtR->bind_param('sssi', $statusResolved, $resolvedAtStr, $resolutionStatement, $id);
-                    $resultR = $stmtR->execute();
+                    $resultR = $stmtR->execute([$statusResolved, $resolvedAtStr, $resolutionStatement, $id]);
                 }
                 if (!empty($resultR)) {
                     echo json_encode(['success' => true, 'message' => 'Concern resolved with documentation.']);
@@ -1529,11 +1409,10 @@ try {
                 $id = intval(str_replace('CON-', '', $concernId));
                 
                 // Get the base concern
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id = ?";
+                $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE id = ?";
                 $stmt = $connection->prepare($sql);
-                $stmt->bind_param('i', $id);
-                $stmt->execute();
-                $baseConcern = $stmt->get_result()->fetch_assoc();
+                $stmt->execute([$id]);
+                $baseConcern = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if (!$baseConcern) {
                     echo json_encode(['success' => false, 'message' => 'Concern not found']);
@@ -1544,22 +1423,20 @@ try {
                 $baseConcern['concern_id'] = 'CON-' . str_pad($baseConcern['id'], 3, '0', STR_PAD_LEFT);
                 
                 // Latest rows + same trimmed location + token-LIKE merge (fuzzy spelling still filtered by locationsReferToSamePlace in AI/rule steps)
-                $sql = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 450";
+                $sql = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns ORDER BY date_and_time DESC LIMIT 450";
                 $result = $connection->query($sql);
-                $allConcerns = $result->fetch_all(MYSQLI_ASSOC);
+                $allConcerns = $result->fetchAll(PDO::FETCH_ASSOC);
                 $byId = [];
                 foreach ($allConcerns as $row) {
                     $byId[(int)$row['id']] = $row;
                 }
                 $baseLocTrim = trim((string)($baseConcern['location'] ?? ''));
                 if ($baseLocTrim !== '') {
-                    $sqlSameLoc = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE LOWER(TRIM(location)) = LOWER(?)";
+                    $sqlSameLoc = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE LOWER(TRIM(location)) = LOWER(?)";
                     $stmtLoc = $connection->prepare($sqlSameLoc);
                     if ($stmtLoc) {
-                        $stmtLoc->bind_param('s', $baseLocTrim);
-                        $stmtLoc->execute();
-                        $sameLocRows = $stmtLoc->get_result()->fetch_all(MYSQLI_ASSOC);
-                        $stmtLoc->close();
+                        $stmtLoc->execute([$baseLocTrim]);
+                        $sameLocRows = $stmtLoc->fetchAll(PDO::FETCH_ASSOC);
                         foreach ($sameLocRows as $row) {
                             $byId[(int)$row['id']] = $row;
                         }
@@ -1569,19 +1446,15 @@ try {
                     if (!empty($tokens)) {
                         $likes = [];
                         $params = [];
-                        $types = '';
                         foreach ($tokens as $tok) {
                             $likes[] = 'LOWER(TRIM(location)) LIKE ?';
                             $params[] = '%' . $tok . '%';
-                            $types .= 's';
                         }
-                        $sqlFuzzy = "SELECT id, concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE (" . implode(' OR ', $likes) . ") LIMIT 200";
+                        $sqlFuzzy = "SELECT id, encode(concern_image, 'base64') AS concern_image, reporter_name, contact, date_and_time, location, statement, status, COALESCE(risk_level, '') as risk_level FROM concerns WHERE (" . implode(' OR ', $likes) . ") LIMIT 200";
                         $stmtF = $connection->prepare($sqlFuzzy);
                         if ($stmtF) {
-                            $stmtF->bind_param($types, ...$params);
-                            $stmtF->execute();
-                            $fuzzyRows = $stmtF->get_result()->fetch_all(MYSQLI_ASSOC);
-                            $stmtF->close();
+                            $stmtF->execute($params);
+                            $fuzzyRows = $stmtF->fetchAll(PDO::FETCH_ASSOC);
                             foreach ($fuzzyRows as $row) {
                                 $byId[(int)$row['id']] = $row;
                             }
@@ -1658,19 +1531,14 @@ try {
             break;
     }
     
-} catch(mysqli_sql_exception $e) {
-    // Check if it's a timeout error
-    if (strpos($e->getMessage(), 'timeout') !== false || strpos($e->getMessage(), 'Maximum execution time') !== false) {
-        echo json_encode(['success' => false, 'message' => 'Request timeout - database query took too long']);
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
-    }
-} catch(Exception $e) {
-    // Check if it's a timeout error
-    if (strpos($e->getMessage(), 'timeout') !== false || strpos($e->getMessage(), 'Maximum execution time') !== false) {
+} catch (Throwable $e) {
+    error_log('Concerns endpoint error: ' . $e->getMessage());
+    http_response_code(500);
+    if (stripos($e->getMessage(), 'timeout') !== false
+        || stripos($e->getMessage(), 'Maximum execution time') !== false) {
         echo json_encode(['success' => false, 'message' => 'Request timeout - operation took too long']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Failed to load concerns from database.']);
     }
 }
 ?>

@@ -48,55 +48,15 @@ function ensure_doc_request_revoke_columns($connection, $tableName) {
         return;
     }
 
-    $columns = [];
-    $result = $connection->query("SHOW COLUMNS FROM `$safeTable`");
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $columns[] = strtolower($row['Field']);
-        }
-    }
-
-    if (!in_array('revoked_at', $columns, true)) {
-        $connection->query("ALTER TABLE `$safeTable` ADD COLUMN revoked_at DATETIME NULL");
-    }
-    if (!in_array('reason_revoke', $columns, true)) {
-        $connection->query("ALTER TABLE `$safeTable` ADD COLUMN reason_revoke TEXT NULL");
-    }
+    $connection->exec("ALTER TABLE \"$safeTable\" ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP NULL");
+    $connection->exec("ALTER TABLE \"$safeTable\" ADD COLUMN IF NOT EXISTS reason_revoke TEXT NULL");
 }
 
 try {
     // Include database configuration
-    require_once 'config.php';
+    require_once __DIR__ . '/config.php';
     
-    // Try to get database connection with fallback
-    $connection = null;
-    $maxRetries = 3;
-    $retryCount = 0;
-    
-    while ($retryCount < $maxRetries && !$connection) {
-        try {
-            $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-            if ($connection->connect_error) {
-                throw new Exception("Connection failed: " . $connection->connect_error);
-            }
-            // Set connection timeout
-            $connection->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
-            $connection->options(MYSQLI_OPT_READ_TIMEOUT, 30);
-            break;
-        } catch (Exception $e) {
-            $retryCount++;
-            error_log("Database connection attempt $retryCount failed: " . $e->getMessage());
-            if ($retryCount < $maxRetries) {
-                sleep(1); 
-            }
-        }
-    }
-    
-    if (!$connection) {
-        throw new Exception("Failed to connect to database after $maxRetries attempts");
-    }
-
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Handle POST requests for status updates FIRST
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -146,65 +106,41 @@ try {
                 // Set status to Processing and update process_at timestamp (using PHP timezone)
                 // certification_forms: is_permanent = 1 for jobseeker (retained after retention cleanup), 0 otherwise
                 if ($actualTable === 'certification_forms') {
-                    $sql = "UPDATE $actualTable SET status = ?, process_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                    $sql = "UPDATE $actualTable SET status = ?, process_at = ?, is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END WHERE id = ?";
                 } else {
                     $sql = "UPDATE $actualTable SET status = ?, process_at = ? WHERE id = ?";
                 }
-                $stmt = $connection->prepare($sql);
-                
-                if (!$stmt) {
-                    throw new Exception('Failed to prepare update statement: ' . $connection->error);
-                }
-                
-                $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
             } elseif ($normalizedStatus === 'Finished') {
                 // Set status to Finished and update finish_at timestamp (using PHP timezone)
                 if ($actualTable === 'certification_forms') {
-                    $sql = "UPDATE $actualTable SET status = ?, finish_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                    $sql = "UPDATE $actualTable SET status = ?, finish_at = ?, is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END WHERE id = ?";
                 } else {
                     $sql = "UPDATE $actualTable SET status = ?, finish_at = ? WHERE id = ?";
                 }
-                $stmt = $connection->prepare($sql);
-                
-                if (!$stmt) {
-                    throw new Exception('Failed to prepare update statement: ' . $connection->error);
-                }
-                
-                $stmt->bind_param('ssi', $normalizedStatus, $currentTime, $id);
             } elseif ($normalizedStatus === 'Revoked') {
                 if ($actualTable === 'certification_forms') {
-                    $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                    $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ?, is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END WHERE id = ?";
                 } else {
                     $sql = "UPDATE $actualTable SET status = ?, revoked_at = ?, reason_revoke = ? WHERE id = ?";
                 }
-                $stmt = $connection->prepare($sql);
-
-                if (!$stmt) {
-                    throw new Exception('Failed to prepare revoke statement: ' . $connection->error);
-                }
-
-                $stmt->bind_param('sssi', $normalizedStatus, $currentTime, $reasonRevoke, $id);
             } else {
                 // Regular status update without timestamp
                 if ($actualTable === 'certification_forms') {
-                    $sql = "UPDATE $actualTable SET status = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+                    $sql = "UPDATE $actualTable SET status = ?, is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END WHERE id = ?";
                 } else {
                     $sql = "UPDATE $actualTable SET status = ? WHERE id = ?";
                 }
-                $stmt = $connection->prepare($sql);
-                
-                if (!$stmt) {
-                    throw new Exception('Failed to prepare update statement: ' . $connection->error);
-                }
-                
-                $stmt->bind_param('si', $normalizedStatus, $id);
             }
             
-            if (!$stmt->execute()) {
-                throw new Exception('Failed to update status: ' . $stmt->error);
-            }
+            $params = $normalizedStatus === 'Revoked'
+                ? [$normalizedStatus, $currentTime, $reasonRevoke, $id]
+                : (in_array($normalizedStatus, ['Processing', 'Finished'], true)
+                    ? [$normalizedStatus, $currentTime, $id]
+                    : [$normalizedStatus, $id]);
+            $stmt = $connection->prepare($sql);
+            $stmt->execute($params);
             
-            if ($stmt->affected_rows === 0) {
+            if ($stmt->rowCount() === 0) {
                 throw new Exception('No rows updated - ID may not exist');
             }
             
@@ -214,13 +150,10 @@ try {
                     // Get certification data
                     $certSql = "SELECT * FROM certification_forms WHERE id = ?";
                     $certStmt = $connection->prepare($certSql);
-                    if ($certStmt) {
-                        $certStmt->bind_param('i', $id);
-                        $certStmt->execute();
-                        $certResult = $certStmt->get_result();
-                        $certData = $certResult->fetch_assoc();
+                    $certStmt->execute([$id]);
+                    $certData = $certStmt->fetch(PDO::FETCH_ASSOC);
                         
-                        if ($certData) {
+                    if ($certData) {
                             $purpose = strtolower($certData['purpose'] ?? '');
                             
                             // Check if purpose is jobseeker
@@ -267,29 +200,24 @@ try {
                                             birth_date = ?";
                                 $checkStmt = $connection->prepare($checkSql);
                                 if ($checkStmt) {
-                                    // bind_param requires variables passed by reference, 
-                                    // so avoid using expressions directly.
                                     $firstNameAlt = isset($certData['firstname']) ? $certData['firstname'] : '';
                                     $lastNameAlt = isset($certData['lastname']) ? $certData['lastname'] : '';
 
-                                    $checkStmt->bind_param(
-                                        'sssss',
+                                    $checkStmt->execute([
                                         $firstName,
                                         $firstNameAlt,
                                         $lastName,
                                         $lastNameAlt,
                                         $birthDate
-                                    );
-                                    $checkStmt->execute();
-                                    $checkResult = $checkStmt->get_result();
+                                    ]);
                                     
                                     // Only insert if record doesn't exist
-                                    if ($checkResult->num_rows === 0) {
+                                    if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
                                         // Compute next sequential number for "no" column (start from 1)
                                         $no = 1;
                                         $noSql = "SELECT MAX(no) AS max_no FROM job_seeker_report";
-                                        $noResult = $connection->query($noSql);
-                                        if ($noResult && $rowNo = $noResult->fetch_assoc()) {
+                                        $rowNo = $connection->query($noSql)->fetch(PDO::FETCH_ASSOC);
+                                        if ($rowNo) {
                                             $currentMax = (int)($rowNo['max_no'] ?? 0);
                                             $no = $currentMax + 1;
                                         }
@@ -299,8 +227,7 @@ try {
                                                       (no, last_name, first_name, middle_name, sex, age, birth_date, educational_level, course) 
                                                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
                                         $insertStmt = $connection->prepare($insertSql);
-                                        if ($insertStmt) {
-                                            $insertStmt->bind_param('issssisss', 
+                                        if ($insertStmt->execute([
                                                 $no,
                                                 $lastName, 
                                                 $firstName, 
@@ -310,23 +237,14 @@ try {
                                                 $birthDate, 
                                                 $educationalLevel, 
                                                 $course
-                                            );
-                                            
-                                            if ($insertStmt->execute()) {
-                                                error_log("Successfully inserted jobseeker report for certification ID: $id");
-                                            } else {
-                                                error_log("Failed to insert jobseeker report: " . $insertStmt->error);
-                                            }
-                                            $insertStmt->close();
+                                            ])) {
+                                            error_log("Successfully inserted jobseeker report for certification ID: $id");
                                         }
                                     } else {
                                         error_log("Jobseeker report already exists for certification ID: $id");
                                     }
-                                    $checkStmt->close();
                                 }
                             }
-                        }
-                        $certStmt->close();
                     }
                 } catch (Exception $e) {
                     error_log("Error inserting jobseeker report: " . $e->getMessage());
@@ -364,8 +282,14 @@ try {
     if ($table === 'indigency') {
         $tableName = 'indigency_forms';
     }
-    $checkTable = $connection->query("SHOW TABLES LIKE '$tableName'");
-    if (!$checkTable || $checkTable->num_rows === 0) {
+    $tableCheck = $connection->prepare(
+        'SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables
+            WHERE table_schema = current_schema() AND table_name = ?
+        )'
+    );
+    $tableCheck->execute([$tableName]);
+    if (!$tableCheck->fetchColumn()) {
         error_log("Table $tableName does not exist");
         echo json_encode(['requests' => []]);
         exit;
@@ -375,37 +299,11 @@ try {
     // Fetch data based on table parameter
     switch ($table) {
         case 'barangay_id':
-            ensure_barangay_id_height_varchar($connection);
-            // First, try to get all columns to see what actually exists
-            $describeResult = $connection->query("DESCRIBE barangay_id_forms");
-            $actualColumns = [];
-            if ($describeResult) {
-                while ($col = $describeResult->fetch_assoc()) {
-                    $actualColumns[] = $col['Field'];
-                }
-                error_log("Barangay ID table columns: " . implode(', ', $actualColumns));
-            }
-            
             // Try SELECT * first to get all data, then map columns
-            $sql = "SELECT * FROM barangay_id_forms ORDER BY submitted_at DESC LIMIT 100";
+            $sql = "SELECT *, encode(id_image, 'base64') AS id_image_base64, encode(res_picture, 'base64') AS res_picture_base64 FROM barangay_id_forms ORDER BY submitted_at DESC LIMIT 100";
             $result = $connection->query($sql);
             
-            if ($result === false) {
-                $error = $connection->error;
-                error_log("SQL Error for barangay_id: " . $error);
-                // Return error info for debugging
-                echo json_encode([
-                    'requests' => [],
-                    'error' => $error,
-                    'debug' => 'Query failed: ' . $sql
-                ]);
-                exit;
-            }
-            
-            error_log("Barangay ID query successful, rows: " . $result->num_rows);
-            
-            if ($result && $result->num_rows > 0) {
-                while ($row = $result->fetch_assoc()) {
+            foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     // Map columns with fallbacks for different naming conventions
                     $id = $row['id'] ?? $row['form_id'] ?? $row['request_id'] ?? '';
                     $lastName = $row['last_name'] ?? $row['surname'] ?? $row['lastname'] ?? '';
@@ -435,7 +333,7 @@ try {
                         'residencyDuration' => $row['residency_duration'] ?? $row['residencyDuration'] ?? '',
                         'validId' => $row['valid_id'] ?? $row['validId'] ?? '',
                         'idImage' => null, // Don't include large BLOB data in list view
-                        'resPicture' => isset($row['res_picture']) ? safeImageData($row['res_picture']) : (isset($row['resPicture']) ? safeImageData($row['resPicture']) : null),
+                        'resPicture' => !empty($row['res_picture_base64']) ? safeImageData(base64_decode($row['res_picture_base64'], true)) : null,
                         'status' => $row['status'] ?? 'New',
                         'submittedAt' => $row['submitted_at'] ?? $row['submittedAt'] ?? date('Y-m-d H:i:s'),
                         'processAt' => $row['process_at'] ?? $row['processAt'] ?? null,
@@ -443,10 +341,6 @@ try {
                         'revoked_at' => $row['revoked_at'] ?? null,
                         'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
-                }
-                error_log("Successfully processed " . count($requests) . " barangay ID requests");
-            } else {
-                error_log("Barangay ID query returned 0 rows - table may be empty or query issue");
             }
             break;
             
@@ -455,27 +349,9 @@ try {
             try {
                 error_log("Fetching certification data...");
                 
-                // Try with ORDER BY first for latest requests
                 $sql = "SELECT * FROM certification_forms ORDER BY id DESC LIMIT 100";
                 $result = $connection->query($sql);
-                
-                // If ORDER BY fails, try without it
-                if ($result === false) {
-                    error_log("SQL Error with ORDER BY, trying without: " . $connection->error);
-                    $sql = "SELECT * FROM certification_forms LIMIT 100";
-                    $result = $connection->query($sql);
-                }
-                
-                if ($result === false) {
-                    error_log("SQL Error for certification: " . $connection->error);
-                    echo json_encode(['requests' => []]);
-                    exit;
-                }
-                
-                error_log("Certification query successful, rows: " . $result->num_rows);
-                
-                if ($result && $result->num_rows > 0) {
-                    while ($row = $result->fetch_assoc()) {
+                foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                         // Map all possible column name variations
                         $lastname = $row['lastname'] ?? $row['last_name'] ?? $row['lastName'] ?? '';
                         $firstname = $row['firstname'] ?? $row['first_name'] ?? $row['firstName'] ?? '';
@@ -524,9 +400,7 @@ try {
                             'monthly_income' => $monthlyIncome,
                             'month_year' => $monthYear
                         ];
-                    }
                 }
-                
                 error_log("Certification processing complete. Total requests: " . count($requests));
                 
             } catch (Exception $e) {
@@ -534,46 +408,15 @@ try {
                 error_log("Stack trace: " . $e->getTraceAsString());
                 echo json_encode(['requests' => []]);
                 exit;
-            } catch (Error $e) {
-                error_log("Fatal error in certification: " . $e->getMessage() . " at line " . $e->getLine());
-                error_log("Stack trace: " . $e->getTraceAsString());
-                echo json_encode(['requests' => []]);
-                exit;
             }
             break;
             
         case 'coe':
-            // Try different possible field names for ID
-            $possibleIdFields = ['id', 'form_id', 'request_id'];
-            $result = false;
-            $usedIdField = '';
-            
-            foreach ($possibleIdFields as $idField) {
-            $sql = "SELECT $idField, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke FROM coe_forms ORDER BY submitted_at DESC";
-                $result = $connection->query($sql);
-                
-                if ($result !== false) {
-                    $usedIdField = $idField;
-                    error_log("COE query successful with ID field: $idField");
-                    break;
-                } else {
-                    error_log("COE query failed with ID field $idField: " . $connection->error);
-                }
-            }
-            
-            if ($result === false) {
-                error_log("SQL Error for coe: " . $connection->error);
-                // Return empty array instead of throwing exception
-                echo json_encode(['requests' => []]);
-                exit;
-            }
-            
-            error_log("COE query successful, rows: " . $result->num_rows);
-            
-            if ($result !== false) {
-                while ($row = $result->fetch_assoc()) {
+            $sql = "SELECT id, first_name, middle_name, last_name, address, age, gender, civil_status, employment_type, position, date_started, monthly_salary, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke FROM coe_forms ORDER BY submitted_at DESC";
+            $result = $connection->query($sql);
+            foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     $requests[] = [
-                        'id' => $row[$usedIdField] ?? '',
+                        'id' => $row['id'] ?? '',
                         'documentType' => 'COE',
                         'surname' => $row['last_name'] ?? '',
                         'givenname' => $row['first_name'] ?? '',
@@ -595,25 +438,13 @@ try {
                         'revoked_at' => $row['revoked_at'] ?? null,
                         'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
-                }
             }
             break;
             
         case 'clearance':
             $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, citizenship, purpose, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke FROM clearance_forms ORDER BY submitted_at DESC";
             $result = $connection->query($sql);
-            
-            if ($result === false) {
-                error_log("SQL Error for clearance: " . $connection->error);
-                // Return empty array instead of throwing exception
-                echo json_encode(['requests' => []]);
-                exit;
-            }
-            
-            error_log("Clearance query successful, rows: " . $result->num_rows);
-            
-            if ($result !== false) {
-                while ($row = $result->fetch_assoc()) {
+            foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     $requests[] = [
                         'id' => $row['id'] ?? '',
                         'documentType' => 'CLEARANCE',
@@ -637,23 +468,13 @@ try {
                         'revoked_at' => $row['revoked_at'] ?? null,
                         'reason_revoke' => $row['reason_revoke'] ?? ''
                     ];
-                }
             }
             break;
             
         case 'indigency':
-            $sql = "SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke, para_kay, `position`, hall_address, document_language FROM indigency_forms ORDER BY submitted_at DESC";
+            $sql = 'SELECT id, first_name, middle_name, last_name, address, birth_date, birth_place, civil_status, age, gender, purpose, valid_id, status, submitted_at, process_at, finish_at, revoked_at, reason_revoke, para_kay, "position", hall_address, document_language FROM indigency_forms ORDER BY submitted_at DESC';
             $result = $connection->query($sql);
-            
-            if ($result === false) {
-                error_log("SQL Error for indigency: " . $connection->error);
-                // Return empty array instead of throwing exception
-                echo json_encode(['requests' => []]);
-                exit;
-            }
-            
-            if ($result !== false) {
-                while ($row = $result->fetch_assoc()) {
+            foreach ($result->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     $requests[] = [
                         'id' => $row['id'] ?? '',
                         'documentType' => 'INDIGENCY',
@@ -680,7 +501,6 @@ try {
                         'hall_address' => $row['hall_address'] ?? '',
                         'document_language' => $row['document_language'] ?? ''
                     ];
-                }
             }
             break;
             
@@ -688,7 +508,7 @@ try {
             throw new Exception("Invalid table parameter: " . $table);
     }
 
-    $connection->close();
+    $connection = null;
 
     // Debug: Log the final result
     error_log("Final result for table $table: " . count($requests) . " requests");
@@ -696,15 +516,8 @@ try {
     // Return the data
     echo json_encode(['requests' => $requests]);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log("Exception in reqDocu.php: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
-    http_response_code(500);
-    echo json_encode([
-        'error' => 'Internal server error',
-        'requests' => []
-    ]);
-} catch (Error $e) {
-    error_log("Fatal error in reqDocu.php: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
     http_response_code(500);
     echo json_encode([
         'error' => 'Internal server error',

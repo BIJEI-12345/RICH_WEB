@@ -43,7 +43,7 @@ if (!$isAdmin && (!$isLoggedIn || !$hasUserId)) {
 require_once __DIR__ . '/config.php';
 
 try {
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     http_response_code(500);
@@ -51,7 +51,6 @@ try {
     exit;
 }
 
-$connection->set_charset('utf8mb4');
 
 // Handle different request methods
 $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -75,35 +74,12 @@ if ($requestMethod === 'GET') {
                     WHERE UPPER(status) IN ('RESOLVED', 'FINISHED', 'FINISH')
                     AND resolved_at IS NOT NULL
                     AND resolved_at <= ?
-                    ORDER BY YEAR(resolved_at) DESC, MONTH(resolved_at) DESC, resolved_at DESC 
+                    ORDER BY resolved_at DESC
                     LIMIT 500";
             
             $stmt = $connection->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param("s", $twentyFourHoursAgo);
-                if ($stmt->execute()) {
-                    $result = $stmt->get_result();
-                    if ($result && $result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            $archiveData[] = $row;
-                        }
-                    }
-                } else {
-                    error_log("Error executing concern query: " . $stmt->error);
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Database query failed: ' . $stmt->error]);
-                    $stmt->close();
-                    $connection->close();
-                    exit;
-                }
-                $stmt->close();
-            } else {
-                error_log("Error preparing concern query: " . $connection->error);
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Database query preparation failed: ' . $connection->error]);
-                $connection->close();
-                exit;
-            }
+            $stmt->execute([$twentyFourHoursAgo]);
+            $archiveData = $stmt->fetchAll(PDO::FETCH_ASSOC);
             break;
             
         case 'emergency':
@@ -113,35 +89,12 @@ if ($requestMethod === 'GET') {
                     WHERE UPPER(status) IN ('RESOLVED', 'FINISHED', 'FINISH')
                     AND resolved_datetime IS NOT NULL
                     AND resolved_datetime <= ?
-                    ORDER BY YEAR(resolved_datetime) DESC, MONTH(resolved_datetime) DESC, resolved_datetime DESC 
+                    ORDER BY resolved_datetime DESC
                     LIMIT 500";
             
             $stmt = $connection->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param("s", $twentyFourHoursAgo);
-                if ($stmt->execute()) {
-                    $result = $stmt->get_result();
-                    if ($result && $result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            $archiveData[] = $row;
-                        }
-                    }
-                } else {
-                    error_log("Error executing emergency query: " . $stmt->error);
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Database query failed: ' . $stmt->error]);
-                    $stmt->close();
-                    $connection->close();
-                    exit;
-                }
-                $stmt->close();
-            } else {
-                error_log("Error preparing emergency query: " . $connection->error);
-                http_response_code(500);
-                echo json_encode(['success' => false, 'error' => 'Database query preparation failed: ' . $connection->error]);
-                $connection->close();
-                exit;
-            }
+            $stmt->execute([$twentyFourHoursAgo]);
+            $archiveData = $stmt->fetchAll(PDO::FETCH_ASSOC);
             break;
             
         case 'document':
@@ -171,7 +124,7 @@ if ($requestMethod === 'GET') {
             foreach ($tables as $table) {
                 try {
                     // Use simple SELECT * query
-                    $sql = "SELECT * FROM `{$table}` 
+                    $sql = "SELECT * FROM \"{$table}\"
                             WHERE UPPER(status) = 'FINISHED'
                             AND finish_at IS NOT NULL
                             AND finish_at <= ?
@@ -180,11 +133,9 @@ if ($requestMethod === 'GET') {
                     
                     $stmt = $connection->prepare($sql);
                     if ($stmt) {
-                        $stmt->bind_param("s", $twentyFourHoursAgo);
-                        if ($stmt->execute()) {
-                            $result = $stmt->get_result();
-                            if ($result) {
-                                while ($row = $result->fetch_assoc()) {
+                        $stmt->execute([$twentyFourHoursAgo]);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($rows as $row) {
                                     // Remove created_at from the row data
                                     if (isset($row['created_at'])) {
                                         unset($row['created_at']);
@@ -214,16 +165,11 @@ if ($requestMethod === 'GET') {
                                         // Include all other fields from the row (created_at already removed)
                                         'data' => $row
                                     ];
-                                }
-                            }
-                        } else {
-                            error_log("Error executing document query for {$table}: " . $stmt->error);
                         }
-                        $stmt->close();
                     } else {
-                        error_log("Error preparing document query for {$table}: " . $connection->error);
+                        throw new RuntimeException("Unable to prepare document archive query for {$table}");
                     }
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     error_log("Exception processing table {$table}: " . $e->getMessage());
                 }
             }
@@ -247,7 +193,7 @@ if ($requestMethod === 'GET') {
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Invalid category']);
-            $connection->close();
+            $connection = null;
             exit;
     }
     
@@ -309,5 +255,5 @@ if ($requestMethod === 'GET') {
     echo json_encode(["success" => false, "error" => "Method not allowed"]);
 }
 
-$connection->close();
+$connection = null;
 ?>

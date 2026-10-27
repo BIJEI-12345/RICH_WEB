@@ -11,30 +11,22 @@ require_once 'config.php';
 header('Content-Type: application/json');
 
 try {
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-    if ($connection->connect_error) {
-        throw new Exception('Database connection failed: ' . $connection->connect_error);
-    }
+    $connection = getPostgreSQLDatabaseConnection();
 
     // Align is_permanent with purpose (jobseeker = permanent retention)
     $connection->query(
-        "UPDATE certification_forms SET is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0)"
+        "UPDATE certification_forms SET is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END"
     );
 
     // Get all finished jobseeker certifications that might not yet be in job_seeker_report
     $sql = "SELECT * FROM certification_forms WHERE LOWER(purpose) = 'jobseeker' AND status = 'Finished'";
     $result = $connection->query($sql);
 
-    if ($result === false) {
-        throw new Exception('Query failed: ' . $connection->error);
-    }
-
     $inserted = 0;
     $skippedExisting = 0;
     $errors = [];
 
-    while ($certData = $result->fetch_assoc()) {
+    while ($certData = $result->fetch(PDO::FETCH_ASSOC)) {
         $id = (int)($certData['id'] ?? 0);
 
         $lastName = $certData['last_name'] ?? $certData['lastname'] ?? '';
@@ -76,76 +68,53 @@ try {
                      (last_name = ? OR last_name = ?) AND 
                      birth_date = ?";
         $checkStmt = $connection->prepare($checkSql);
-        if (!$checkStmt) {
-            $errors[] = "ID $id: Failed to prepare check statement: " . $connection->error;
-            continue;
-        }
-
         $firstNameAlt = isset($certData['firstname']) ? $certData['firstname'] : '';
         $lastNameAlt = isset($certData['lastname']) ? $certData['lastname'] : '';
 
-        $checkStmt->bind_param(
-            'sssss',
+        $checkStmt->execute([
             $firstName,
             $firstNameAlt,
             $lastName,
             $lastNameAlt,
             $birthDate
-        );
-        $checkStmt->execute();
-        $checkResult = $checkStmt->get_result();
-
-        if ($checkResult && $checkResult->num_rows > 0) {
+        ]);
+        if ($existingRow = $checkStmt->fetch(PDO::FETCH_ASSOC)) {
             // If record already exists, optionally update missing sex/education/course
-            $existingRow = $checkResult->fetch_assoc();
             $existingId = (int)$existingRow['id'];
             $skippedExisting++;
-            $checkStmt->close();
 
             // If sex is NULL or empty in existing row, update it from current data
             $updateNeeded = false;
             $updateSqlParts = [];
             $updateParams = [];
-            $updateTypes = '';
 
             // We can't see existing row's columns here without another query,
             // so perform a dedicated select to check current sex value.
-            $curRowRes = $connection->query("SELECT sex FROM job_seeker_report WHERE id = " . $existingId);
-            if ($curRowRes && $curRow = $curRowRes->fetch_assoc()) {
+            $curStmt = $connection->prepare("SELECT sex FROM job_seeker_report WHERE id = ?");
+            $curStmt->execute([$existingId]);
+            if ($curRow = $curStmt->fetch(PDO::FETCH_ASSOC)) {
                 $currentSex = $curRow['sex'] ?? '';
                 if (empty($currentSex) && !empty($sex)) {
                     $updateNeeded = true;
                     $updateSqlParts[] = "sex = ?";
                     $updateParams[] = $sex;
-                    $updateTypes .= 's';
                 }
             }
 
             if ($updateNeeded) {
                 $updateSql = "UPDATE job_seeker_report SET " . implode(', ', $updateSqlParts) . " WHERE id = ?";
                 $updateStmt = $connection->prepare($updateSql);
-                if ($updateStmt) {
-                    $updateTypes .= 'i';
-                    $updateParams[] = $existingId;
-                    $updateStmt->bind_param($updateTypes, ...$updateParams);
-                    if ($updateStmt->execute()) {
-                        // updated
-                    } else {
-                        $errors[] = "ID $id: Failed to update existing jobseeker record: " . $updateStmt->error;
-                    }
-                    $updateStmt->close();
-                }
+                $updateParams[] = $existingId;
+                $updateStmt->execute($updateParams);
             }
 
             continue;
         }
-        $checkStmt->close();
-
         // Compute next sequential number for "no" column (start from 1)
         $no = 1;
         $noSql = "SELECT MAX(no) AS max_no FROM job_seeker_report";
         $noResult = $connection->query($noSql);
-        if ($noResult && $rowNo = $noResult->fetch_assoc()) {
+        if ($rowNo = $noResult->fetch(PDO::FETCH_ASSOC)) {
             $currentMax = (int)($rowNo['max_no'] ?? 0);
             $no = $currentMax + 1;
         }
@@ -155,13 +124,7 @@ try {
                       (no, last_name, first_name, middle_name, sex, age, birth_date, educational_level, course) 
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $insertStmt = $connection->prepare($insertSql);
-        if (!$insertStmt) {
-            $errors[] = "ID $id: Failed to prepare insert statement: " . $connection->error;
-            continue;
-        }
-
-        $insertStmt->bind_param(
-            'issssisss',
+        $insertStmt->execute([
             $no,
             $lastName,
             $firstName,
@@ -171,15 +134,8 @@ try {
             $birthDate,
             $educationalLevel,
             $course
-        );
-
-        if ($insertStmt->execute()) {
-            $inserted++;
-        } else {
-            $errors[] = "ID $id: Insert failed: " . $insertStmt->error;
-        }
-
-        $insertStmt->close();
+        ]);
+        $inserted++;
     }
 
     echo json_encode([
@@ -189,7 +145,7 @@ try {
         'errors' => $errors
     ]);
 
-    $connection->close();
+    $connection = null;
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
@@ -197,5 +153,4 @@ try {
         'error' => $e->getMessage()
     ]);
 }
-
 

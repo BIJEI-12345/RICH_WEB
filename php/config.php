@@ -1,6 +1,4 @@
 <?php
-require_once __DIR__ . '/mysqli_helpers.php';
-
 // Load environment variables from .env file
 function loadEnv($filePath) {
     if (!file_exists($filePath)) {
@@ -69,57 +67,34 @@ function rich_env(string $key, ?string $default = null): string
     return (string) ($default ?? '');
 }
 
-// Database — only from project root .env (no credentials in source). Keys: DB_HOST_AWS, DB_PORT_AWS, DB_USER_AWS, DB_PASS_AWS, DB_NAME_AWS
-define('DB_HOST', rich_env('DB_HOST_AWS'));
-define('DB_PORT', rich_env('DB_PORT_AWS', '3306'));
-define('DB_USER', rich_env('DB_USER_AWS'));
-define('DB_PASS', rich_env('DB_PASS_AWS'));
-define('DB_NAME', rich_env('DB_NAME_AWS'));
+// PostgreSQL — only from project root .env (no credentials in source).
+define('POSTGRES_HOST', rich_env('POSTGRES_HOST'));
+define('POSTGRES_PORT', rich_env('POSTGRES_PORT', '5432'));
+define('POSTGRES_DATABASE', rich_env('POSTGRES_DATABASE', 'postgres'));
+define('POSTGRES_USER', rich_env('POSTGRES_USER', 'postgres'));
+$postgresPassword = rich_env('POSTGRES_PASSWORD');
+// Keep the password fallback for existing local .env files; database connections are PostgreSQL-only.
+define('POSTGRES_PASSWORD', $postgresPassword !== '' ? $postgresPassword : rich_env('DB_PASS_AWS'));
 
-// Function to get database connection (AWS RDS only)
-function getDatabaseConnection() {
-    try {
-        if (trim((string) DB_HOST) === '' || trim((string) DB_USER) === '' || DB_NAME === '') {
-            throw new Exception('Database is not configured. In the project root .env set DB_HOST_AWS, DB_USER_AWS, DB_PASS_AWS, and DB_NAME_AWS. See .env.example.');
-        }
-        $connection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
-        if ($connection->connect_error) {
-            throw new Exception("Database connection error: " . $connection->connect_error);
-        }
-        // Set charset to utf8mb4 to ensure proper encoding for password hashes
-        $connection->set_charset("utf8mb4");
-        // Align MySQL session time with Philippines (audit trail, timestamps)
-        @$connection->query("SET time_zone = '+08:00'");
-        error_log("Database connected successfully with charset: utf8mb4");
-        return $connection;
-    } catch (Exception $e) {
-        error_log("Database connection failed: " . $e->getMessage());
-        throw new Exception("Database connection failed: " . $e->getMessage());
+function getPostgreSQLDatabaseConnection(): PDO
+{
+    if (trim(POSTGRES_HOST) === '' || trim(POSTGRES_USER) === '' || trim(POSTGRES_DATABASE) === '' || POSTGRES_PASSWORD === '') {
+        throw new Exception('PostgreSQL is not configured. Set POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE, POSTGRES_USER, and POSTGRES_PASSWORD in the project root .env.');
     }
-}
 
-// Function to get PDO database connection (AWS RDS only)
-function getPDODatabaseConnection() {
+    $dsn = 'pgsql:host=' . POSTGRES_HOST . ';port=' . POSTGRES_PORT . ';dbname=' . POSTGRES_DATABASE . ';sslmode=require';
+
     try {
-        if (trim((string) DB_HOST) === '' || trim((string) DB_USER) === '' || DB_NAME === '') {
-            throw new Exception('Database is not configured. In the project root .env set DB_HOST_AWS, DB_USER_AWS, DB_PASS_AWS, and DB_NAME_AWS. See .env.example.');
-        }
-        $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=utf8mb4";
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+        return new PDO($dsn, POSTGRES_USER, POSTGRES_PASSWORD, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_TIMEOUT => 10,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
-        $pdo->setAttribute(PDO::MYSQL_ATTR_INIT_COMMAND, "SET NAMES utf8mb4");
-        $pdo->exec("SET time_zone = '+08:00'");
-        error_log("PDO database connected successfully");
-        return $pdo;
     } catch (PDOException $e) {
-        error_log("PDO database connection failed: " . $e->getMessage());
-        throw new Exception("PDO Database connection failed: " . $e->getMessage());
+        error_log('PostgreSQL connection failed: ' . $e->getMessage());
+        throw new Exception('PostgreSQL connection failed: ' . $e->getMessage(), 0, $e);
     }
 }
-
 
 // Timezone configuration - Load from .env
 define('DEFAULT_TIMEZONE', rich_env('APP_TIMEZONE', 'Asia/Manila'));
@@ -134,21 +109,10 @@ define('APP_VERSION', '1.0.0');
 define('UPLOAD_DIR', 'uploads/');
 define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
 
-// Email settings — only from .env (see .env.example). No SMTP secrets in source.
-define('SMTP_HOST', rich_env('SMTP_HOST'));
-define('SMTP_PORT', (int) rich_env('SMTP_PORT', '587'));
-define('SMTP_USERNAME', rich_env('SMTP_USERNAME'));
-define('SMTP_PASSWORD', rich_env('SMTP_PASSWORD'));
-define('SMTP_FROM_EMAIL', rich_env('SMTP_FROM_EMAIL'));
-define('SMTP_FROM_NAME', rich_env('SMTP_FROM_NAME'));
-// Set SMTP_SSL_VERIFY=false in .env if local XAMPP fails TLS (see php error log)
-$sslVerifyEnv = rich_env('SMTP_SSL_VERIFY', '');
-if ($sslVerifyEnv !== '') {
-    define('SMTP_SSL_VERIFY', filter_var($sslVerifyEnv, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== false);
-} else {
-    define('SMTP_SSL_VERIFY', true);
-}
-define('SMTP_DEBUG', (int) rich_env('SMTP_DEBUG', '0'));
+// Resend email settings — secrets and the verified sender address belong in .env.
+define('RESEND_API_KEY', trim(rich_env('RESEND_API_KEY', '')));
+define('RESEND_FROM_EMAIL', trim(rich_env('RESEND_FROM_EMAIL', '')));
+define('RESEND_FROM_NAME', trim(rich_env('RESEND_FROM_NAME', APP_NAME)));
 
 // Minimum seconds between signup OTP resend requests (session + server enforced)
 define('SIGNUP_OTP_RESEND_COOLDOWN_SEC', 60);
@@ -183,27 +147,23 @@ define('SENTIMENT_ANALYSIS_API_KEY', trim(rich_env('SENTIMENT_ANALYSIS_API_KEY',
 /**
  * Ensure barangay_id_forms.height is VARCHAR for values like 5'8 (no "cm"/"foot" in stored data).
  */
-function ensure_barangay_id_height_varchar(mysqli $connection) {
-    $t = @$connection->query("SHOW TABLES LIKE 'barangay_id_forms'");
-    if (!$t || $t->num_rows === 0) {
+function ensure_barangay_id_height_varchar(PDO $connection): void {
+    if (!$connection->query("SELECT to_regclass('public.barangay_id_forms')")->fetchColumn()) {
         return;
     }
-    $r = @$connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'height'");
-    if (!$r) {
+    $stmt = $connection->prepare(
+        "SELECT data_type FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'barangay_id_forms' AND column_name = 'height'"
+    );
+    $stmt->execute();
+    $type = $stmt->fetchColumn();
+    if ($type === false) {
+        $connection->exec("ALTER TABLE barangay_id_forms ADD COLUMN height VARCHAR(20) NULL");
         return;
     }
-    if ($r->num_rows === 0) {
-        @$connection->query("ALTER TABLE barangay_id_forms ADD COLUMN height VARCHAR(20) NULL");
+    if (in_array(strtolower((string) $type), ['character varying', 'character'], true)) {
         return;
     }
-    $row = $r->fetch_assoc();
-    $type = strtolower($row['Type'] ?? '');
-    if (preg_match('/^(varchar|char)\(/i', $type)) {
-        return;
-    }
-    if (!$connection->query("ALTER TABLE barangay_id_forms MODIFY COLUMN height VARCHAR(20) NULL")) {
-        error_log('ensure_barangay_id_height_varchar: MODIFY failed: ' . $connection->error);
-    }
+    $connection->exec("ALTER TABLE barangay_id_forms ALTER COLUMN height TYPE VARCHAR(20) USING height::text");
 }
 
 /** Strip accidental unit suffixes from height for API/UI (DB should hold e.g. 5'8 only). */

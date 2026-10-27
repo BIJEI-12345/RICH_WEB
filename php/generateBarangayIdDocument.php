@@ -623,16 +623,13 @@ function removeDirectory($dir) {
 }
 
 // Function to ensure bid column exists
-function ensureBidColumnExists($connection) {
-    // Check if bid column exists
-    $checkColumn = $connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'bid'");
-    if ($checkColumn && $checkColumn->num_rows === 0) {
-        // Column doesn't exist, create it
-        $alterSql = "ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL AFTER id";
-        if (!$connection->query($alterSql)) {
-            throw new Exception("Failed to create bid column: " . $connection->error);
-        }
-        error_log("generateBarangayIdDocument: Created bid column in barangay_id_forms table");
+function ensureBidColumnExists(PDO $connection): void {
+    $checkColumn = $connection->prepare(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'barangay_id_forms' AND column_name = 'bid'"
+    );
+    $checkColumn->execute();
+    if (!$checkColumn->fetchColumn()) {
+        $connection->exec("ALTER TABLE barangay_id_forms ADD COLUMN bid VARCHAR(50) NULL");
     }
 }
 
@@ -659,7 +656,7 @@ try {
     }
     
     // Database connection using the function from config.php
-    $connection = getDatabaseConnection();
+    $connection = getPostgreSQLDatabaseConnection();
     
     // Ensure bid column exists
     ensureBidColumnExists($connection);
@@ -668,67 +665,52 @@ try {
     // Check if BID already exists (uniqueness check)
     $checkBidSql = "SELECT id FROM barangay_id_forms WHERE bid = ? AND id != ?";
     $checkBidStmt = $connection->prepare($checkBidSql);
-    if (!$checkBidStmt) {
-        throw new Exception("Failed to prepare BID uniqueness check: " . $connection->error);
-    }
-    $checkBidStmt->bind_param("si", $bidValue, $requestId);
-    $checkBidStmt->execute();
-    $bidCheckResult = $checkBidStmt->get_result();
+    $checkBidStmt->execute([$bidValue, $requestId]);
+    $existingBid = $checkBidStmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($bidCheckResult->num_rows > 0) {
-        $checkBidStmt->close();
-        $connection->close();
+    if ($existingBid) {
+        $connection = null;
         throw new Exception('BID number already exists. Please use a different number.');
     }
-    $checkBidStmt->close();
     
     // Get barangay ID form data - include bid, birth_date, weight, and check for expiration_date
-    $sql = "SELECT id, bid, last_name, given_name, middle_name, birth_date, address, civil_status, height, weight, gender, emergency_contact_name, emergency_contact_number, is_censused, residency_duration, valid_id, id_image, res_picture, status, submitted_at, process_at FROM barangay_id_forms WHERE id = ?";
+    $expirationColumn = $connection->prepare(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'barangay_id_forms' AND column_name = 'expiration_date'"
+    );
+    $expirationColumn->execute();
+    $hasExpirationColumn = (bool) $expirationColumn->fetchColumn();
+    $expirationSelect = $hasExpirationColumn ? 'expiration_date' : 'NULL AS expiration_date';
+    $sql = "SELECT id, bid, last_name, given_name, middle_name, birth_date, address, civil_status, height, weight, gender, emergency_contact_name, emergency_contact_number, is_censused, residency_duration, valid_id, encode(id_image, 'base64') AS id_image, encode(res_picture, 'base64') AS res_picture, status, submitted_at, process_at, {$expirationSelect} FROM barangay_id_forms WHERE id = ?";
     
     error_log("generateBarangayIdDocument: Executing query for request ID: $requestId");
     
     $stmt = $connection->prepare($sql);
-    if (!$stmt) {
-        throw new Exception("Failed to prepare statement: " . $connection->error);
+    $stmt->execute([$requestId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        foreach (['id_image', 'res_picture'] as $imageColumn) {
+            if ($row[$imageColumn] !== null) {
+                $row[$imageColumn] = base64_decode($row[$imageColumn], true);
+            }
+        }
     }
     
-    $stmt->bind_param("i", $requestId);
-    
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to execute statement: " . $stmt->error);
-    }
-    
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 0) {
+    if (!$row) {
         // Check if table exists and has any data
         $checkSql = "SELECT COUNT(*) as count FROM barangay_id_forms";
-        $checkResult = $connection->query($checkSql);
-        $totalRecords = 0;
-        if ($checkResult) {
-            $row = $checkResult->fetch_assoc();
-            $totalRecords = $row['count'];
-        }
+        $totalRecords = $connection->query($checkSql)->fetchColumn();
         
         error_log("generateBarangayIdDocument: No data found for request ID $requestId. Total records in table: $totalRecords");
         
         // Check what IDs exist
         $idSql = "SELECT id FROM barangay_id_forms ORDER BY id LIMIT 10";
-        $idResult = $connection->query($idSql);
-        $availableIds = [];
-        if ($idResult && $idResult->num_rows > 0) {
-            while ($row = $idResult->fetch_assoc()) {
-                $availableIds[] = $row['id'];
-            }
-        }
+        $availableIds = $connection->query($idSql)->fetchAll(PDO::FETCH_COLUMN);
         
         error_log("generateBarangayIdDocument: Available IDs: " . implode(', ', $availableIds));
         
         throw new Exception("No data found for request ID: $requestId. Available IDs: " . implode(', ', $availableIds));
     }
     
-    $row = $result->fetch_assoc();
-    $stmt->close();
     
     // Use BID from database if it exists, otherwise use POST value
     $BID = !empty($row['bid']) ? $row['bid'] : $bidValue;
@@ -744,9 +726,6 @@ try {
     $currentYear = date('Y');
     
     // Check if expiration_date column exists in the table
-    $checkExpirationColumn = $connection->query("SHOW COLUMNS FROM barangay_id_forms LIKE 'expiration_date'");
-    $hasExpirationColumn = $checkExpirationColumn && $checkExpirationColumn->num_rows > 0;
-    
     // Get expiration date from database if column exists, otherwise calculate it
     $currentDate = new DateTime();
     if ($hasExpirationColumn && !empty($row['expiration_date'])) {
@@ -941,62 +920,34 @@ try {
         if (empty($row['bid']) || $row['bid'] !== $bidValue) {
             $updateSql = "UPDATE barangay_id_forms SET status = 'Processing', process_at = ?, bid = ? WHERE id = ?";
             $updateStmt = $connection->prepare($updateSql);
-            if (!$updateStmt) {
-                error_log("Failed to prepare update statement: " . $connection->error);
-                throw new Exception("Failed to prepare update statement: " . $connection->error);
-            }
-            
-            $updateStmt->bind_param("ssi", $currentTime, $bidValue, $requestId);
-            if (!$updateStmt->execute()) {
-                error_log("Failed to execute update statement: " . $updateStmt->error);
-                $updateStmt->close();
-                throw new Exception("Failed to execute update statement: " . $updateStmt->error);
-            }
+            $updateStmt->execute([$currentTime, $bidValue, $requestId]);
             
             error_log("generateBarangayIdDocument: BID saved to database successfully - BID: " . $bidValue);
-            $updateStmt->close();
         } else {
             // BID already exists in database, just update status and process_at
             $updateSql = "UPDATE barangay_id_forms SET status = 'Processing', process_at = ? WHERE id = ?";
             $updateStmt = $connection->prepare($updateSql);
-            if (!$updateStmt) {
-                error_log("Failed to prepare update statement: " . $connection->error);
-                throw new Exception("Failed to prepare update statement: " . $connection->error);
-            }
-            
-            $updateStmt->bind_param("si", $currentTime, $requestId);
-            if (!$updateStmt->execute()) {
-                error_log("Failed to execute update statement: " . $updateStmt->error);
-                $updateStmt->close();
-                throw new Exception("Failed to execute update statement: " . $updateStmt->error);
-            }
+            $updateStmt->execute([$currentTime, $requestId]);
             
             error_log("generateBarangayIdDocument: Status updated, BID already exists in database - BID: " . $row['bid']);
-            $updateStmt->close();
         }
         
         // Verify the BID was actually saved correctly
         $verifySql = "SELECT bid FROM barangay_id_forms WHERE id = ?";
         $verifyStmt = $connection->prepare($verifySql);
-        if ($verifyStmt) {
-            $verifyStmt->bind_param("i", $requestId);
-            $verifyStmt->execute();
-            $verifyResult = $verifyStmt->get_result();
-            if ($verifyResult->num_rows > 0) {
-                $verifyRow = $verifyResult->fetch_assoc();
-                $savedBid = $verifyRow['bid'];
-                error_log("generateBarangayIdDocument: BID verification - Saved BID: " . $savedBid . ", Expected: " . $bidValue);
-                if ($savedBid !== $bidValue) {
-                    error_log("generateBarangayIdDocument: WARNING - BID mismatch! Saved: " . $savedBid . ", Expected: " . $bidValue);
-                } else {
-                    error_log("generateBarangayIdDocument: BID verification PASSED - Correctly saved: " . $bidValue);
-                }
+        $verifyStmt->execute([$requestId]);
+        $savedBid = $verifyStmt->fetchColumn();
+        if ($savedBid !== false) {
+            error_log("generateBarangayIdDocument: BID verification - Saved BID: " . $savedBid . ", Expected: " . $bidValue);
+            if ($savedBid !== $bidValue) {
+                error_log("generateBarangayIdDocument: WARNING - BID mismatch! Saved: " . $savedBid . ", Expected: " . $bidValue);
+            } else {
+                error_log("generateBarangayIdDocument: BID verification PASSED - Correctly saved: " . $bidValue);
             }
-            $verifyStmt->close();
         }
         
         // Don't update to Finished here - status will be updated when Ready to Receive is clicked
-        $connection->close();
+        $connection = null;
         
         error_log("Barangay ID Document generated successfully: " . $finalFilename);
         error_log("About to send JSON response...");

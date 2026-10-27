@@ -1,8 +1,9 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/rich_resend.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     header('Location: reset_password.html?error=' . urlencode('Database connection failed. Please try again later.'));
@@ -81,11 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </html>
         ";
         
-        $headers = "MIME-Version: 1.0" . "\r\n";
-        $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
-        $headers .= "From: noreply@barangaysystem.com" . "\r\n";
-        
-        mail($email, $subject, $message, $headers);
+        if (!rich_resend_send_email($email, $subject, $message, strip_tags($message))) {
+            error_log('Password reset confirmation email failed through Resend.');
+        }
         
         // Redirect to login page with success message
         header('Location: index.php?success=Password has been successfully reset. You can now login with your new password.');

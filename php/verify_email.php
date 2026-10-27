@@ -5,16 +5,12 @@ rich_session_start();
 // Set timezone to Philippine time
 date_default_timezone_set('Asia/Manila');
 
-// Include PHPMailer
-require_once __DIR__ . '/../vendor/autoload.php';
-require_once __DIR__ . '/email_config.php';
-
 // Database configuration
 // Use config.php for database connection
 require_once __DIR__ . '/config.php';
 
 try {
-    $pdo = getPDODatabaseConnection();
+    $pdo = getPostgreSQLDatabaseConnection();
 } catch (Exception $e) {
     error_log("Database connection error: " . $e->getMessage());
     die("Database connection failed: " . $e->getMessage());

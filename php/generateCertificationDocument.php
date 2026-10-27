@@ -27,8 +27,7 @@ try {
     rich_session_start();
     
     error_log("Getting database connection...");
-    $connection = getDatabaseConnection();
-    $connection->set_charset('utf8mb4');
+    $connection = getPostgreSQLDatabaseConnection();
     
     error_log("Setting timezone...");
     date_default_timezone_set('Asia/Manila');
@@ -56,16 +55,9 @@ try {
     // First, update status to Processing if requested
     if ($updateStatus) {
         $currentTime = date('Y-m-d H:i:s');
-        $updateSql = "UPDATE certification_forms SET status = 'Processing', process_at = ?, is_permanent = IF(LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker', 1, 0) WHERE id = ?";
+        $updateSql = "UPDATE certification_forms SET status = 'Processing', process_at = ?, is_permanent = CASE WHEN LOWER(TRIM(COALESCE(purpose,''))) = 'jobseeker' THEN 1 ELSE 0 END WHERE id = ?";
         $updateStmt = $connection->prepare($updateSql);
-        if (!$updateStmt) {
-            throw new Exception('Failed to prepare status update query: ' . $connection->error);
-        }
-        $updateStmt->bind_param('si', $currentTime, $certificationId);
-        
-        if (!$updateStmt->execute()) {
-            throw new Exception('Failed to update status to Processing: ' . $updateStmt->error);
-        }
+        $updateStmt->execute([$currentTime, $certificationId]);
         
         error_log("Updated certification ID $certificationId status to Processing");
     }
@@ -74,13 +66,8 @@ try {
     // Get certification data from database
     $sql = "SELECT * FROM certification_forms WHERE id = ?";
     $stmt = $connection->prepare($sql);
-    if (!$stmt) {
-        throw new Exception('Failed to prepare data query: ' . $connection->error);
-    }
-    $stmt->bind_param('i', $certificationId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $certificationData = $result->fetch_assoc();
+    $stmt->execute([$certificationId]);
+    $certificationData = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$certificationData) {
         throw new Exception('Certification record not found for ID: ' . $certificationId);
@@ -671,4 +658,3 @@ function generateCertificationDocument($data, $purpose) {
     }
 }
 ?>
-

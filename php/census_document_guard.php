@@ -7,60 +7,59 @@
 declare(strict_types=1);
 
 /**
- * @param mysqli $connection
+ * @param PDO $connection
  */
 function census_ensure_account_email_column($connection): void
 {
-    if (!$connection) {
+    $exists = $connection->query("SELECT to_regclass('public.census_form')")->fetchColumn();
+    if ($exists === null) {
         return;
     }
-    $r = @$connection->query("SHOW COLUMNS FROM census_form LIKE 'account_email'");
-    if ($r && $r->num_rows === 0) {
-        @$connection->query('ALTER TABLE census_form ADD COLUMN account_email VARCHAR(255) NULL DEFAULT NULL');
+
+    $stmt = $connection->prepare(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'census_form' AND column_name = 'account_email'"
+    );
+    $stmt->execute();
+    if (!$stmt->fetchColumn()) {
+        $connection->exec('ALTER TABLE census_form ADD COLUMN account_email VARCHAR(255) NULL');
     }
 }
 
 /**
  * Returns census workflow status for this email, or null if no active row matches.
  *
- * @param mysqli $connection
+ * @param PDO $connection
  */
 function rich_census_status_for_requester_email($connection, string $email): ?string
 {
     $email = trim($email);
-    if ($email === '' || !$connection) {
+    if ($email === '') {
         return null;
     }
 
-    $table = @$connection->query("SHOW TABLES LIKE 'census_form'");
-    if (!$table || $table->num_rows === 0) {
+    if (!$connection->query("SELECT to_regclass('public.census_form')")->fetchColumn()) {
         return null;
     }
 
     census_ensure_account_email_column($connection);
 
-    $cols = [];
-    $cr = @$connection->query('SHOW COLUMNS FROM census_form');
-    if ($cr) {
-        while ($row = $cr->fetch_assoc()) {
-            $cols[strtolower((string) ($row['Field'] ?? ''))] = (string) ($row['Field'] ?? '');
-        }
-    }
+    $columnStmt = $connection->prepare(
+        "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'census_form'"
+    );
+    $columnStmt->execute();
+    $columns = $columnStmt->fetchAll(PDO::FETCH_COLUMN);
+    $cols = array_fill_keys($columns, true);
 
     $wheres = [];
-    $types = '';
     $params = [];
 
-    if (!empty($cols['account_email'])) {
-        $wheres[] = 'LOWER(TRIM(`account_email`)) = LOWER(?)';
-        $types .= 's';
+    if (isset($cols['account_email'])) {
+        $wheres[] = 'LOWER(TRIM("account_email")) = LOWER(?)';
         $params[] = $email;
     }
     foreach (['email', 'resident_email', 'user_email'] as $alt) {
-        if (!empty($cols[$alt])) {
-            $colName = $cols[$alt];
-            $wheres[] = 'LOWER(TRIM(`' . str_replace('`', '``', $colName) . '`)) = LOWER(?)';
-            $types .= 's';
+        if (isset($cols[$alt])) {
+            $wheres[] = 'LOWER(TRIM("' . $alt . '")) = LOWER(?)';
             $params[] = $email;
         }
     }
@@ -69,16 +68,11 @@ function rich_census_status_for_requester_email($connection, string $email): ?st
         return null;
     }
 
-    $sql = 'SELECT `status` FROM census_form WHERE archived_at IS NULL AND (' . implode(' OR ', $wheres) . ') ORDER BY id DESC LIMIT 1';
+    $archivedColumn = isset($cols['archived_at']) ? 'archived_at IS NULL AND ' : '';
+    $sql = 'SELECT status FROM census_form WHERE ' . $archivedColumn . '(' . implode(' OR ', $wheres) . ') ORDER BY id DESC LIMIT 1';
     $stmt = $connection->prepare($sql);
-    if (!$stmt) {
-        return null;
-    }
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $res = $stmt->get_result();
-    $row = $res ? $res->fetch_assoc() : null;
-    $stmt->close();
+    $stmt->execute($params);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row || !isset($row['status'])) {
         return null;
     }
@@ -87,7 +81,7 @@ function rich_census_status_for_requester_email($connection, string $email): ?st
 }
 
 /**
- * @param mysqli $connection
+ * @param PDO $connection
  */
 function rich_census_email_is_blocked_for_documents($connection, string $email): bool
 {
@@ -99,7 +93,7 @@ function rich_census_email_is_blocked_for_documents($connection, string $email):
 /**
  * Uses logged-in session email (user_id holds email in this project).
  *
- * @param mysqli $connection
+ * @param PDO $connection
  */
 function rich_session_user_blocked_from_documents($connection): bool
 {
