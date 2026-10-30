@@ -1371,6 +1371,13 @@ function createProcessingCard(request) {
     // Attach ready to receive handler (changes status to Finished and updates finish_at)
     const readyBtn = card.querySelector('.ready-btn');
     if (readyBtn) {
+        readyBtn.disabled = false;
+        readyBtn.classList.add('admin-visible');
+        readyBtn.style.removeProperty('visibility');
+        readyBtn.style.removeProperty('pointer-events');
+        readyBtn.style.setProperty('visibility', 'visible', 'important');
+        readyBtn.style.setProperty('display', 'inline-flex', 'important');
+        readyBtn.style.setProperty('pointer-events', 'auto', 'important');
         readyBtn.addEventListener('click', () => {
             if (!request.id) {
                 console.error('No ID found for request:', request);
@@ -1379,7 +1386,9 @@ function createProcessingCard(request) {
             }
             
             // Determine table name from request type
-            const docType = request.type || (request.documentType && request.documentType.toLowerCase().replace('_', '-'));
+            const docType = String(request.type || request.documentType || '')
+                .toLowerCase()
+                .replace(/[_-]+/g, '_');
             const tableMap = {
                 'barangay_id': 'barangay_id',
                 'certification': 'certification',
@@ -5787,8 +5796,8 @@ function renderBarangayIdCards(forms) {
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
                 ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
-				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
-				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
+				${status === 'New' ? '<button class=\"btn-action process-btn\"><i class=\"fas fa-cog\"></i> Process</button>' : ''}
+				${status === 'Processing' ? '<button class=\"btn-action finish-btn\"><i class=\"fas fa-check\"></i> Finish</button>' : ''}
 			</div>
 		`;
 
@@ -5840,7 +5849,8 @@ function renderBarangayIdCards(forms) {
 		
 		// Mark finish-btn as admin-visible if user is admin
 		const finishBtn = card.querySelector('.finish-btn');
-		if (finishBtn && isAdmin) {
+		if (finishBtn) {
+			finishBtn.disabled = false;
 			finishBtn.classList.add('admin-visible');
 			// Remove any inline styles that might hide the button
 			finishBtn.style.removeProperty('visibility');
@@ -6016,9 +6026,9 @@ function renderCertificationCards(forms) {
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
                 ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
-				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
-				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
-				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
+				${status === 'New' ? '<button class=\"btn-action process-btn\"><i class=\"fas fa-cog\"></i> Process</button>' : ''}
+				${status === 'Processing' ? '<button class=\"btn-action finish-btn\"><i class=\"fas fa-check\"></i> Finish</button>' : ''}
+				${status === 'Finished' ? '<button class=\"btn-action print-btn\"><i class=\"fas fa-print\"></i> Print</button>' : ''}
 			</div>
 		`;
 
@@ -6214,9 +6224,9 @@ function renderCoeCards(forms) {
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
                 ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
-				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
-				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
-				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
+				${status === 'New' ? '<button class=\"btn-action process-btn\"><i class=\"fas fa-cog\"></i> Process</button>' : ''}
+				${status === 'Processing' ? '<button class=\"btn-action finish-btn\"><i class=\"fas fa-check\"></i> Finish</button>' : ''}
+				${status === 'Finished' ? '<button class=\"btn-action print-btn\"><i class=\"fas fa-print\"></i> Print</button>' : ''}
 			</div>
 		`;
 
@@ -6387,9 +6397,9 @@ function renderClearanceCards(forms) {
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
                 ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
-				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
-				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
-				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
+				${status === 'New' ? '<button class=\"btn-action process-btn\"><i class=\"fas fa-cog\"></i> Process</button>' : ''}
+				${status === 'Processing' ? '<button class=\"btn-action finish-btn\"><i class=\"fas fa-check\"></i> Finish</button>' : ''}
+				${status === 'Finished' ? '<button class=\"btn-action print-btn\"><i class=\"fas fa-print\"></i> Print</button>' : ''}
 			</div>
 		`;
 
@@ -6576,9 +6586,9 @@ function renderIndigencyCards(forms) {
 			<div class=\"card-actions\">
 				<button class=\"btn-action view-btn\"><i class=\"fas fa-eye\"></i> View</button>
                 ${(status === 'New' || status === 'Processing') ? '<button class=\"btn-action revoke-btn\"><i class=\"fas fa-ban\"></i> Revoke</button>' : ''}
-				${status === 'New' ? '<button class=\"btn-action process-btn\" disabled><i class=\"fas fa-cog\"></i> Process</button>' : ''}
-				${status === 'Processing' ? '<button class=\"btn-action finish-btn\" disabled><i class=\"fas fa-check\"></i> Finish</button>' : ''}
-				${status === 'Finished' ? '<button class=\"btn-action print-btn\" disabled><i class=\"fas fa-print\"></i> Print</button>' : ''}
+				${status === 'New' ? '<button class=\"btn-action process-btn\"><i class=\"fas fa-cog\"></i> Process</button>' : ''}
+				${status === 'Processing' ? '<button class=\"btn-action finish-btn\"><i class=\"fas fa-check\"></i> Finish</button>' : ''}
+				${status === 'Finished' ? '<button class=\"btn-action print-btn\"><i class=\"fas fa-print\"></i> Print</button>' : ''}
 			</div>
 		`;
 
@@ -7051,14 +7061,17 @@ function updateCategoryCounts(categoryPrefix, forms) {
 let accessControlApplied = false;
 
 function applyAccessControlToCards() {
-	// Only run once and cache the result
-	if (accessControlApplied) return;
-	
 	// Check if user can edit reqDocu module
 	const canEdit = window.AccessControl && window.AccessControl.canEditModule('reqDocu');
 	
 	// Also check if user is admin - admins should always have full access
 	const isAdmin = window.AccessControl && window.AccessControl.data && window.AccessControl.data.position && window.AccessControl.data.position.toLowerCase() === 'admin';
+
+	if (canEdit || isAdmin) {
+	    document.body.classList.remove('view-only-mode');
+	    accessControlApplied = true;
+	    return;
+	}
 	
 	if (!canEdit && !isAdmin) {
 		// Use CSS classes instead of inline styles for better performance
