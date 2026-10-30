@@ -605,11 +605,7 @@ async function downloadCoeDirectly(requestId) {
         body: formData
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const data = await parseJsonFromResponse(response);
     if (data.success && data.downloadUrl) {
         const downloadLink = document.createElement('a');
         downloadLink.href = data.downloadUrl;
@@ -631,11 +627,7 @@ async function downloadClearanceDirectly(requestId) {
         body: JSON.stringify({ clearance_id: requestId, update_status: false })
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const data = await parseJsonFromResponse(response);
     if (data.success && data.download_url) {
         const downloadLink = document.createElement('a');
         downloadLink.href = data.download_url;
@@ -1504,11 +1496,7 @@ async function generateCoeDocumentDirectly(requestId) {
         body: formData
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
+    const result = await parseJsonFromResponse(response);
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
         showStatusModal('success', 'Document Generated', 'COE document has been generated successfully!', result.downloadUrl);
@@ -1524,11 +1512,7 @@ async function generateClearanceDocumentDirectly(requestId) {
         body: JSON.stringify({ clearance_id: requestId, update_status: false })
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
+    const result = await parseJsonFromResponse(response);
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
         showStatusModal('success', 'Document Generated', 'Clearance document has been generated successfully!', result.download_url);
@@ -2806,7 +2790,7 @@ async function processIndigencyRequest(requestId, rowData = null) {
 // Function to fetch Indigency request data
 async function fetchIndigencyRequestData(requestId) {
     try {
-        const response = await fetch(`php/reqDocu.php?table=indigency`);
+        const response = await fetch(`php/reqDocu.php?table=indigency&_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         
         if (data.requests) {
@@ -2822,7 +2806,7 @@ async function fetchIndigencyRequestData(requestId) {
 // Function to fetch COE request data
 async function fetchCoeRequestData(requestId) {
     try {
-        const response = await fetch(`php/reqDocu.php?table=coe`);
+        const response = await fetch(`php/reqDocu.php?table=coe&_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         
         if (data.requests) {
@@ -2838,7 +2822,7 @@ async function fetchCoeRequestData(requestId) {
 // Function to fetch Clearance request data
 async function fetchClearanceRequestData(requestId) {
     try {
-        const response = await fetch(`php/reqDocu.php?table=clearance`);
+        const response = await fetch(`php/reqDocu.php?table=clearance&_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         
         if (data.requests) {
@@ -3089,7 +3073,7 @@ async function doneClearanceProcess() {
 // Fetch certification request data
 async function fetchCertificationRequestData(requestId) {
     try {
-        const response = await fetch(`php/reqDocu.php?table=certification`);
+        const response = await fetch(`php/reqDocu.php?table=certification&_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         
         if (data.requests) {
