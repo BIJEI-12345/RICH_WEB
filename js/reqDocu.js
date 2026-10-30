@@ -1727,13 +1727,18 @@ async function processBarangayIdRequest(requestId) {
         
         const responseText = await response.text();
         console.log('Raw response:', responseText);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+
         // Try to parse as JSON
-        const data = JSON.parse(responseText);
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+        }
         
         if (data.success) {
             // Show success modal with download option
@@ -2247,23 +2252,18 @@ async function markAsDone() {
         body: requestBody
     })
     .then(async response => {
-        // Check if response is ok
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Get response text first to debug
         const responseText = await response.text();
         console.log('Raw response:', responseText);
-        
-        // Try to parse as JSON
+        let data;
         try {
-            return JSON.parse(responseText);
+            data = JSON.parse(responseText);
         } catch (parseError) {
-            console.error('JSON parse error:', parseError);
-            console.error('Response text:', responseText);
-            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+            throw new Error(responseText || `HTTP error! status: ${response.status}`);
         }
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+        }
+        return data;
     })
     .then(data => {
         if (data.success) {
@@ -2335,23 +2335,20 @@ function generateBarangayIdDocument() {
         body: `requestId=${requestId}&bid=${encodeURIComponent(bidValue)}`
     })
     .then(async response => {
-        // Check if response is ok
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Get response text first to debug
         const responseText = await response.text();
         console.log('Raw response:', responseText);
-        
-        // Try to parse as JSON
+        let data;
         try {
-            return JSON.parse(responseText);
+            data = JSON.parse(responseText);
         } catch (parseError) {
             console.error('JSON parse error:', parseError);
             console.error('Response text:', responseText);
-            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+            throw new Error(responseText || `HTTP error! status: ${response.status}`);
         }
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+        }
+        return data;
     })
     .then(data => {
         if (data.success) {

@@ -369,7 +369,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
                 $valueToSet = (string)$value;
             }
             
-            error_log("generateBarangayIdDocument: Setting placeholder '${$key}' = '" . substr($valueToSet, 0, 50) . "'");
+            error_log("generateBarangayIdDocument: Setting placeholder '\${" . $key . "}' = '" . substr($valueToSet, 0, 50) . "'");
             
             try {
                 // TemplateProcessor expects the key name without ${} - it will add it automatically
