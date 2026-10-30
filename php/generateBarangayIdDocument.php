@@ -1,6 +1,6 @@
 <?php
 // Barangay ID Document Generation Script
-error_reporting(E_ALL);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
@@ -336,7 +336,9 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
         }
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-        $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+        $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+            return '${' . $matches[1] . '}';
+        }, $documentXml);
         
         // Put the converted XML back
         if ($zip->addFromString('word/document.xml', $documentXml) === false) {
@@ -396,7 +398,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
                     $template->setValue('expiration_date', $valueToSet);
                 }
             } catch (Exception $e) {
-                error_log("generateBarangayIdDocument: Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+                error_log("generateBarangayIdDocument: Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
                 // Continue with other placeholders even if one fails
             }
         }

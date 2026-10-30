@@ -1463,7 +1463,16 @@ async function generateCertificationDocumentDirectly(requestId) {
         throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+        result = JSON.parse(responseText);
+    } catch (parseError) {
+        throw new Error(responseText || `HTTP error! status: ${response.status}`);
+    }
+    if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || `HTTP error! status: ${response.status}`);
+    }
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
         const primaryUrl = result.download_url || result.downloadUrl;
@@ -3366,8 +3375,17 @@ async function generateCertificationFromForm() {
                 update_status: false
             })
         });
-        
-        const result = await response.json();
+
+        const responseText = await response.text();
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || result.message || `HTTP error! status: ${response.status}`);
+        }
         
         if (result.success) {
             // Close the loading modal

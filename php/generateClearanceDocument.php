@@ -321,7 +321,9 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
         }
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-        $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+        $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+            return '${' . $matches[1] . '}';
+        }, $documentXml);
         
         // Put the converted XML back
         if ($zip->addFromString('word/document.xml', $documentXml) === false) {
@@ -347,7 +349,7 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
                 $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
                 $template->setValue($key, $valueToSet);
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
             }
         }
         

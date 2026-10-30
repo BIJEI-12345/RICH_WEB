@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/init_session.php';
 // Certification Document Generation
-error_reporting(0);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
@@ -464,7 +464,9 @@ function processTemplate($outputPath, $data) {
     }
     
     // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-    $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+    $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+        return '${' . $matches[1] . '}';
+    }, $documentXml);
     
     // Put the converted XML back
     if ($zip->addFromString('word/document.xml', $documentXml) === false) {
@@ -490,7 +492,7 @@ function processTemplate($outputPath, $data) {
             $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
             $template->setValue($key, $valueToSet);
         } catch (Exception $e) {
-            error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+            error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
         }
     }
     
@@ -596,7 +598,9 @@ function generateCertificationDocument($data, $purpose) {
         }
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-        $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+        $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+            return '${' . $matches[1] . '}';
+        }, $documentXml);
         
         // Put the converted XML back
         if ($zip->addFromString('word/document.xml', $documentXml) === false) {
@@ -622,7 +626,7 @@ function generateCertificationDocument($data, $purpose) {
                 $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
                 $template->setValue($key, $valueToSet);
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
             }
         }
         

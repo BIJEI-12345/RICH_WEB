@@ -178,7 +178,9 @@ function indigencyPatchDocxDoubleBracesToDollarMacros($docxPath) {
         if ($xml === false) {
             continue;
         }
-        $updated = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $xml);
+        $updated = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+            return '${' . $matches[1] . '}';
+        }, $xml);
         if ($updated !== $xml) {
             $zip->addFromString($name, $updated);
         }
@@ -333,7 +335,7 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
             try {
                 $template->setValue($key, $value !== null && $value !== '' ? (string)$value : '');
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
             }
         }
         

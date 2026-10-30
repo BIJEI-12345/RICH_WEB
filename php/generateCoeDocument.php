@@ -182,7 +182,9 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
         }
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
-        $documentXml = preg_replace('/\{\{([^}]+)\}\}/', '${$1}', $documentXml);
+        $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
+            return '${' . $matches[1] . '}';
+        }, $documentXml);
         
         // Put the converted XML back
         if ($zip->addFromString('word/document.xml', $documentXml) === false) {
@@ -281,7 +283,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
             try {
                 $template->setValue($key, $value !== null && $value !== '' ? (string)$value : '');
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${$key}': " . $e->getMessage());
+                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
             }
         }
         
