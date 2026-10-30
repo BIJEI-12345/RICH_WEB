@@ -465,7 +465,7 @@ function processTemplate($outputPath, $data) {
     
     // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
     $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
-        return '${' . $matches[1] . '}';
+        return '$' . '{' . $matches[1] . '}';
     }, $documentXml);
     
     // Put the converted XML back
@@ -492,7 +492,7 @@ function processTemplate($outputPath, $data) {
             $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
             $template->setValue($key, $valueToSet);
         } catch (Exception $e) {
-            error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+            error_log("Warning - Failed to set placeholder $" . "{".$key."}: " . $e->getMessage());
         }
     }
     
@@ -599,7 +599,7 @@ function generateCertificationDocument($data, $purpose) {
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
         $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
-            return '${' . $matches[1] . '}';
+                return '$' . '{' . $matches[1] . '}';
         }, $documentXml);
         
         // Put the converted XML back
@@ -626,7 +626,7 @@ function generateCertificationDocument($data, $purpose) {
                 $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
                 $template->setValue($key, $valueToSet);
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+                error_log("Warning - Failed to set placeholder $" . "{".$key."}: " . $e->getMessage());
             }
         }
         

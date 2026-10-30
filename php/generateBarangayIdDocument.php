@@ -337,7 +337,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
         
         // Convert {{placeholder}} to ${placeholder} for PhpWord TemplateProcessor
         $documentXml = preg_replace_callback('/\{\{([^}]+)\}\}/', function ($matches) {
-            return '${' . $matches[1] . '}';
+            return '$' . '{' . $matches[1] . '}';
         }, $documentXml);
         
         // Put the converted XML back
@@ -371,7 +371,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
                 $valueToSet = (string)$value;
             }
             
-            error_log("generateBarangayIdDocument: Setting placeholder '\${" . $key . "}' = '" . substr($valueToSet, 0, 50) . "'");
+            error_log("generateBarangayIdDocument: Setting placeholder $" . "{".$key."} = '" . substr($valueToSet, 0, 50) . "'");
             
             try {
                 // TemplateProcessor expects the key name without ${} - it will add it automatically
@@ -398,7 +398,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
                     $template->setValue('expiration_date', $valueToSet);
                 }
             } catch (Exception $e) {
-                error_log("generateBarangayIdDocument: Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+                error_log("generateBarangayIdDocument: Warning - Failed to set placeholder $" . "{".$key."}: " . $e->getMessage());
                 // Continue with other placeholders even if one fails
             }
         }

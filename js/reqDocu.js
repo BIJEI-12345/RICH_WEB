@@ -570,11 +570,7 @@ async function downloadCertificationDirectly(requestId) {
         body: JSON.stringify({ certification_id: requestId, trial_court: '', update_status: false })
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
+    const data = await parseJsonFromResponse(response);
     const primaryUrl = data.download_url || data.downloadUrl;
     const secondaryUrl = data.download_url_2 || data.downloadUrl2;
 
@@ -1451,20 +1447,7 @@ async function generateCertificationDocumentDirectly(requestId) {
         body: JSON.stringify({ certification_id: requestId, trial_court: trialCourt, update_status: false })
     });
     
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const responseText = await response.text();
-    let result;
-    try {
-        result = JSON.parse(responseText);
-    } catch (parseError) {
-        throw new Error(responseText || `HTTP error! status: ${response.status}`);
-    }
-    if (!response.ok || !result.success) {
-        throw new Error(result.error || result.message || `HTTP error! status: ${response.status}`);
-    }
+    const result = await parseJsonFromResponse(response);
     if (result.success) {
         // Just download, don't update status - status will be updated when Ready to Receive is clicked
         const primaryUrl = result.download_url || result.downloadUrl;
@@ -3033,11 +3016,7 @@ async function doneClearanceProcess() {
             })
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
+        const result = await parseJsonFromResponse(response);
         
         if (!result.success) {
             throw new Error(result.message || 'Failed to generate clearance document');
@@ -3261,11 +3240,7 @@ async function doneCertificationProcess() {
             })
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
+        const result = await parseJsonFromResponse(response);
         
         if (!result.success) {
             throw new Error(result.message || 'Failed to generate certification document');
@@ -3359,17 +3334,8 @@ async function generateCertificationFromForm() {
                 update_status: false
             })
         });
-
-        const responseText = await response.text();
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (parseError) {
-            throw new Error(responseText || `HTTP error! status: ${response.status}`);
-        }
-        if (!response.ok || !result.success) {
-            throw new Error(result.error || result.message || `HTTP error! status: ${response.status}`);
-        }
+        
+        const result = await parseJsonFromResponse(response);
         
         if (result.success) {
             // Close the loading modal
