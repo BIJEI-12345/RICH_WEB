@@ -1767,7 +1767,7 @@ async function processBarangayIdRequest(requestId) {
 // Function to fetch Barangay ID request data
 async function fetchBarangayIdRequestData(requestId) {
     try {
-        const response = await fetch(`php/reqDocu.php?table=barangay_id`);
+        const response = await fetch(`php/reqDocu.php?table=barangay_id&_=${Date.now()}`, { cache: 'no-store' });
         const data = await response.json();
         
         if (data.requests) {
