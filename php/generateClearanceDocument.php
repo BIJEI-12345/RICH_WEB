@@ -1,17 +1,16 @@
 <?php
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ob_start();
+
 require_once __DIR__ . '/init_session.php';
 // Clearance Document Generation
-error_reporting(0);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
 
 // Include required files
 require_once 'config.php';
 require_once __DIR__ . '/generated_document_temp.php';
 require_once '../vendor/autoload.php';
-
-// Start output buffering to catch any unexpected output
-ob_start();
 
 // Log the start of the script
 error_log("=== CLEARANCE GENERATION START ===");
@@ -349,7 +348,7 @@ function generateClearanceDocument($data, $purpose = 'barangay-clearance') {
                 $valueToSet = ($value !== null && $value !== '') ? (string)$value : '';
                 $template->setValue($key, $valueToSet);
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+                error_log('Warning - Failed to set placeholder ${' . $key . '}: ' . $e->getMessage());
             }
         }
         

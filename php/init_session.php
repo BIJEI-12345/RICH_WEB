@@ -73,9 +73,19 @@ if (!defined('RICH_SESSION_INITIALIZED')) {
         if (session_status() === PHP_SESSION_ACTIVE) {
             return true;
         }
+        if (session_status() !== PHP_SESSION_NONE) {
+            return false;
+        }
         $dirs = rich_session_usable_dirs();
         foreach ($dirs as $dir) {
-            session_save_path($dir);
+            if (headers_sent()) {
+                error_log('Session save path could not be changed because response headers were already sent.');
+                break;
+            }
+            if (session_save_path() !== $dir && session_save_path($dir) === false) {
+                error_log('Failed to set session save path: ' . $dir);
+                continue;
+            }
             @session_start();
             if (session_status() === PHP_SESSION_ACTIVE) {
                 return true;
@@ -86,7 +96,9 @@ if (!defined('RICH_SESSION_INITIALIZED')) {
     }
 
     $usable = rich_session_usable_dirs();
-    if ($usable !== []) {
-        session_save_path($usable[0]);
+    if ($usable !== [] && session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_save_path() !== $usable[0] && session_save_path($usable[0]) === false) {
+            error_log('Failed to set initial session save path: ' . $usable[0]);
+        }
     }
 }
