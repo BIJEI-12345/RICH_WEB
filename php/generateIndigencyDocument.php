@@ -1,8 +1,8 @@
 <?php
 // Indigency Document Generation
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 // Function to format date with proper ordinal suffix
 function formatIssuedDate($timestamp = null, $language = 'english') {
@@ -335,7 +335,7 @@ function populateWordTemplate($templatePath, $outputPath, $data, $language = 'en
             try {
                 $template->setValue($key, $value !== null && $value !== '' ? (string)$value : '');
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+                error_log('Warning - Failed to set placeholder ${' . $key . '}: ' . $e->getMessage());
             }
         }
         
