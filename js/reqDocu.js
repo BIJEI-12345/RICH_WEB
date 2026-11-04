@@ -4102,11 +4102,7 @@ async function doneCoeProcess() {
             body: formData
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
+        const result = await parseJsonFromResponse(response);
         
         if (!result.success) {
             throw new Error(result.message || 'Failed to generate COE document');
@@ -4507,7 +4503,7 @@ async function generateCoeFromForm() {
             body: formData
         });
         
-        const result = await response.json();
+        const result = await parseJsonFromResponse(response);
         
         if (result.success) {
             // Close the loading modal

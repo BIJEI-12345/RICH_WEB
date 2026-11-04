@@ -1,14 +1,19 @@
 <?php
-// COE Document Generation
-error_reporting(0);
-ini_set('display_errors', 0);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+ob_start();
+header('Content-Type: application/json');
 
-// Include PhpWord for proper document handling
+// COE Document Generation
 try {
     require_once __DIR__ . '/../vendor/autoload.php';
     error_log("generateCoeDocument: PhpWord loaded successfully");
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log("generateCoeDocument: PhpWord loading failed: " . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'PhpWord could not be loaded']);
+    exit;
 }
 
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -117,13 +122,8 @@ function getOrdinalSuffix($number) {
     return $suffix;
 }
 
-// Start output buffering to catch any unexpected output
-ob_start();
-
 require_once 'config.php';
 require_once __DIR__ . '/generated_document_temp.php';
-
-header('Content-Type: application/json');
 
 // Function to safely handle image data
 function safeImageData($imageData) {
@@ -283,7 +283,7 @@ function populateWordTemplate($templatePath, $outputPath, $data) {
             try {
                 $template->setValue($key, $value !== null && $value !== '' ? (string)$value : '');
             } catch (Exception $e) {
-                error_log("Warning - Failed to set placeholder '${" . $key . "}': " . $e->getMessage());
+                error_log('Warning - Failed to set placeholder ${' . $key . '}: ' . $e->getMessage());
             }
         }
         
@@ -586,7 +586,7 @@ try {
         throw new Exception('Failed to generate document');
     }
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     // Clear any unexpected output and send error response
     ob_clean();
     http_response_code(500);
